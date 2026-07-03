@@ -46,7 +46,7 @@
   // G4.28 — Untap-all, Draw, Dice-roll and Mulligan removed from the bar (the turn engine auto-untaps
   // + draws at turn start; dice + mulligan live in the life cluster / opening-hand UI).
   var BTNS = [
-    { ic: "lobby", t: "Leave game (back to lobby)", fn: function () { if (window.confirm("Leave this game and return to the lobby? Your in-progress game will be lost.") && window.MTGPlayShell && MTGPlayShell.backToLobby) MTGPlayShell.backToLobby(); } },
+    { ic: "lobby", cls: "hud-ic-leave", t: "Leave game (concedes the match)", fn: confirmLeave },
     { sep: 1 },
     { pill: 1, ic: "pass", tx: "End turn", t: "Pass turn — the next player auto-untaps and draws as their turn starts", fn: function () { clickCtrl("tblPass"); } },
     { ic: "undo", t: "Undo (z)", fn: function () { clickCtrl("tblUndo"); } },
@@ -72,7 +72,7 @@
     timerEl = turn.querySelector("#hudTimer");
     BTNS.forEach(function (b) {
       if (b.sep) { bar.appendChild(eln("span", "hud-sep")); return; }
-      var btn = eln("button", b.pill ? "hud-ic hud-pill" : "hud-ic"); btn.type = "button"; btn.title = b.t; btn.setAttribute("aria-label", b.t);
+      var btn = eln("button", b.pill ? "hud-ic hud-pill" : "hud-ic"); btn.type = "button"; btn.title = b.t; btn.setAttribute("aria-label", b.t); if (b.cls) btn.classList.add(b.cls);
       btn.innerHTML = b.pill ? ((ICON[b.ic] || "") + '<span class="hud-pill-tx">' + b.tx + "</span>")
         : (b.tx ? ('<b class="hud-ic-tx">' + b.tx + '</b>') : (ICON[b.ic] || ""));
       btn.addEventListener("click", b.fn);
@@ -123,6 +123,31 @@
     (document.getElementById("playPage") || document.body).appendChild(ov);
     dlg[key] = ov;
     return ov;
+  }
+
+  // ---- leave game = concede (warn, set my life to 0, then back to lobby) ----
+  function confirmLeave() {
+    var body =
+      '<p class="hud-leave-warn">Leaving the game will <b>concede the match</b> — your life is set to <b>0</b> and you return to the lobby. This can\'t be undone.</p>' +
+      '<div class="hud-leave-row">' +
+        '<button class="hud-leave-yes" data-act="leaveyes" type="button">Concede &amp; leave</button>' +
+        '<button class="hud-leave-no" data-act="leaveno" type="button">Stay in game</button>' +
+      '</div>';
+    var ov = popup("leave", "Leave game", "Are you sure?", body, false);
+    if (!ov) return;
+    function shut() { if (dlg.leave) { dlg.leave.remove(); dlg.leave = null; } }
+    ov.querySelector('[data-act="leaveno"]').onclick = shut;
+    ov.querySelector('[data-act="leaveyes"]').onclick = function () {
+      try {
+        var T = window.MTGTable;
+        if (T && typeof T.seatsInfo === "function") {
+          var meS = (T.seatsInfo() || []).filter(function (s) { return s && s.isMe; })[0];
+          if (meS && (Number(meS.life) || 0) > 0 && typeof T.applyLife === "function") T.applyLife(meS.seat, -(Number(meS.life) || 0));
+        }
+      } catch (e) {}
+      shut();
+      if (window.MTGPlayShell && MTGPlayShell.backToLobby) MTGPlayShell.backToLobby();
+    };
   }
 
   // ============================ ROLL DICE (img 1) ============================

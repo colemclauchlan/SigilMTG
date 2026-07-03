@@ -13,6 +13,24 @@
 
   var CHANGELOG = [
     {
+      version: "v0.1.2",
+      date: "2026-07-03",
+      sections: {
+        "Big changes": [
+          "Play-area polish: the mode-select background now drifts and twinkles like the landing page, and only Commander is playable for now — Draft, Planechase and 20 Life are marked with a red \"Soon!\" badge.",
+          "Bottom-left life hub redesign: Draw now sits beside Untap, and the Counters / Player Counters / Commander damage / Roll Dice / Scoop buttons tuck behind an up-arrow that slides them up when you hover or tap it.",
+          "Your active counters (poison, energy, experience, rad, monarch) now show as little icons right on the life bar, and pinned counters stack at the bottom-left above the hub.",
+          "Leaving a game now clearly warns you it concedes the match (and sets your life to 0); the leave button glows red on hover."
+        ],
+        "Major fixes": [
+          "Dice rolls and coin flips are announced to the table log by name, e.g. \"Guest 5592 rolled a 13 on a D20\".",
+          "10 poison counters now correctly means death (life goes to 0).",
+          "If your deck already has a bracket, it's pre-selected on the Declare-your-bracket screen.",
+          "Refreshed the top-bar undo icon and the poison/infect icon to match the rest of the UI."
+        ]
+      }
+    },
+    {
       version: "v0.1.1",
       date: "2026-07-03",
       sections: {
