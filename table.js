@@ -2293,6 +2293,7 @@
       case "draw": return "<b>Draw</b> " + (a.count || 1);
       case "mill": return "<b>Mill</b> " + (a.count || 1);
       case "card_move": return null; // moving cards must NOT create a log entry (user request 2026-07-03)
+      case "card_combat": return (a.attacking ? "<b>Attacks</b> " : "<b>Removed from combat</b> ") + cardLink(a.instanceId);
       case "card_tap": return "<b>Tap/Untap</b> " + cardLink(a.instanceId);
       case "untap_all": return "<b>Untap all</b>";
       case "card_flip": return "<b>Flip</b> " + cardLink(a.instanceId);

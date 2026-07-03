@@ -22,6 +22,7 @@
         "Major fixes": [
           "The bottom-left life tracker now appears reliably in every game (this fix is finally live on the site).",
           "The life tracker no longer shows up on the mode-select and lobby screens — it now appears only on the game board, where it belongs.",
+          "Declaring an attacker now shows a readable note in the action log instead of a raw internal code.",
           "Moving cards around the board no longer clutters the action log — routine moves are silent; only meaningful plays and effects are logged."
         ]
       }
