@@ -998,7 +998,7 @@
     wrap.hidden = false;
     list.innerHTML = keys.map(function (k) {
       var p = oppoState.picks[k];
-      return '<span class="ps-oppo-chip"><i style="background:' + (p.color || "#4f7bf0") + '"></i>' + escapeHtml(p.name) + ' <b>' + escapeHtml(p.pick) + '</b></span>';
+      return '<span class="ps-oppo-chip"><i style="background:' + escapeAttr(p.color || "#4f7bf0") + '"></i>' + escapeHtml(p.name) + ' <b>' + escapeHtml(p.pick) + '</b></span>';
     }).join("");
   }
   function setupOppoSync(s) {

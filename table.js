@@ -605,7 +605,7 @@
     }); });
     setTimeout(function () { fly.remove(); }, 440);
   }
-  function undo() { var inv = undoStack.pop(); if (!inv) return; state = MTGCore.reduce(state, inv); log("<b>Undo</b>"); render(); }
+  function undo() { var inv = undoStack.pop(); if (!inv) return; state = MTGCore.reduce(state, inv); log("<b>Undo</b>"); render(); if (online && window.MTGTableSync) { try { MTGTableSync.pushAction(inv, state, changedIdsOf(inv)); } catch (e) {} } }
 
   function applyCamera() { if (el.surface) el.surface.style.transform = "translate(" + camera.x + "px," + camera.y + "px) scale(" + camera.z + ")"; }
   function screenToBoard(cx, cy) { var r = el.viewport.getBoundingClientRect(); return { bx: (cx - r.left - camera.x) / camera.z, by: (cy - r.top - camera.y) / camera.z }; }

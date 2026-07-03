@@ -410,7 +410,8 @@
 
     // G1.9 — dead state: red fill + "YOU ARE DEAD" (0 life OR 10 poison)
     var deadEl = root.querySelector("#plDead");
-    var isDead = (Number(m.life) || 0) <= 0 || poisonN >= 10;
+    var cmdDead = false; if (m.cmdFrom) { for (var _ck in m.cmdFrom) { if ((Number(m.cmdFrom[_ck]) || 0) >= 21) { cmdDead = true; break; } } }
+    var isDead = (Number(m.life) || 0) <= 0 || poisonN >= 10 || cmdDead;
     if (deadEl) deadEl.hidden = !isDead;
     root.classList.toggle("pl-is-dead", isDead);
 
