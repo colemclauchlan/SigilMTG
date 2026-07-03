@@ -802,7 +802,7 @@ function renderHistory() {
       const artLayer = document.createElement("span");
       artLayer.className = "history-entry-art";
       artLayer.setAttribute("aria-hidden", "true");
-      artLayer.style.backgroundImage = `url("${playerArt}")`;
+      artLayer.style.backgroundImage = `url("${String(playerArt || "").replace(/["'()\\]/g, "")}")`;
       item.appendChild(artLayer);
     }
     const marker = document.createElement("span");
@@ -2899,7 +2899,7 @@ function render() {
 
     const art = node.querySelector(".card-art");
     if (player.backgroundUrl) {
-      art.style.backgroundImage = `url("${player.backgroundUrl}")`;
+      art.style.backgroundImage = `url("${String(player.backgroundUrl || "").replace(/["'()\\]/g, "")}")`;
       node.classList.add("has-art");
     }
 

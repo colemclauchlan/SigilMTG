@@ -103,7 +103,7 @@ window.MTGTableSync = (function () {
     (data.counters || []).forEach(function (c) {
       var seat = S.partToSeat[c.participant_id];
       if (seat == null || !state.players[seat] || !c.value) return;
-      state.players[seat].counters[c.counter_key] = c.value;
+      state.players[seat].counters[c.counter_key] = Number(c.value) || 0;
     });
     (data.cmdDamage || []).forEach(function (d) {
       var tSeat = S.partToSeat[d.target_participant_id], sSeat = S.partToSeat[d.source_participant_id];

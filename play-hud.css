@@ -222,8 +222,9 @@ body.play-fs.hud-log-off #playPage .tbl-rail { padding-top: 0; }
     width: min(220px, calc(100vw - 20px));
   }
   .hud-pins {
-    right: max(10px, env(safe-area-inset-right));
-    width: min(220px, calc(100vw - 20px));
+    left: max(8px, env(safe-area-inset-left)); right: auto;
+    bottom: max(118px, calc(env(safe-area-inset-bottom) + 110px));
+    width: min(210px, calc(100vw - 20px));
   }
 
   /* Pop-up windows (dice / trackers / settings / token search) fill the

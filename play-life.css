@@ -296,6 +296,10 @@
   .pl-pass { padding: 8px 13px; font-size: 12px; }
   .pl-untap { padding: 5px 11px; font-size: 11px; }
   .pl-zone { min-width: 56px; padding: 3px 8px; font-size: 10px; }
+  /* new cluster elements stay tappable + fit on a phone */
+  .pl-uprow .pl-untap { min-height: 38px; }
+  .pl-acts-toggle { min-height: 34px; padding: 5px 14px; }
+  .pl-cchips { max-width: 150px; top: -12px; }
 
   /* Sheets (counters / commander damage / concede) fill the phone. */
   .pl-sheet,
