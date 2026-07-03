@@ -1927,6 +1927,9 @@
     document.body.appendChild(ov); draw();
   }
   var PLAYMATS = [
+    { name: "Arcane Seal", css: 'url("assets/playmats/arcane.svg") center/cover no-repeat, #0b0714' },
+    { name: "Astral", css: 'url("assets/playmats/astral.svg") center/cover no-repeat, #060f1c' },
+    { name: "Verdant", css: 'url("assets/playmats/verdant.svg") center/cover no-repeat, #08160f' },
     { name: "Midnight", css: "radial-gradient(1200px 700px at 50% 0%, #1a2030, #111827)" },
     { name: "Forest felt", css: "radial-gradient(1000px 600px at 50% 10%, #1f3d2b, #0d1f16)" },
     { name: "Deep ocean", css: "radial-gradient(1000px 600px at 50% 0%, #14304d, #0a1626)" },
