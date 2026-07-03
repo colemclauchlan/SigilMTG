@@ -71,6 +71,19 @@
 .pl-untap svg { width: 14px; height: 14px; }
 .pl-untap:hover { background: rgba(28,40,58,.95); color: #fff; border-color: rgba(43,212,192,.45); }
 
+/* collapsible action stack — hidden until you hover the group or click the up-arrow */
+.pl-actwrap { display: flex; flex-direction: column; align-items: stretch; gap: 0; }
+.pl-actwrap .pl-actions { opacity: 0; transform: translateY(12px); pointer-events: none; max-height: 0; overflow: hidden; margin-bottom: 0; transition: opacity .28s ease, transform .28s ease, max-height .28s ease, margin-bottom .28s ease; }
+.pl-actwrap:hover .pl-actions, .pl-actwrap.acts-open .pl-actions { opacity: 1; transform: translateY(0); pointer-events: auto; max-height: 440px; margin-bottom: 6px; }
+.pl-acts-toggle { align-self: flex-start; cursor: pointer; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; padding: 5px 12px; background: rgba(17,25,37,.9); color: #b9c5d6; display: inline-flex; align-items: center; transition: background .12s ease, color .12s ease, border-color .12s ease; }
+.pl-acts-toggle svg { width: 18px; height: 18px; transition: transform .25s ease; }
+.pl-acts-toggle:hover { background: rgba(28,40,58,.95); color: #fff; border-color: rgba(43,212,192,.45); }
+.pl-actwrap:hover .pl-acts-toggle svg, .pl-actwrap.acts-open .pl-acts-toggle svg { transform: rotate(180deg); }
+/* Untap + Draw sit side by side, together matching the Pass Turn width */
+.pl-uprow { display: flex; gap: 6px; }
+.pl-uprow .pl-untap { flex: 1 1 0; justify-content: center; padding-left: 8px; padding-right: 8px; }
+@media (prefers-reduced-motion: reduce) { .pl-actwrap .pl-actions, .pl-acts-toggle svg { transition: none; } }
+
 /* ---- live zone counts: Library / Graveyard / Exile (G1.4) ---- */
 .pl-zones { display: flex; flex-direction: column; gap: 4px; justify-content: center; }
 .pl-zones[hidden] { display: none; }
@@ -144,6 +157,20 @@
 .pl-poison[hidden] { display: none; }
 .pl-poison-i { font-size: 12px; line-height: 1; }
 .pl-poison b { font-variant-numeric: tabular-nums; }
+
+/* health-bar counter chips (poison / energy / experience / rad / monarch) — an icon + count each */
+.pl-cchips { position: absolute; top: -13px; right: -6px; z-index: 6; display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: flex-end; max-width: 220px; pointer-events: none; }
+.pl-cchips[hidden] { display: none; }
+.pl-cchip { display: inline-flex; align-items: center; gap: 2px; padding: 2px 7px 2px 5px; border-radius: 999px; background: #3fb950; color: #06270f; border: 1px solid rgba(0,0,0,.28); box-shadow: 0 4px 12px rgba(2,8,20,.5); font-weight: 800; font-size: 12px; line-height: 1; }
+.pl-cchip b { font-variant-numeric: tabular-nums; font-size: 12px; }
+.pl-cchip .pl-ctr-ic { display: inline-flex; align-items: center; }
+.pl-cchip .pl-ctr-ic svg { width: 13px; height: 13px; }
+.pl-cchip .msym { font-size: 15px; line-height: 1; }
+.pl-cchip-poison { background: #3fb950; color: #06270f; }
+.pl-cchip-energy { background: #2f6fed; color: #eaf3ff; }
+.pl-cchip-experience { background: #7b52d0; color: #f3edff; }
+.pl-cchip-rad { background: #d8a11e; color: #241a02; }
+.pl-cchip-monarch { background: #c9942a; color: #241a02; }
 
 /* one-shot pulse label (Draw / Conceded) over the pill */
 .pl-flash {
@@ -239,4 +266,52 @@
 /* ---- reduced motion: no pulses/flashes ---- */
 @media (prefers-reduced-motion: reduce) {
   .pl-life.hit, .pl-life.heal, .pl-pill.hit, .pl-pill.heal, .pl-flash.go { animation: none; }
+}
+
+/* ==================================================================== */
+/* QA G7.46 · Mobile life cluster (Agent C-M) — ADDITIVE, phone-only.   */
+/* The bottom-left hub is fixed; on a phone it scales down and hugs the */
+/* safe-area so it stays readable without covering the board. Desktop   */
+/* rendering is untouched (guarded by max-width: 820px).                */
+/* ==================================================================== */
+@media (max-width: 820px) {
+  .pl-cluster {
+    left: max(8px, env(safe-area-inset-left));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    gap: 6px;
+  }
+
+  /* Compact the vertical action stack — smaller pills, tighter padding. */
+  .pl-actions { padding: 5px; gap: 3px; }
+  .pl-act { padding: 6px 9px; font-size: 11.5px; min-height: 38px; }
+
+  /* Life pill: smaller number + ≥40px steps kept for the thumb; the pill
+     stays readable but no longer dominates the board. */
+  .pl-pill { padding: 6px 9px; gap: 6px; }
+  .pl-step { width: 42px; height: 42px; font-size: 22px; }
+  .pl-life { font-size: 36px; }
+  .pl-core { min-width: 78px; }
+
+  /* Turn column + zone chips shrink so the whole bottom row fits. */
+  .pl-pass { padding: 8px 13px; font-size: 12px; }
+  .pl-untap { padding: 5px 11px; font-size: 11px; }
+  .pl-zone { min-width: 56px; padding: 3px 8px; font-size: 10px; }
+
+  /* Sheets (counters / commander damage / concede) fill the phone. */
+  .pl-sheet,
+  .pl-confirm,
+  .pl-cd-sheet,
+  .pl-ctr-sheet {
+    width: 100vw; max-width: 100vw;
+    min-height: 100vh; max-height: 100vh;
+    border-radius: 0;
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+  }
+  .pl-modal { padding: 0; }
+}
+
+/* Even narrower phones: let the bottom row wrap so the life pill and the
+   turn/zone column stack rather than overflow horizontally. */
+@media (max-width: 480px) {
+  .pl-bottom { flex-wrap: wrap; }
 }

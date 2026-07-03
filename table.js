@@ -1061,7 +1061,7 @@
       if (idx >= cards.length) idx = cards.length - 1; if (idx < 0) idx = 0;
       var c = cards[idx], src = imgFor(c), tax = (c.counters && c.counters.tax) || 0;
       var pl = state.players[seat];
-      var who = seat === mySeat ? "Your" : ((pl && pl.name ? esc(pl.name) : "Seat " + seat) + "'s");
+      var who = seat === mySeat ? "Your" : ((pl && pl.name ? esc(pl.name) : "Seat " + seat) + "’s");
       var h = '<div class="pv-head"><span class="pv-title">' + who + ' command zone</span><button class="pv-x pv-x-ic" title="Close" aria-label="Close"><span class="msym">close</span></button></div>';
       h += '<div class="cmdv-body">';
       if (cards.length > 1) h += '<button class="cmdv-nav cmdv-prev" title="Previous commander" aria-label="Previous"><span class="msym">chevron_left</span></button>';
@@ -1511,8 +1511,9 @@
     var res;
     if (kind === "Coin") res = Math.random() < 0.5 ? "Heads" : "Tails";
     else { var sides = parseInt(kind.slice(1), 10) || 20; res = 1 + Math.floor(Math.random() * sides); }
-    log("<b>Roll " + kind + "</b> &rarr; " + res); setStatus("Rolled " + kind + ": " + res);
-    if (online && window.MTGTableSync && MTGTableSync.broadcastEphemeral) MTGTableSync.broadcastEphemeral({ type: "dice", kind: kind, result: res, seat: mySeat });
+    var _rnm = (state && state.players && state.players[mySeat] && state.players[mySeat].name) || "You";
+    log(kind === "Coin" ? ("<b>" + esc(_rnm) + "</b> flipped <b>" + res + "</b>") : ("<b>" + esc(_rnm) + "</b> rolled a <b>" + res + "</b> on a " + kind.toUpperCase())); setStatus("Rolled " + kind + ": " + res);
+    if (online && window.MTGTableSync && MTGTableSync.broadcastEphemeral) MTGTableSync.broadcastEphemeral({ type: "dice", kind: kind, result: res, seat: mySeat, name: _rnm });
     return res;
   }
   function createAnnotation(kind, x, y, text) { var id = "an" + (annSeq++); dispatch({ t: "annotation_create", id: id, kind: kind, x: x, y: y, text: text || "", value: 0, seat: mySeat }); }
@@ -2204,7 +2205,7 @@
     if (!pl) return;
     if (pl.type === "arrow") fireArrow(pl.from, pl.to, true, pl.color); // color sanitized inside fireArrow
     else if (pl.type === "cursor") upsertRemoteCursor(pl);
-    else if (pl.type === "dice") log("<b>Seat " + esc(String(pl.seat)) + " rolled " + esc(String(pl.kind)) + "</b> &rarr; " + esc(String(pl.result))); // escape remote fields (untrusted broadcast payload)
+    else if (pl.type === "dice") { var _dn = pl.name ? esc(String(pl.name)) : ("Seat " + esc(String(pl.seat))); log(String(pl.kind) === "Coin" ? ("<b>" + _dn + "</b> flipped <b>" + esc(String(pl.result)) + "</b>") : ("<b>" + _dn + "</b> rolled a <b>" + esc(String(pl.result)) + "</b> on a " + esc(String(pl.kind)).toUpperCase())); } // escape remote fields (untrusted broadcast payload)
     else if (pl.type === "voice" && window.MTGVoice) MTGVoice.onSignal(pl);
     else if (pl.type === "chat") { var bubbled = cursorBubble(pl); addChatMessage(pl.name || ("Seat " + pl.seat), pl.text, false, bubbled); }
   }

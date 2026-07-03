@@ -15,7 +15,7 @@
   function svg(p) { return '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>'; }
   var ICON = {
     lobby: svg('<path d="M15 18l-6-6 6-6"/>'),
-    undo: svg('<path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 8"/>'),
+    undo: svg('<path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-4"/>'),
     untap: svg('<path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>'),
     draw: svg('<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M12 8v6"/><path d="M9 11l3 3 3-3"/>'),
     mull: svg('<path d="M3 2v6h6"/><path d="M3.5 9a9 9 0 1 0 2-3.4"/>'),

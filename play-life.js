@@ -59,11 +59,17 @@
     '<path d="M15.5 12h6a9.5 9.5 0 0 1-4.75 8.23l-3-5.2A3.5 3.5 0 0 0 15.5 12Z"/>' +
     '<path d="M10.25 15.03l-3 5.2A9.5 9.5 0 0 1 2.5 12h6a3.5 3.5 0 0 0 1.75 3.03Z"/></svg>';
 
+  // in-theme poison/infect glyph (a skull — the MTG poison-counter symbol), matches the inline RAD style
+  var POISON_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">' +
+    '<path d="M12 2C7.9 2 4.5 5.3 4.5 9.4c0 2.2 1 4 2.5 5.2.3.24.5.5.5.95V17c0 .8.7 1.5 1.5 1.5l.3 1.4c.08.4.44.7.85.7h3.8c.41 0 .77-.3.85-.7l.3-1.4c.8 0 1.5-.7 1.5-1.5v-1.45c0-.45.2-.7.5-.95 1.5-1.2 2.5-3 2.5-5.2C19.5 5.3 16.1 2 12 2Z"/>' +
+    '<circle cx="8.9" cy="9.5" r="1.6" fill="#0b1120"/><circle cx="15.1" cy="9.5" r="1.6" fill="#0b1120"/>' +
+    '<path d="M12 12.4l1 2.1h-2l1-2.1Z" fill="#0b1120"/></svg>';
+
   // Player counters that can be applied to MY seat (poison covers infect/toxic).
   // Every health-relevant counter gets an icon (G1.7): poison ☣ · energy bolt · experience star ·
   // rad trefoil (inline SVG) · monarch crown.
   var COUNTERS = [
-    { k: "poison", label: "Poison", ic: '<span class="pl-ctr-ic pl-ctr-ic-tx">☣</span>' },
+    { k: "poison", label: "Poison", ic: '<span class="pl-ctr-ic">' + POISON_SVG + "</span>" },
     { k: "energy", label: "Energy", ic: '<span class="pl-ctr-ic">' + msym("bolt") + "</span>" },
     { k: "experience", label: "Experience", ic: '<span class="pl-ctr-ic">' + msym("star") + "</span>" },
     { k: "rad", label: "Rad", ic: '<span class="pl-ctr-ic">' + RAD_SVG + "</span>" },
@@ -89,7 +95,8 @@
     // die (Roll Dice)
     dice: svg('<rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.3" cy="8.3" r="1.15" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none"/><circle cx="15.7" cy="15.7" r="1.15" fill="currentColor" stroke="none"/>'),
     // white flag (Scoop / Concede)
-    flag: svg('<path d="M5 21V4"/><path d="M5 4c4-2 7 2 12 0v9c-5 2-8-2-12 0"/>')
+    flag: svg('<path d="M5 21V4"/><path d="M5 4c4-2 7 2 12 0v9c-5 2-8-2-12 0"/>'),
+    chevUp: svg('<path d="M6 15l6-6 6 6"/>')
   };
 
   // ============================================================
@@ -107,22 +114,27 @@
     var page = document.body || document.getElementById("playPage");
     root = eln("div", "pl-cluster"); root.id = "plCluster";
     root.innerHTML =
-      '<div class="pl-actions" id="plActions">' +
-        // G1.13: "Counters" (the relocated Trackers popup) sits ABOVE Commander damage, above the rest.
-        actBtn("trackers", "Counters", IC.ctr, "", "Game counters & trackers") +
-        actBtn("cmddmg", "Commander damage", IC.cmd) +
-        actBtn("pcounters", "Player Counters", IC.person, "", "Poison / energy / experience / rad / monarch") +
-        actBtn("draw", "Draw", IC.draw, "", "Draw 1 card") +
-        actBtn("dice", "Roll Dice", IC.dice) +
-        actBtn("death", "Scoop/Concede", IC.flag, "pl-act-death", "Concede the game (confirmation required)") +
+      '<div class="pl-actwrap" id="plActWrap">' +
+        '<div class="pl-actions" id="plActions">' +
+          // G1.13: "Counters" (the relocated Trackers popup) sits ABOVE the rest. Draw now lives next to Untap.
+          actBtn("trackers", "Counters", IC.ctr, "", "Game counters & trackers") +
+          actBtn("pcounters", "Player Counters", IC.person, "", "Poison / energy / experience / rad / monarch") +
+          actBtn("cmddmg", "Commander damage", IC.cmd) +
+          actBtn("dice", "Roll Dice", IC.dice) +
+          actBtn("death", "Scoop/Concede", IC.flag, "pl-act-death", "Concede the game (confirmation required)") +
+        '</div>' +
+        '<button type="button" class="pl-acts-toggle" data-act="actstoggle" aria-label="Show more actions" title="More actions">' + IC.chevUp + '</button>' +
       '</div>' +
       '<div class="pl-bottom">' +
         '<div class="pl-turncol">' +
           '<button type="button" class="pl-pass" data-act="pass">' + IC.pass + '<span>Pass Turn</span></button>' +
-          '<button type="button" class="pl-untap" data-act="untap" title="Untap all">' + IC.untap + '<span>Untap</span></button>' +
+          '<div class="pl-uprow">' +
+            '<button type="button" class="pl-untap" data-act="untap" title="Untap all">' + IC.untap + '<span>Untap</span></button>' +
+            '<button type="button" class="pl-untap pl-draw2" data-act="draw" title="Draw 1 card">' + IC.draw + '<span>Draw</span></button>' +
+          '</div>' +
         '</div>' +
         '<div class="pl-pill" id="plPill">' +
-          '<div class="pl-poison" id="plPoison" hidden><span class="pl-poison-i">' + IC.poison + '</span><b id="plPoisonN">0</b></div>' +
+          '<div class="pl-cchips" id="plCounters" hidden></div>' +
           '<button type="button" class="pl-step pl-minus" data-act="minus" aria-label="Lose life">' + IC.minus + '</button>' +
           '<div class="pl-core">' +
             '<button type="button" class="pl-life" id="plLife" data-act="cmddmg" aria-label="Open commander damage">40</button>' +
@@ -162,6 +174,7 @@
     else if (a === "death") { if (pending !== 0) commitNow(); openConcede(); }
     else if (a === "pass") { commitNow(); callT("passTurn"); refresh(); }
     else if (a === "untap") { callT("untapAll"); refresh(); }
+    else if (a === "actstoggle") { var w = root.querySelector("#plActWrap"); if (w) w.classList.toggle("acts-open"); }
   }
 
   // ============================================================
@@ -391,16 +404,27 @@
     var lifeEl = root.querySelector("#plLife");
     if (lifeEl && pending === 0) lifeEl.textContent = lifeShown;
 
-    // G1.9 — dead state: red fill + "YOU ARE DEAD"
+    // 10 poison = death (CR 704.5c): zero the life once so the DEAD state shows on the bar.
+    var poisonN = Math.max(Number(m.poison || 0), Number((callT("myCounters") || {}).poison || 0));
+    if (poisonN >= 10 && (Number(m.life) || 0) > 0) { callT("applyLife", m.seat, -(Number(m.life) || 0)); }
+
+    // G1.9 — dead state: red fill + "YOU ARE DEAD" (0 life OR 10 poison)
     var deadEl = root.querySelector("#plDead");
-    var isDead = (Number(m.life) || 0) <= 0;
+    var isDead = (Number(m.life) || 0) <= 0 || poisonN >= 10;
     if (deadEl) deadEl.hidden = !isDead;
     root.classList.toggle("pl-is-dead", isDead);
 
-    var pn = m.poison || 0;
-    var pbox = root.querySelector("#plPoison"), pnum = root.querySelector("#plPoisonN");
-    if (pbox) pbox.hidden = !(pn > 0);
-    if (pnum) pnum.textContent = pn;
+    // health-bar counter chips: poison + energy / experience / rad / monarch each get an icon when > 0
+    var chipsEl = root.querySelector("#plCounters");
+    if (chipsEl) {
+      var cvals = callT("myCounters") || {};
+      var chips = COUNTERS.map(function (c) {
+        var v = c.k === "poison" ? poisonN : Number(cvals[c.k] || 0);
+        return v > 0 ? '<span class="pl-cchip pl-cchip-' + c.k + '" title="' + esc(c.label) + '">' + (c.ic || "") + '<b>' + v + '</b></span>' : "";
+      }).join("");
+      chipsEl.innerHTML = chips;
+      chipsEl.hidden = !chips;
+    }
 
     // G1.4 — live Library / Graveyard / Exile counts
     var zc = zoneCounts(m), zbox = root.querySelector("#plZones");

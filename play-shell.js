@@ -18,9 +18,9 @@
 
   var MODES = [
     { key: "commander",  title: "Commander",       sub: "40 life, command zone",                                  c1: "#6d36c4", c2: "#3a1a73", life: 40 },
-    { key: "draft",      title: "Draft Commander",  sub: "Draft a pool pack by pack, then play it",                c1: "#c4631a", c2: "#7a3a0e", life: 40, beta: true },
-    { key: "planechase", title: "Planechase",       sub: "Commander rules plus a shared planar deck and the die",  c1: "#1c7a52", c2: "#0e3f2b", life: 40 },
-    { key: "standard",   title: "20 Life",          sub: "Standard, Modern, and other 20-life formats",            c1: "#2a5bd0", c2: "#173a8f", life: 20 }
+    { key: "draft",      title: "Draft Commander",  sub: "Draft a pool pack by pack, then play it",                c1: "#c4631a", c2: "#7a3a0e", life: 40, disabled: true },
+    { key: "planechase", title: "Planechase",       sub: "Commander rules plus a shared planar deck and the die",  c1: "#1c7a52", c2: "#0e3f2b", life: 40, disabled: true },
+    { key: "standard",   title: "20 Life",          sub: "Standard, Modern, and other 20-life formats",            c1: "#2a5bd0", c2: "#173a8f", life: 20, disabled: true }
   ];
   var COLORS = ["#4f7bf0", "#e0556e", "#3fb27f", "#d7a13a", "#9b5de5", "#46c2d8"];
 
@@ -927,7 +927,7 @@
   // Colorized per bracket; when online, your pick is broadcast and opponents' picks surface here.
   function buildDraftSelect() {
     if (screens.draft) { shell.removeChild(screens.draft); delete screens.draft; }
-    if (choice.bracket == null) choice.bracket = (choice.deckMeta && choice.deckMeta.bracket) || 2;
+    if (choice.deckMeta && choice.deckMeta.bracket) choice.bracket = Math.min(5, Math.max(1, Number(choice.deckMeta.bracket))); else if (choice.bracket == null) choice.bracket = 2;
     if (choice.bracketHalf == null) choice.bracketHalf = "L";
     var s = eln("div", "ps-screen ps-draft");
     s.innerHTML =
