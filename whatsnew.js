@@ -13,6 +13,19 @@
 
   var CHANGELOG = [
     {
+      version: "v0.1.1",
+      date: "2026-07-03",
+      sections: {
+        "Big changes": [
+          "The whole app is now live and fully up to date online — every feature from the last big update has been deployed to the site."
+        ],
+        "Major fixes": [
+          "The bottom-left life tracker now appears reliably in every game (this fix is finally live on the site).",
+          "Moving cards around the board no longer clutters the action log — routine moves are silent; only meaningful plays and effects are logged."
+        ]
+      }
+    },
+    {
       version: "v0.1",
       date: "2026-07-02",
       sections: {

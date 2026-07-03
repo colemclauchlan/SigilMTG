@@ -489,7 +489,7 @@
     var inv = MTGCore.invert(action, state);
     var next = MTGCore.reduce(state, action);
     if (JSON.stringify(next) === JSON.stringify(state)) return;
-    undoStack.push(inv); state = next; log(describe(action)); render();
+    undoStack.push(inv); state = next; var _logMsg = describe(action); if (_logMsg) log(_logMsg); render();
     if (anim) postAnim(anim);
     if (action.t === "library_shuffle") animateShuffle();
     if (action.t === "draw" && el.hand) { var _lib = findPileNode("library"); if (_lib) animateFlyTo(_lib.getBoundingClientRect(), el.hand.getBoundingClientRect(), CARD_BACK); }
@@ -2284,7 +2284,7 @@
   }
   function describe(a) {
     switch (a.t) {
-      case "batch": return (a.actions || []).map(describe).join(" · ");
+      case "batch": { var _parts = (a.actions || []).map(describe).filter(function (x) { return x; }); return _parts.length ? _parts.join(" · ") : null; }
       case "commander_damage": {
         var _tp = state && state.players ? state.players[a.seat] : null;
         var _who = _tp && _tp.name ? esc(_tp.name) : ("Seat " + a.seat);
@@ -2292,7 +2292,7 @@
       }
       case "draw": return "<b>Draw</b> " + (a.count || 1);
       case "mill": return "<b>Mill</b> " + (a.count || 1);
-      case "card_move": return "<b>Move</b> " + cardLink(a.instanceId) + " → " + a.toZone;
+      case "card_move": return null; // moving cards must NOT create a log entry (user request 2026-07-03)
       case "card_tap": return "<b>Tap/Untap</b> " + cardLink(a.instanceId);
       case "untap_all": return "<b>Untap all</b>";
       case "card_flip": return "<b>Flip</b> " + cardLink(a.instanceId);
