@@ -49,6 +49,7 @@
   var ctrPopup = null;                 // player-counters popup
   var confirmEl = null;                // scoop/concede confirm modal
   var lastLife = null, lastSeat = null;
+  var poisonKO = null;                 // life stashed when 10-poison zeroes it; restored if corrected below 10
   var lastCdSig = "";                  // cmd-damage sheet repaint signature (avoid churn on the 500ms tick)
   var holds = {};                      // per-pointer hold-to-repeat map (multi-touch-safe), pointerId → {dir,t0,int}
 
@@ -73,7 +74,7 @@
     { k: "energy", label: "Energy", ic: '<span class="pl-ctr-ic">' + msym("bolt") + "</span>" },
     { k: "experience", label: "Experience", ic: '<span class="pl-ctr-ic">' + msym("star") + "</span>" },
     { k: "rad", label: "Rad", ic: '<span class="pl-ctr-ic">' + RAD_SVG + "</span>" },
-    { k: "monarch", label: "Monarch", ic: '<span class="pl-ctr-ic">' + msym("crown") + "</span>", max: 1 }
+    { k: "monarch", label: "Monarch", ic: '<span class="pl-ctr-ic">' + msym("crown") + "</span>", max: 1, toggle: 1 }
   ];
   function ctrDef(k) { for (var i = 0; i < COUNTERS.length; i++) if (COUNTERS[i].k === k) return COUNTERS[i]; return null; }
 
@@ -332,7 +333,11 @@
       if (!b || !ctrPopup.contains(b)) return;
       var act = b.dataset.cact;
       if (act === "close") { closeCounters(); return; }
-      if (act === "inc" || act === "dec") {
+      if (act === "tog") {
+        var tk = b.dataset.k, tv = Number((callT("myCounters") || {})[tk] || 0);
+        callT("addCounter", tk, tv > 0 ? -tv : 1); // off -> on (set 1), on -> off (set 0)
+        paintCounters(); refresh();
+      } else if (act === "inc" || act === "dec") {
         var k = b.dataset.k, def = ctrDef(k), vals = callT("myCounters") || {};
         var v = Number(vals[k] || 0);
         if (act === "dec" && v <= 0) return;
@@ -349,13 +354,14 @@
     var vals = callT("myCounters") || {};
     list.innerHTML = COUNTERS.map(function (c) {
       var v = Number(vals[c.k] || 0);
-      return '<div class="pl-ctr-row">' +
-        '<span class="pl-ctr-nm">' + (c.ic || "") + esc(c.label) + '</span>' +
-        '<div class="pl-ctr-steps">' +
-          '<button type="button" class="pl-ctr-b" data-cact="dec" data-k="' + esc(c.k) + '" aria-label="Less ' + esc(c.label) + '">' + IC.minus + '</button>' +
-          '<b class="pl-ctr-v">' + v + '</b>' +
-          '<button type="button" class="pl-ctr-b pl-ctr-inc" data-cact="inc" data-k="' + esc(c.k) + '" aria-label="More ' + esc(c.label) + '">' + IC.plus + '</button>' +
-        '</div></div>';
+      var ctl = c.toggle
+        ? '<button type="button" class="pl-ctr-tog' + (v > 0 ? " on" : "") + '" data-cact="tog" data-k="' + esc(c.k) + '" role="switch" aria-checked="' + (v > 0 ? "true" : "false") + '" aria-label="' + esc(c.label) + '"><span></span></button>'
+        : '<div class="pl-ctr-steps">' +
+            '<button type="button" class="pl-ctr-b" data-cact="dec" data-k="' + esc(c.k) + '" aria-label="Less ' + esc(c.label) + '">' + IC.minus + '</button>' +
+            '<b class="pl-ctr-v">' + v + '</b>' +
+            '<button type="button" class="pl-ctr-b pl-ctr-inc" data-cact="inc" data-k="' + esc(c.k) + '" aria-label="More ' + esc(c.label) + '">' + IC.plus + '</button>' +
+          '</div>';
+      return '<div class="pl-ctr-row"><span class="pl-ctr-nm">' + (c.ic || "") + esc(c.label) + '</span>' + ctl + '</div>';
     }).join("");
   }
   function closeCounters() { if (ctrPopup) { try { ctrPopup.remove(); } catch (e) {} } ctrPopup = null; }
@@ -404,9 +410,17 @@
     var lifeEl = root.querySelector("#plLife");
     if (lifeEl && pending === 0) lifeEl.textContent = lifeShown;
 
-    // 10 poison = death (CR 704.5c): zero the life once so the DEAD state shows on the bar.
+    // 10 poison = death (CR 704.5c): zero the life once so the DEAD state shows. If poison is later
+    // corrected back below 10 (a misclick), restore the exact life the player had before the poison-out.
     var poisonN = Math.max(Number(m.poison || 0), Number((callT("myCounters") || {}).poison || 0));
-    if (poisonN >= 10 && (Number(m.life) || 0) > 0) { callT("applyLife", m.seat, -(Number(m.life) || 0)); }
+    var _lifeNow = Number(m.life) || 0;
+    if (poisonN >= 10) {
+      if (_lifeNow > 0) { poisonKO = _lifeNow; callT("applyLife", m.seat, -_lifeNow); }
+    } else if (poisonKO != null && _lifeNow <= 0) {
+      callT("applyLife", m.seat, poisonKO); poisonKO = null;
+    } else if (_lifeNow > 0) {
+      poisonKO = null;
+    }
 
     // G1.9 — dead state: red fill + "YOU ARE DEAD" (0 life OR 10 poison)
     var deadEl = root.querySelector("#plDead");
@@ -539,7 +553,7 @@
   function hide() {
     if (refInt) { clearInterval(refInt); refInt = null; }
     if (commitTO) { clearTimeout(commitTO); commitTO = null; }
-    pending = 0; pendStart = null; lastLife = null; lastSeat = null;
+    pending = 0; pendStart = null; lastLife = null; lastSeat = null; poisonKO = null;
     endAllHolds();
     closeModal(); closeCounters(); closeConcede();
     if (root) root.style.display = "none";

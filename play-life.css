@@ -47,6 +47,12 @@
 .pl-ctr-b:hover { background: rgba(255,255,255,.12); }
 .pl-ctr-b:active { transform: scale(.92); }
 .pl-ctr-inc { background: rgba(43,212,192,.18); border-color: rgba(43,212,192,.5); color: #7ff0e2; }
+/* Monarch (and any binary counter) shows as a toggle switch, not a +/- count */
+.pl-ctr-tog { position: relative; width: 48px; height: 27px; border-radius: 999px; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.08); cursor: pointer; padding: 0; flex: 0 0 auto; transition: background .15s ease, border-color .15s ease; }
+.pl-ctr-tog > span { position: absolute; top: 2px; left: 2px; width: 21px; height: 21px; border-radius: 50%; background: #cfd8e6; transition: transform .16s ease, background .16s ease; }
+.pl-ctr-tog.on { background: rgba(43,212,192,.35); border-color: rgba(43,212,192,.6); }
+.pl-ctr-tog.on > span { transform: translateX(21px); background: #7ff0e2; }
+@media (prefers-reduced-motion: reduce) { .pl-ctr-tog, .pl-ctr-tog > span { transition: none; } }
 .pl-ctr-inc:hover { background: rgba(43,212,192,.3); color: #fff; }
 .pl-ctr-v { min-width: 26px; text-align: center; font-size: 17px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
 
