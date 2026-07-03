@@ -372,6 +372,7 @@
   }
 
   function refresh() {
+    if (!isFs()) { hide(); return; } // never render the cluster off the board (e.g. after Back to lobby)
     var list = seats();
     if (!list.length) { hide(); return; }
     if (!root) build();
@@ -519,7 +520,17 @@
     if (root) root.style.display = "none";
   }
 
-  function isFs() { try { return document.body && document.body.classList.contains("play-fs"); } catch (e) { return false; } }
+  function isFs() {
+    try {
+      if (!document.body || !document.body.classList.contains("play-fs")) return false;
+      // "At the board" only: the play-shell overlay (mode-select / lobby / playmat / bracket) keeps
+      // #playShell.active on every pre-game screen and drops it when the board launches. Without this
+      // guard the life cluster leaked onto the lobby/mode-select. (user QA 2026-07-03)
+      var sh = document.getElementById("playShell");
+      if (sh && sh.classList.contains("active")) return false;
+      return true;
+    } catch (e) { return false; }
+  }
 
   function watch() {
     if (mo) return;
