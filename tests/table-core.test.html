@@ -1,0 +1,45 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>table-core tests</title>
+<pre id="o"></pre>
+<script src="../table-core.js"></script>
+<script>
+  let pass = 0, fail = 0;
+  const o = document.getElementById("o");
+  const J = (x) => JSON.stringify(x);
+  const ok = (cond, msg) => { o.textContent += (cond ? "PASS " : "FAIL ") + msg + "\n"; cond ? pass++ : fail++; };
+  function identity(s, a, msg) {
+    const r = MTGCore.reduce(s, a), inv = MTGCore.invert(a, s), r2 = MTGCore.reduce(r, inv);
+    ok(J(r2) === J(s), msg + " — undo round-trip");
+    ok(J(r) !== J(s), msg + " — changed state");
+  }
+  let s = MTGCore.init({ seats: 2, deckSize: 20 });
+  ok(MTGCore.zoneCount(s, 0, "library") === 20, "init library 20");
+  s = MTGCore.reduce(s, { t: "draw", seat: 0, count: 7 });
+  ok(MTGCore.zoneCount(s, 0, "hand") === 7, "draw 7");
+  s = MTGCore.reduce(s, { t: "card_move", instanceId: "s0c0", toZone: "battlefield", x: 10, y: 20 });
+  s = MTGCore.reduce(s, { t: "card_move", instanceId: "s0c1", toZone: "battlefield", x: 30, y: 40 });
+  s = MTGCore.reduce(s, { t: "card_tap", instanceId: "s0c0", tapped: true });
+  const S = s, libIds = MTGCore.cardsOf(S, 0, "library").map((c) => c.instanceId);
+  [
+    { t: "draw", seat: 0, count: 3 }, { t: "mill", seat: 0, count: 2 },
+    { t: "card_move", instanceId: "s0c2", toZone: "battlefield", x: 50, y: 60 },
+    { t: "card_move", instanceId: "s0c0", toZone: "graveyard" },
+    { t: "card_tap", instanceId: "s0c1" }, { t: "card_tap_many", instanceIds: ["s0c0", "s0c1"], tapped: false },
+    { t: "untap_all", seat: 0 }, { t: "card_counter", instanceId: "s0c0", kind: "+1/+1", delta: 2 },
+    { t: "card_flip", instanceId: "s0c0" }, { t: "card_transform", instanceId: "s0c0" },
+    { t: "card_phase", instanceId: "s0c0" }, { t: "card_attach", instanceId: "s0c1", attachedTo: "s0c0", attachOrder: 0 },
+    { t: "token_create", instanceId: "tok1", ownerSeat: 0, name: "Treasure", x: 5, y: 5 },
+    { t: "card_clone", fromId: "s0c0", instanceId: "clone1", x: 70, y: 70 },
+    { t: "library_shuffle", seat: 0, seed: "abc" },
+    { t: "library_scry", seat: 0, order: [libIds[2], libIds[0], libIds[1]] },
+    { t: "reveal", instanceIds: ["s0c0"], toSeats: [1] },
+    { t: "card_setart", instanceId: "s0c0", setCode: "lea", isFoil: true },
+    { t: "set_life", seat: 0, value: 33 }, { t: "adjust_life", seat: 0, delta: -5 },
+    { t: "pass_turn" }, { t: "annotation_create", id: "an1", kind: "label", x: 1, y: 2, text: "n" }
+  ].forEach((a) => identity(S, a, a.t));
+  ok(J(MTGCore.reduce(S, { t: "unknown_x" })) === J(S), "unknown action no-op");
+  ok(J(MTGCore.shuffle([1, 2, 3, 4, 5], "seed")) === J(MTGCore.shuffle([1, 2, 3, 4, 5], "seed")), "shuffle deterministic");
+  o.textContent += "\n" + pass + " passed, " + fail + " failed";
+  document.title = fail ? "FAIL (" + fail + ")" : "PASS (" + pass + ")";
+</script>

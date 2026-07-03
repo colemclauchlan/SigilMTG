@@ -1,0 +1,188 @@
+/* =============================================================================
+   HOME / LANDING — the signature surface (Three.js + React, scroll-driven)
+   The 3D "sky" is pinned (sticky) behind scrolling content sections.
+   Only this page carries the maximal motion; token-driven to stay coherent.
+   ========================================================================== */
+
+.home-page { padding: 0 !important; background: transparent; }
+
+/* the scrolling content layer (React overlay sections) sits over the fixed 3D backdrop */
+.home-stage {
+  position: relative;
+  width: 100%;
+}
+
+/* 3D backdrop — a PERMANENT fixed layer at body level (never display:none'd by the tab
+   system, which broke its WebGL compositor layer on return). Shown only on the Home tab. */
+.home-sky {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 0.35s var(--ease-out);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(77, 163, 255, 0.14), transparent 55%),
+    radial-gradient(100% 80% at 80% 100%, rgba(120, 110, 200, 0.12), transparent 55%),
+    linear-gradient(180deg, #070d1a 0%, #091327 55%, #060b16 100%);
+}
+body:not(.on-home) .home-sky { opacity: 0; pointer-events: none; } /* hidden (but kept alive) off-Home */
+.home-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.home-veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 100% at 50% 40%, transparent 52%, rgba(4, 8, 16, 0.6) 100%),
+    linear-gradient(180deg, rgba(6, 11, 22, 0.32) 0%, transparent 20%, transparent 64%, rgba(6, 11, 22, 0.78) 100%);
+}
+
+/* scrolling content sits over the fixed backdrop */
+.home-content {
+  position: relative;
+  z-index: 2;
+  pointer-events: none; /* let drags fall through to the canvas… */
+}
+.home-content :is(button, a, .home-feature) { pointer-events: auto; } /* …except real controls */
+
+.home-section {
+  min-height: 100svh;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+  gap: 22px;
+  padding: clamp(64px, 12vh, 140px) clamp(18px, 5vw, 56px);
+  position: relative;
+}
+
+/* ---------- hero ---------- */
+.home-hero { position: relative; max-width: 780px; display: grid; justify-items: center; gap: 18px; }
+.home-hero::before {
+  content: ""; position: absolute; left: 50%; top: 48%; transform: translate(-50%, -50%);
+  width: 150%; height: 160%; z-index: -1; pointer-events: none;
+  background: radial-gradient(58% 52% at 50% 50%, rgba(6, 11, 22, 0.8), rgba(6, 11, 22, 0.4) 55%, transparent 78%);
+}
+.home-eyebrow {
+  margin: 0; font-weight: 600; font-size: var(--fs-200);
+  letter-spacing: 0.28em; text-transform: uppercase; color: var(--brand);
+  opacity: 0; animation: rise-in 0.7s var(--ease-out) 0.1s forwards;
+}
+.home-title {
+  margin: 0; font-family: var(--font-display); font-weight: 800;
+  font-size: clamp(4rem, 2rem + 12vw, 11rem); line-height: 0.92; letter-spacing: 0.04em;
+  text-shadow: 0 8px 40px rgba(77, 163, 255, 0.3);
+  opacity: 0; animation: rise-in 0.9s var(--ease-out) 0.18s forwards;
+}
+.home-tagline {
+  margin: 0; max-width: 46ch; font-family: var(--font-serif);
+  font-size: clamp(1.05rem, 0.9rem + 0.7vw, 1.5rem); line-height: 1.5; color: var(--paper-dim);
+  text-shadow: 0 2px 14px rgba(4, 8, 16, 0.85);
+  opacity: 0; animation: rise-in 0.9s var(--ease-out) 0.32s forwards;
+}
+.home-cta {
+  display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin-top: 8px;
+  opacity: 0; animation: rise-in 0.9s var(--ease-out) 0.46s forwards;
+}
+
+.home-btn {
+  appearance: none; border: 1px solid transparent; border-radius: var(--r-pill);
+  padding: 14px 30px; font-family: var(--font-body); font-weight: 700; font-size: var(--fs-300);
+  letter-spacing: 0.04em; cursor: pointer;
+  transition: transform var(--dur) var(--ease-spring), box-shadow var(--dur) var(--ease-out), background var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
+}
+.home-btn:hover { transform: translateY(-2px); }
+.home-btn:active { transform: translateY(0); }
+.home-btn-lg { padding: 17px 40px; font-size: var(--fs-400); margin-top: 8px; }
+.home-btn-primary {
+  color: #04101f; background: linear-gradient(135deg, var(--brand-bright), var(--brand) 55%, var(--brand-deep));
+  box-shadow: var(--glow), 0 14px 30px rgba(0, 0, 0, 0.4);
+}
+.home-btn-primary:hover { box-shadow: 0 0 0 1px var(--brand-bright), 0 0 40px rgba(77, 163, 255, 0.45), 0 18px 38px rgba(0, 0, 0, 0.45); }
+.home-btn-ghost { color: var(--paper); background: var(--glass); border-color: var(--hairline); backdrop-filter: blur(10px); }
+.home-btn-ghost:hover { border-color: var(--brand); color: var(--brand-bright); }
+
+.home-formats { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 12px; opacity: 0; animation: rise-in 0.9s var(--ease-out) 0.6s forwards; }
+.home-chip {
+  font-size: var(--fs-200); font-weight: 600; letter-spacing: 0.06em; color: var(--paper-dim);
+  padding: 8px 16px; border-radius: var(--r-pill); background: rgba(8, 14, 26, 0.55);
+  border: 1px solid var(--hairline); backdrop-filter: blur(6px); cursor: pointer;
+  transition: color var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out), background var(--dur) var(--ease-out);
+}
+.home-chip:hover { color: var(--brand-bright); border-color: var(--brand); background: rgba(77, 163, 255, 0.12); }
+
+.home-hint {
+  position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%);
+  font-size: var(--fs-100); letter-spacing: 0.22em; text-transform: uppercase; color: var(--faint);
+  pointer-events: none; animation: float-soft 3.2s ease-in-out infinite;
+}
+
+/* ---------- feature band ---------- */
+.home-kicker { margin: 0; font-weight: 700; font-size: var(--fs-200); letter-spacing: 0.22em; text-transform: uppercase; color: var(--brand); }
+.home-h2 { margin: 6px 0 0; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-700); letter-spacing: 0.02em; color: var(--paper); }
+.home-band-head { display: grid; justify-items: center; gap: 4px; margin-bottom: 8px; }
+
+.home-feature-grid {
+  display: grid; gap: 18px; width: min(1080px, 100%);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+.home-feature {
+  text-align: left; display: grid; gap: 12px; padding: 26px;
+  border-radius: var(--r-lg); border: 1px solid var(--hairline);
+  background: linear-gradient(180deg, rgba(16, 26, 46, 0.78), rgba(10, 18, 32, 0.72));
+  backdrop-filter: blur(14px); box-shadow: var(--shadow-md), var(--bevel);
+  transition: transform var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out);
+}
+.home-feature:hover { transform: translateY(-4px); border-color: rgba(120, 170, 230, 0.4); box-shadow: var(--shadow-lg), var(--glow-soft); }
+.home-feature-glyph {
+  display: inline-grid; place-items: center; width: 46px; height: 46px; border-radius: var(--r-md);
+  font-size: 1.4rem; color: var(--dot, var(--brand));
+  background: rgba(8, 14, 26, 0.6); border: 1px solid var(--hairline);
+  box-shadow: 0 0 18px -6px var(--dot, var(--brand));
+}
+.home-feature-title { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 1.3rem; color: var(--paper); }
+.home-feature-body { margin: 0; font-size: var(--fs-300); line-height: 1.55; color: var(--muted); }
+.home-feature-link {
+  justify-self: start; margin-top: 2px; background: none; border: 0; padding: 4px 0;
+  color: var(--brand-bright); font-weight: 700; font-size: var(--fs-300); letter-spacing: 0.02em; cursor: pointer;
+  transition: gap var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
+}
+.home-feature-link:hover { color: #fff; }
+
+/* ---------- final CTA ---------- */
+.home-final .reveal { display: grid; justify-items: center; gap: 12px; max-width: 620px; }
+.home-final-sub { margin: 0; font-family: var(--font-serif); font-size: clamp(1.05rem, 0.9rem + 0.6vw, 1.4rem); color: var(--paper-dim); line-height: 1.5; }
+
+/* ---------- scroll reveal ---------- */
+.reveal { opacity: 0; transform: translateY(26px); transition: opacity 0.7s var(--ease-out), transform 0.7s var(--ease-out); }
+.reveal.in { opacity: 1; transform: none; }
+.reveal.delay-1 { transition-delay: 0.1s; }
+.reveal.delay-2 { transition-delay: 0.2s; }
+
+@media (max-width: 640px) {
+  .home-sky { height: 100svh; }
+  .home-cta { width: 100%; }
+  .home-cta .home-btn { flex: 1 1 auto; text-align: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-eyebrow, .home-title, .home-tagline, .home-cta, .home-formats { opacity: 1; animation: none; }
+  .reveal { opacity: 1; transform: none; }
+}
+
+.home-scrollhint { margin-top: 18px; text-align: center; color: #9aa6b8; font-size: 13px; letter-spacing: 0.06em; opacity: 0.75; }
+
+/* ==================================================================== */
+/* QA G7.46 · Mobile (Agent C-M) — ADDITIVE, phone-only.                */
+/* ==================================================================== */
+@media (max-width: 560px) {
+  /* Honour the notch on the fixed on-home nav + keep the hero clear of
+     safe-area insets so the CTA buttons never sit under the home bar. */
+  .home-section {
+    padding-left: max(clamp(18px, 5vw, 56px), env(safe-area-inset-left));
+    padding-right: max(clamp(18px, 5vw, 56px), env(safe-area-inset-right));
+  }
+  .home-btn { min-height: 46px; -webkit-tap-highlight-color: transparent; }
+  .home-chip { min-height: 40px; -webkit-tap-highlight-color: transparent; }
+}
+body.on-home .app-nav { padding-top: env(safe-area-inset-top); }

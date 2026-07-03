@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MTG Rules Engine — Live Demo (R0–R4)</title>
+<style>
+  :root { --bg:#0e1116; --panel:#161b22; --panel2:#1c232d; --line:#2b333d; --txt:#e6edf3; --dim:#8b949e; --accent:#19c39c; --gold:#e3b341; --red:#f0726a; --blue:#6cb6ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:14px/1.5 -apple-system,Segoe UI,Inter,Roboto,sans-serif; }
+  header { padding:18px 22px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  h1 { font-size:17px; margin:0; font-weight:650; letter-spacing:.2px; }
+  .sub { color:var(--dim); font-size:12.5px; }
+  .controls { margin-left:auto; display:flex; gap:8px; }
+  button { background:var(--panel2); color:var(--txt); border:1px solid var(--line); padding:8px 14px; border-radius:8px; cursor:pointer; font-size:13px; }
+  button:hover { border-color:var(--accent); }
+  button.primary { background:var(--accent); color:#04120d; border-color:var(--accent); font-weight:650; }
+  button:disabled { opacity:.4; cursor:default; }
+  .wrap { display:grid; grid-template-columns: 1fr 1fr; gap:14px; padding:16px 22px; align-items:start; }
+  .col { display:flex; flex-direction:column; gap:14px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .card h2 { font-size:12px; text-transform:uppercase; letter-spacing:.8px; color:var(--dim); margin:0; padding:10px 14px; border-bottom:1px solid var(--line); }
+  .card .body { padding:12px 14px; }
+  .seat { border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:10px; background:var(--panel2); }
+  .seat .row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .seat .name { font-weight:650; }
+  .life { font-variant-numeric:tabular-nums; font-weight:700; color:var(--gold); }
+  .mana { color:var(--blue); font-size:12.5px; }
+  .perm { display:inline-flex; align-items:center; gap:6px; background:#0e1620; border:1px solid var(--line); border-radius:7px; padding:3px 8px; margin:4px 4px 0 0; font-size:12.5px; }
+  .perm.tapped { opacity:.55; }
+  .pt { color:var(--accent); font-variant-numeric:tabular-nums; font-weight:650; }
+  .pill { font-size:11px; color:var(--dim); }
+  .zone { color:var(--dim); font-size:12px; margin-top:6px; }
+  #stack .item { border:1px solid var(--line); border-radius:7px; padding:6px 9px; margin-bottom:6px; background:var(--panel2); font-size:12.5px; }
+  #stack .empty, #sba .empty { color:var(--dim); font-style:italic; }
+  #sba .finding { border-left:3px solid var(--red); padding:5px 10px; margin-bottom:6px; background:#1a1416; border-radius:0 6px 6px 0; font-size:12.5px; }
+  #log { font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace; max-height:420px; overflow:auto; }
+  #log .l { padding:2px 0; border-bottom:1px dashed #20262e; }
+  #log .step { color:var(--accent); font-weight:650; margin-top:8px; }
+  #log .ev { color:var(--dim); }
+  .legend { color:var(--dim); font-size:11.5px; padding:0 22px 18px; }
+  code { background:#0e1620; padding:1px 5px; border-radius:4px; color:var(--blue); }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>MTG Rules Engine — Live Demo</h1>
+    <div class="sub">R0 spine · R1 state-based actions · R2 layer system · R3 cards · R4 combat + triggers — running headless, no live app touched.</div>
+  </div>
+  <div class="controls">
+    <button id="step" class="primary">Step ▸</button>
+    <button id="run">Run all ⏩</button>
+    <button id="reset">Reset ↺</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="col">
+    <div class="card"><h2>Board</h2><div class="body" id="board"></div></div>
+    <div class="card"><h2>Stack</h2><div class="body" id="stack"></div></div>
+    <div class="card"><h2>State-based actions detected (advisory)</h2><div class="body" id="sba"></div></div>
+  </div>
+  <div class="col">
+    <div class="card"><h2>Event log</h2><div class="body"><div id="log"></div></div></div>
+  </div>
+</div>
+<div class="legend">
+  This page loads the same modules covered by the 169 headless tests
+  (<code>table-core.js</code>, <code>engine-core.js</code>, <code>card-defs.js</code>, <code>rules-layers.js</code>,
+  <code>rules-combat.js</code>, <code>rules-triggers.js</code>) and scripts a sample game through them.
+  Effective P/T is computed by the layer system; the ETB draw is a real triggered ability; combat uses the damage system.
+</div>
+
+<script src="table-core.js"></script>
+<script src="engine-core.js"></script>
+<script src="card-defs.js"></script>
+<script src="rules-layers.js"></script>
+<script src="rules-combat.js"></script>
+<script src="rules-triggers.js"></script>
+<script>
+(function () {
+  "use strict";
+  var Core = window.MTGCore, E = window.MTGEngine, Cards = window.MTGCards,
+      Layers = window.MTGRulesLayers, Combat = window.MTGRulesCombat, Trig = window.MTGRulesTriggers;
+
+  // a creature with an ETB "draw a card" + a vanilla blocker on seat 1
+  Cards.define("Elvish Visionary", { types:["creature"], subtypes:["elf"], colors:["G"], power:1, toughness:1,
+    triggers:[{ on:"etb", effects:[{ t:"draw", seat:"controller", count:1 }] }] });
+  Cards.define("Grizzly Bears 2", { types:["creature"], subtypes:["bear"], colors:["G"], power:2, toughness:2 });
+
+  var OPTS = { seats:2, startingLife:40, seed:"demo", decks:[
+    [ { instanceId:"mtn", name:"Mountain", zone:"battlefield" },
+      { instanceId:"bears", name:"Grizzly Bears", zone:"hand" },
+      { instanceId:"viz", name:"Elvish Visionary", zone:"hand" },
+      { instanceId:"shock", name:"Shock", zone:"hand" },
+      { instanceId:"l1", name:"Forest", zone:"library" },
+      { instanceId:"l2", name:"Forest", zone:"library" } ],
+    [ { instanceId:"opp", name:"Grizzly Bears 2", zone:"battlefield" },
+      { instanceId:"ol", name:"Plains", zone:"library" } ] ] };
+
+  var s, stepIdx, snapshot;
+  function log(msg, cls) { var d = document.createElement("div"); d.className = "l " + (cls||""); d.textContent = msg; var lg = document.getElementById("log"); lg.appendChild(d); if (d.scrollIntoView) d.scrollIntoView(); lg.scrollTop = lg.scrollHeight; }
+
+  function passUntilResolved() { var guard=0; while (s.stack.length && guard++<20) { s = E.passPriority(s); } }
+  function passEmpty() { var b=s.passes, g=0; while (g++<8) { var before=s.stack.length; s=E.passPriority(s); if(!before) break; } }
+
+  function effOf(card) {
+    var def = Cards.get(card.name) || { name:card.name, types:[], subtypes:[], colors:[] };
+    if (def.power == null) return null;
+    return Layers.computeEffectiveState(Cards.printedBase(def, { counters: card.counters, controller: card.controllerSeat }), []);
+  }
+
+  var steps = [
+    { label:"Tap Mountain for R", run:function(){
+        Cards.manaEvents(Cards.get("Mountain"), { instanceId:"mtn", controllerSeat:0 }).forEach(function(ev){ s=E.dispatch(s,ev); });
+        log("Seat 0 taps Mountain → mana pool +R", "ev");
+    }},
+    { label:"Cast Grizzly Bears (2/2)", run:function(){
+        s = E.dispatch(s, { t:"card_move", instanceId:"bears", toZone:"stack" });
+        s = E.dispatch(s, { t:"stack_push", id:"cast-bears", controllerSeat:0, kind:"spell", effects: Cards.castEffects(Cards.get("Grizzly Bears"), { instanceId:"bears", x:30, y:60 }) });
+        log("Grizzly Bears goes on the stack…", "ev"); passUntilResolved();
+        log("…all players pass → resolves onto the battlefield", "ev");
+    }},
+    { label:"Cast Elvish Visionary — ETB draws a card", run:function(){
+        s = E.dispatch(s, { t:"card_move", instanceId:"viz", toZone:"stack" });
+        s = E.dispatch(s, { t:"stack_push", id:"cast-viz", controllerSeat:0, kind:"spell", effects: Cards.castEffects(Cards.get("Elvish Visionary"), { instanceId:"viz", x:46, y:60 }) });
+        var before = JSON.parse(JSON.stringify(s.game)); passUntilResolved();
+        log("Elvish Visionary resolves onto the battlefield", "ev");
+        var trigs = Trig.collectTriggers(Trig.diffEvents(before, s.game), { getCard:function(id){return s.game.cards[id];}, getDef:Cards.get });
+        trigs.forEach(function(t){ s = E.dispatch(s, { t:"trigger_push", id:t.id, controllerSeat:t.controllerSeat, source:t.source, effects:t.effects }); });
+        if (trigs.length) { log("⚡ ETB trigger detected → 'draw a card' on the stack", "ev"); passUntilResolved(); log("…trigger resolves → Seat 0 draws", "ev"); }
+    }},
+    { label:"Shock the opponent for 2", run:function(){
+        s = E.dispatch(s, { t:"card_move", instanceId:"shock", toZone:"stack" });
+        s = E.dispatch(s, { t:"stack_push", id:"cast-shock", controllerSeat:0, kind:"spell", effects: Cards.castEffects(Cards.get("Shock"), { target:{ seat:1 } }) });
+        log("Shock targets Seat 1…", "ev"); passUntilResolved(); log("…resolves → Seat 1 takes 2", "ev");
+    }},
+    { label:"Combat: Bears attack into the 2/2", run:function(){
+        var atk = effOf(s.game.cards["bears"]); atk.id="bears"; atk.abilities=[];
+        var blk = effOf(s.game.cards["opp"]); blk.id="opp"; blk.abilities=[];
+        var r = Combat.resolveAttack(atk, [blk]);
+        log("Grizzly Bears (2/2) attacks, blocked by Grizzly Bears (2/2)", "ev");
+        var deadIds = []; if (Combat.isDead(r.attacker)) deadIds.push("bears"); if (Combat.isDead(r.blockers[0])) deadIds.push("opp");
+        deadIds.forEach(function(id){ s = E.dispatch(s, { t:"card_move", instanceId:id, toZone:"graveyard" }); });
+        log("Combat damage: both are dealt 2 → both die, moved to graveyards", "ev");
+    }},
+    { label:"Show a lethal: drop Seat 1 to 0", run:function(){
+        s = E.dispatch(s, { t:"set_life", seat:1, value:0 });
+        log("Seat 1 set to 0 life — watch the SBA panel flag the loss", "ev");
+    }}
+  ];
+
+  function render() {
+    // board
+    var b = document.getElementById("board"); b.innerHTML = "";
+    for (var seat=0; seat<s.game.seats; seat++) {
+      var p = s.game.players[seat];
+      var el = document.createElement("div"); el.className = "seat";
+      var mana = Object.keys(p.counters||{}).filter(function(k){return k.indexOf("mana_")===0 && p.counters[k];})
+                  .map(function(k){return p.counters[k]+k.replace("mana_","");}).join(" ");
+      var bf = Core.cardsOf(s.game, seat, "battlefield").map(function(c){
+        var eff = effOf(c), pt = eff ? (" <span class='pt'>"+eff.power+"/"+eff.toughness+"</span>") : "";
+        return "<span class='perm "+(c.tapped?"tapped":"")+"'>"+c.name+pt+"</span>";
+      }).join("");
+      el.innerHTML = "<div class='row'><span class='name'>Seat "+seat+(seat===s.game.activeSeat?" •":"")+"</span>"
+        + "<span class='life'>"+p.life+"</span>"
+        + (mana?"<span class='mana'>pool: "+mana+"</span>":"")
+        + "<span class='pill'>hand "+Core.cardsOf(s.game,seat,"hand").length+" · lib "+Core.cardsOf(s.game,seat,"library").length+" · gy "+Core.cardsOf(s.game,seat,"graveyard").length+"</span></div>"
+        + "<div class='zone'>battlefield: "+(bf||"<span class='pill'>—</span>")+"</div>";
+      b.appendChild(el);
+    }
+    // stack
+    var st = document.getElementById("stack");
+    st.innerHTML = s.stack.length ? s.stack.slice().reverse().map(function(o){ return "<div class='item'>"+(o.kind)+": <b>"+o.id+"</b> (seat "+o.controllerSeat+")</div>"; }).join("")
+      : "<div class='empty'>empty — priority: seat "+s.priority+"</div>";
+    // SBA
+    var findings = window.MTGRulesSBA ? window.MTGRulesSBA.detectAll(s.game) : [];
+    var sb = document.getElementById("sba");
+    sb.innerHTML = findings.length ? findings.map(function(f){ return "<div class='finding'>["+f.rule+"] "+f.message+"</div>"; }).join("")
+      : "<div class='empty'>none — board is stable</div>";
+  }
+
+  function reset() {
+    s = E.create(OPTS); stepIdx = 0;
+    document.getElementById("log").innerHTML = "";
+    log("New game — Seat 0 vs Seat 1, 40 life each.", "step");
+    document.getElementById("step").disabled = false;
+    render();
+  }
+  function doStep() {
+    if (stepIdx >= steps.length) { log("— end of sample game —", "step"); document.getElementById("step").disabled = true; render(); return; }
+    var st = steps[stepIdx++];
+    log("Step "+stepIdx+": "+st.label, "step");
+    try { st.run(); } catch (e) { log("error: "+(e && e.message), "ev"); }
+    render();
+    if (stepIdx >= steps.length) document.getElementById("step").disabled = true;
+  }
+
+  document.getElementById("step").addEventListener("click", doStep);
+  document.getElementById("run").addEventListener("click", function(){ var g=0; while (stepIdx < steps.length && g++<20) doStep(); doStep(); });
+  document.getElementById("reset").addEventListener("click", reset);
+
+  // rules-sba.js is optional for the demo; load it if present (best-effort, no failure if absent)
+  (function(){ var sc=document.createElement("script"); sc.src="rules-sba.js"; sc.onload=render; document.body.appendChild(sc); })();
+
+  reset();
+})();
+</script>
+</body>
+</html>

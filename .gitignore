@@ -1,0 +1,25 @@
+# Secrets & local config — NEVER commit (Cole's rule)
+.env
+.env.*
+!.env.example
+supabase-config.js
+*.local
+*.secret
+
+# Tooling / local
+.remember/
+node_modules/
+dist/
+!dist/.gitkeep
+.DS_Store
+Thumbs.db
+
+.vercel
+.env*
+node_modules/
+.env
+.env.*
+*.local
+supabase-config.js
+.vercel
+dist/

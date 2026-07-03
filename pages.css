@@ -1,0 +1,171 @@
+/* =============================================================================
+   pages.css — modern page frame for the server-feature tabs
+   (Ranked · Profile · Tournaments · Watch). Brings these newer surfaces onto the
+   shared "Midnight Azure" token system (theme.css) so they match the polished core.
+   Loaded after theme.css so var() tokens resolve. Purely presentational.
+   ========================================================================== */
+
+/* page shell — consistent rhythm + a quiet entrance */
+.svc-page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: clamp(20px, 4vw, 40px) clamp(16px, 3vw, 26px) 72px;
+  animation: svcRise var(--dur, 220ms) var(--ease-out, ease) both;
+}
+@keyframes svcRise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* header — arcane eyebrow + display title, optional trailing control */
+.svc-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: clamp(16px, 3vw, 26px);
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--hairline);
+}
+.svc-head-tt { display: grid; gap: 4px; }
+.svc-eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--fs-100);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--brand);
+}
+.svc-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--fs-700);
+  line-height: 1.02;
+  letter-spacing: 0.01em;
+  color: var(--paper);
+}
+.svc-sub { color: var(--muted); font-size: var(--fs-200); }
+
+/* card / panel container */
+.svc-card {
+  background: var(--glass);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-md);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+.svc-card + .svc-card { margin-top: 16px; }
+
+/* section label between cards */
+.svc-section {
+  font-family: var(--font-mono);
+  font-size: var(--fs-100);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--muted);
+  margin: 26px 2px 10px;
+}
+
+/* empty / sign-in state */
+.svc-empty {
+  color: var(--muted);
+  text-align: center;
+  padding: 44px 20px;
+  font-size: var(--fs-300);
+}
+.svc-empty-icon {
+  display: block;
+  font-family: "Material Symbols Rounded";
+  font-size: 34px;
+  color: var(--faint);
+  margin-bottom: 10px;
+}
+
+/* modern form controls shared by these tabs */
+.svc-input, .svc-select {
+  height: 38px;
+  padding: 0 12px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--hairline);
+  background: var(--glass-strong);
+  color: var(--paper);
+  font-size: var(--fs-300);
+  outline: none;
+  transition: border-color var(--dur-fast, 130ms) var(--ease-out, ease), box-shadow var(--dur-fast, 130ms) var(--ease-out, ease);
+}
+.svc-input:focus, .svc-select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+.svc-btn {
+  height: 38px;
+  padding: 0 18px;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  background: linear-gradient(180deg, var(--brand), var(--brand-deep));
+  color: #04101f;
+  font-weight: 800;
+  font-size: var(--fs-200);
+  cursor: pointer;
+  transition: filter var(--dur-fast, 130ms) var(--ease-out, ease), transform var(--dur-fast, 130ms) var(--ease-out, ease);
+}
+.svc-btn:hover { filter: brightness(1.08); }
+.svc-btn:active { transform: translateY(1px); }
+.svc-btn-ghost {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--hairline);
+  color: var(--paper-dim);
+}
+
+/* profile deck showcase */
+.prof-decks { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.prof-deck {
+  position: relative; height: 124px; border-radius: var(--r-card); overflow: hidden; cursor: pointer;
+  background-size: cover; background-position: center; border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-md); display: flex; align-items: flex-end; text-align: left; padding: 0;
+  transition: transform var(--dur-fast, 130ms) var(--ease-out, ease), box-shadow var(--dur-fast, 130ms) var(--ease-out, ease), border-color var(--dur-fast, 130ms) var(--ease-out, ease);
+}
+.prof-deck:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: var(--brand); }
+.prof-deck.fav { border-color: rgba(246, 196, 83, 0.55); }
+.prof-deck-meta { padding: 10px 12px; width: 100%; }
+.prof-deck-meta b { display: block; color: #fff; font-size: 14px; font-weight: 800; line-height: 1.15; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75); }
+.prof-deck-meta span { color: #cfe0f5; font-size: 12px; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75); }
+.prof-deck-fav { position: absolute; top: 8px; right: 10px; color: #f6c453; font-size: 17px; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85); }
+
+@media (prefers-reduced-motion: reduce) {
+  .svc-page { animation: none; }
+  .svc-input, .svc-select, .svc-btn, .prof-deck { transition: none; }
+}
+
+/* ==================================================================== */
+/* QA G7.46 · Mobile (Agent C-M) — ADDITIVE, phone-only.                */
+/* pages.css loads LAST (after theme.css) so these win the cascade on   */
+/* equal specificity. Nothing here changes desktop rendering.           */
+/* ==================================================================== */
+@media (max-width: 560px) {
+  /* Service pages (Ranked/Profile/Tournaments/Watch): tighter frame,
+     single-column deck showcase, header stacks. */
+  .svc-page { padding: 22px 12px 60px; }
+  .svc-head { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .prof-decks { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+
+  /* 16px inputs to stop iOS zoom-on-focus; ≥40px touch targets. */
+  .svc-input, .svc-select { font-size: 16px; height: 42px; }
+  .svc-btn { height: 42px; }
+}
+
+/* The main app-nav (styled in theme.css) already wraps at 720px. On the
+   narrowest phones give the tab row a horizontal-scroll escape hatch so
+   many tabs never crush below tappable width. Additive: only affects a
+   nav that is overflowing, and only on tiny viewports. */
+@media (max-width: 400px) {
+  .nav-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    justify-content: flex-start;
+  }
+  .nav-tabs::-webkit-scrollbar { display: none; }
+  .nav-tabs button {
+    flex: 0 0 auto;
+    min-height: 40px;
+    -webkit-tap-highlight-color: transparent;
+  }
+}

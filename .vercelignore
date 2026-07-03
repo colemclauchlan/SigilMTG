@@ -1,0 +1,18 @@
+# Ship only the static frontend. Exclude server code, dev artifacts, docs, secrets.
+.git
+.gitignore
+.remember
+node_modules
+backend
+docs
+dist
+hyperframes
+_*.png
+*.md
+.env
+.env.*
+*.local
+*.secret
+# React rewrite (not part of the vanilla static site)
+web
+server

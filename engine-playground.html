@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MTG Rules Engine — Interactive Playground</title>
+<style>
+  :root { --bg:#0e1116; --panel:#161b22; --p2:#1c232d; --line:#2b333d; --txt:#e6edf3; --dim:#8b949e; --acc:#19c39c; --gold:#e3b341; --red:#f0726a; --blue:#6cb6ff; }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--txt);font:13.5px/1.5 -apple-system,Segoe UI,Inter,sans-serif}
+  header{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  h1{font-size:16px;margin:0;font-weight:650} .sub{color:var(--dim);font-size:12px}
+  .controls{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  button,select{background:var(--p2);color:var(--txt);border:1px solid var(--line);padding:7px 12px;border-radius:8px;cursor:pointer;font-size:13px}
+  button:hover,select:hover{border-color:var(--acc)} button.primary{background:var(--acc);color:#04120d;border-color:var(--acc);font-weight:650}
+  .wrap{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;padding:14px 20px;align-items:start}
+  .col{display:flex;flex-direction:column;gap:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .card h2{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim);margin:0;padding:9px 13px;border-bottom:1px solid var(--line)}
+  .card .body{padding:11px 13px}
+  .seat{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;background:var(--p2)}
+  .seat.active{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+  .seat .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .name{font-weight:650} .life{color:var(--gold);font-weight:700;font-variant-numeric:tabular-nums} .mana{color:var(--blue);font-size:12px}
+  .pill{color:var(--dim);font-size:11.5px}
+  .perm{display:inline-flex;align-items:center;gap:5px;background:#0e1620;border:1px solid var(--line);border-radius:7px;padding:3px 8px;margin:4px 4px 0 0;font-size:12.5px}
+  .perm.tapped{opacity:.5;transform:rotate(4deg)} .pt{color:var(--acc);font-weight:650;font-variant-numeric:tabular-nums} .kw{color:var(--blue);font-size:10.5px}
+  .zone{color:var(--dim);font-size:12px;margin-top:6px}
+  #stack .item{border:1px solid var(--line);border-radius:7px;padding:5px 9px;margin-bottom:5px;background:var(--p2);font-size:12px}
+  .empty{color:var(--dim);font-style:italic}
+  #sba .f{border-left:3px solid var(--red);padding:4px 9px;margin-bottom:5px;background:#1a1416;border-radius:0 6px 6px 0;font-size:12px}
+  #log{font:11.5px/1.6 ui-monospace,Menlo,monospace;max-height:300px;overflow:auto} #log .l{padding:1px 0;border-bottom:1px dashed #20262e}
+  .palette{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+  .note{color:var(--dim);font-size:11.5px;padding:0 20px 16px}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>MTG Rules Engine — Playground</h1><div class="sub">Click to summon cards & run combat; the engine resolves statics, triggers, combat, and SBA live.</div></div>
+  <div class="controls">
+    <button id="auto" class="primary">Auto turn ▸</button>
+    <button id="attack">Attack with all</button>
+    <button id="pass">Pass turn</button>
+    <button id="reset">Reset ↺</button>
+  </div>
+</header>
+<div class="wrap">
+  <div class="col">
+    <div class="card"><h2>Board</h2><div class="body" id="board"></div></div>
+    <div class="card"><h2>Stack</h2><div class="body" id="stack"></div></div>
+    <div class="card"><h2>State-based actions</h2><div class="body" id="sba"></div></div>
+  </div>
+  <div class="col">
+    <div class="card"><h2>Summon / cast (active player)</h2><div class="body"><div class="palette"><select id="cardsel"></select><button id="summon">Play ▸</button></div></div></div>
+    <div class="card"><h2>Event log</h2><div class="body"><div id="log"></div></div></div>
+  </div>
+</div>
+<p class="note">Sandbox: mana isn't enforced here — click any card to put it into play (creatures/permanents go to the battlefield and fire ETB; instants/sorceries resolve at the opponent). "Auto turn" runs the greedy auto-pilot + combat for the active player.</p>
+
+<script src="table-core.js"></script>
+<script src="engine-core.js"></script>
+<script src="card-defs.js"></script>
+<script src="card-library.js"></script>
+<script src="rules-layers.js"></script>
+<script src="rules-static.js"></script>
+<script src="rules-keywords.js"></script>
+<script src="rules-combat.js"></script>
+<script src="rules-combat-turn.js"></script>
+<script src="rules-sba.js"></script>
+<script src="rules-triggers.js"></script>
+<script src="rules-mana.js"></script>
+<script src="rules-turn.js"></script>
+<script src="engine-autopilot.js"></script>
+<script src="engine-game.js"></script>
+<script>
+(function () {
+  "use strict";
+  var Core = window.MTGCore, E = window.MTGEngine, Cards = window.MTGCards, Lib = window.MTGCardLibrary,
+      KW = window.MTGRulesKeywords, Static = window.MTGRulesStatic, Layers = window.MTGRulesLayers,
+      CT = window.MTGCombatTurn, SBA = window.MTGRulesSBA, Trig = window.MTGRulesTriggers, Game = window.MTGGame;
+  if (Lib) Lib.register(Cards);
+  // a couple of static cards so anthems/lords are demoable
+  Cards.define("Glorious Anthem", { types: ["enchantment"], colors: ["W"], static: [{ kind: "anthem", affects: "creatures-you-control", power: 1, toughness: 1 }] });
+  Cards.define("Goblin Warchief", { types: ["creature"], subtypes: ["goblin"], colors: ["R"], power: 2, toughness: 2, static: [{ kind: "grant", affects: "other-creatures-you-control", subtype: "goblin", keywords: ["haste"] }] });
+
+  var s, seq = 1;
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+  function log(m) { var d = document.createElement("div"); d.className = "l"; d.textContent = m; var lg = document.getElementById("log"); lg.appendChild(d); lg.scrollTop = lg.scrollHeight; }
+
+  function reset() {
+    s = E.create({ seats: 2, startingLife: 20, seed: "pg", decks: [
+      [{ instanceId: "f1", name: "Forest", zone: "battlefield" }, { instanceId: "f2", name: "Mountain", zone: "battlefield" }, { instanceId: "f3", name: "Plains", zone: "battlefield" },
+       { instanceId: "h1", name: "Grizzly Bears", zone: "hand" }, { instanceId: "lib1", name: "Forest", zone: "library" }, { instanceId: "lib2", name: "Island", zone: "library" }],
+      [{ instanceId: "o1", name: "Swamp", zone: "battlefield" }, { instanceId: "ol", name: "Forest", zone: "library" }]
+    ] });
+    seq = 1; document.getElementById("log").innerHTML = "";
+    log("New game — Seat 0 vs Seat 1, 20 life each.");
+    render();
+  }
+
+  function effOf(c) {
+    var def = Cards.get(c.name); if (!def || def.power == null) return null;
+    return KW ? KW.effectiveFull(s.game, c.instanceId, {}) : Layers.computeEffectiveState(Cards.printedBase(def, { counters: c.counters, controller: c.controllerSeat }), []);
+  }
+
+  function summon(name) {
+    var def = Cards.get(name); if (!def) return;
+    var seat = s.game.activeSeat, opp = (seat + 1) % s.game.seats;
+    try {
+      if (Cards.isPermanent(def)) {
+        var id = "pg" + (seq++), before = clone(s.game);
+        s = E.dispatch(s, { t: "__add", cards: [{ instanceId: id, cardId: id, name: name, ownerSeat: seat, controllerSeat: seat, zone: "battlefield", x: 40, y: 60, counters: {} }] });
+        var trigs = Trig.collectTriggers(Trig.diffEvents(before, s.game), { getCard: function (i) { return s.game.cards[i]; }, getDef: Cards.get });
+        trigs.forEach(function (t) { s = E.dispatch(s, { t: "trigger_push", id: t.id, controllerSeat: t.controllerSeat, source: t.source, effects: t.effects }); });
+        var g = 0; while (s.stack.length && g++ < 12) s = E.passPriority(s);
+        log("Seat " + seat + " plays " + name + (trigs.length ? " — ETB fired" : ""));
+      } else if (def.spell) {
+        s = E.dispatch(s, { t: "stack_push", id: "sp" + (seq++), controllerSeat: seat, kind: "spell", effects: Cards.castEffects(def, { target: { seat: opp } }) });
+        var g2 = 0; while (s.stack.length && g2++ < 12) s = E.passPriority(s);
+        log("Seat " + seat + " casts " + name + " at Seat " + opp);
+      }
+    } catch (e) { log("error: " + (e && e.message)); }
+    render();
+  }
+
+  function attackAll() {
+    var seat = s.game.activeSeat, opp = (seat + 1) % s.game.seats;
+    var plan = CT.declareAllAttackers(s, seat, {});
+    if (!plan.length) { log("Seat " + seat + " has no untapped creatures to attack with."); return; }
+    s = CT.runCombat(E, s, opp, plan, {});
+    log("Seat " + seat + " attacks with " + plan.length + " creature(s).");
+    render();
+  }
+  function autoTurn() {
+    try { s = Game.autoTurn(E, s, {}); var w = Game.winner(s, {}); log("Seat " + s.game.activeSeat + " auto-played a turn." + (w != null ? " Seat " + w + " has won!" : "")); }
+    catch (e) { log("auto error: " + (e && e.message)); }
+    render();
+  }
+  function passTurn() {
+    s = E.dispatch(s, { t: "pass_turn" });
+    s = E.dispatch(s, { t: "untap_all", seat: s.game.activeSeat });
+    s = E.dispatch(s, { t: "set_phase", phase: "main1" });
+    log("Turn passed — Seat " + s.game.activeSeat + " to play.");
+    render();
+  }
+
+  function render() {
+    var b = document.getElementById("board"); b.innerHTML = "";
+    for (var seat = 0; seat < s.game.seats; seat++) {
+      var p = s.game.players[seat], el = document.createElement("div");
+      el.className = "seat" + (seat === s.game.activeSeat ? " active" : "");
+      var mana = Object.keys(p.counters || {}).filter(function (k) { return k.indexOf("mana_") === 0 && p.counters[k]; }).map(function (k) { return p.counters[k] + k.slice(5); }).join(" ");
+      var bf = Core.cardsOf(s.game, seat, "battlefield").map(function (c) {
+        var e = effOf(c), pt = e ? " <span class='pt'>" + e.power + "/" + e.toughness + "</span>" : "";
+        var kw = (e && e.abilities && e.abilities.length) ? " <span class='kw'>" + e.abilities.join(",") + "</span>" : "";
+        return "<span class='perm" + (c.tapped ? " tapped" : "") + "'>" + c.name + pt + kw + "</span>";
+      }).join("");
+      el.innerHTML = "<div class='row'><span class='name'>Seat " + seat + (seat === s.game.activeSeat ? " •" : "") + "</span><span class='life'>" + p.life + "</span>"
+        + (mana ? "<span class='mana'>" + mana + "</span>" : "")
+        + "<span class='pill'>hand " + Core.cardsOf(s.game, seat, "hand").length + " · gy " + Core.cardsOf(s.game, seat, "graveyard").length + "</span></div>"
+        + "<div class='zone'>" + (bf || "<span class='pill'>(empty battlefield)</span>") + "</div>";
+      b.appendChild(el);
+    }
+    var st = document.getElementById("stack");
+    st.innerHTML = s.stack.length ? s.stack.slice().reverse().map(function (o) { return "<div class='item'>" + o.kind + ": " + o.id + "</div>"; }).join("") : "<div class='empty'>empty</div>";
+    var findings = SBA ? SBA.detectAll(s.game) : [];
+    document.getElementById("sba").innerHTML = findings.length ? findings.map(function (f) { return "<div class='f'>[" + f.rule + "] " + f.message + "</div>"; }).join("") : "<div class='empty'>none — board stable</div>";
+  }
+
+  // populate card palette
+  var sel = document.getElementById("cardsel");
+  Cards.all().map(function (d) { return d.name; }).sort().forEach(function (n) { var o = document.createElement("option"); o.value = n; o.textContent = n; sel.appendChild(o); });
+
+  document.getElementById("summon").addEventListener("click", function () { summon(sel.value); });
+  document.getElementById("attack").addEventListener("click", attackAll);
+  document.getElementById("auto").addEventListener("click", autoTurn);
+  document.getElementById("pass").addEventListener("click", passTurn);
+  document.getElementById("reset").addEventListener("click", reset);
+
+  reset();
+})();
+</script>
+</body>
+</html>

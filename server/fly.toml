@@ -1,0 +1,37 @@
+# ── Sigil Game Server — Fly.io config ──────────────────────────────────────
+# Deploy:  cd server && flyctl deploy
+# First time: flyctl launch --no-deploy   (imports this file, skips build prompt)
+#
+# Cole: rename [app] to anything you like; sigil-game-server is the suggested name.
+# The resulting WebSocket URL will be: wss://<app>.fly.dev
+
+app = "sigil-game-server"
+primary_region = "iad"          # US-East — change to your nearest region
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  # WEB_ORIGIN is the Vercel URL that the CORS allowlist accepts.
+  # Set it as a secret instead of a plain env var if you prefer:
+  #   flyctl secrets set WEB_ORIGIN=https://your-app.vercel.app
+  WEB_ORIGIN = "https://sigil-web.vercel.app"
+
+[http_service]
+  internal_port   = 2567
+  force_https     = true
+  auto_stop_machines  = true
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    grace_period  = "10s"
+    interval      = "30s"
+    method        = "GET"
+    path          = "/health"
+    timeout       = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

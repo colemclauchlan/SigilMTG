@@ -1,0 +1,242 @@
+/* play-life.css — bottom-left life + actions hub (playgroup.gg-style), QA G1 2026-07-02.
+   Harmonizes with play-hud.css: dark glass, teal #2bd4c0 accent, Inter, tabular numerals. */
+
+.pl-cluster {
+  position: fixed; left: 16px; bottom: 14px; z-index: 93;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  pointer-events: auto; font-family: Inter, system-ui, sans-serif;
+  -webkit-user-select: none; user-select: none;
+}
+
+/* ---- action stack (VERTICAL): Counters · Commander damage · Player Counters · Draw · Roll Dice · Scoop ---- */
+.pl-actions {
+  display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 6px;
+  background: rgba(13,19,30,.92); border: 1px solid rgba(255,255,255,.10); border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0,0,0,.46); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+}
+.pl-act {
+  display: flex; align-items: center; justify-content: flex-start; gap: 8px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04);
+  color: #c7d2e2; border-radius: 9px; padding: 7px 11px; font-size: 12px; font-weight: 700;
+  line-height: 1; text-align: left; white-space: nowrap;
+  transition: background .12s ease, color .12s ease, border-color .12s ease, transform .08s ease;
+}
+.pl-act svg { width: 16px; height: 16px; flex: 0 0 auto; opacity: .92; }
+.pl-act:hover { background: rgba(255,255,255,.10); color: #fff; }
+.pl-act:active { transform: scale(.97); }
+.pl-act-death:hover { background: rgba(229,72,77,.16); border-color: rgba(229,72,77,.5); color: #ffb4b6; }
+
+/* ---- player-counters popup (matches the trackers/menu style) ---- */
+.pl-ctr-sheet { width: min(360px, 92vw); }
+.pl-ctr-list { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.pl-ctr-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 11px 14px; border-radius: 12px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.08);
+}
+.pl-ctr-nm { display: inline-flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 700; color: #eaf1fb; }
+.pl-ctr-ic { display: inline-grid; place-items: center; width: 22px; height: 22px; color: #2bd4c0; }
+.pl-ctr-ic .msym { margin: 0; font-size: 19px; vertical-align: 0; }
+.pl-ctr-ic svg { display: block; }
+.pl-ctr-ic-tx { font-size: 17px; line-height: 1; color: #3fb950; }
+.pl-ctr-steps { display: inline-flex; align-items: center; gap: 10px; }
+.pl-ctr-b {
+  width: 34px; height: 34px; display: grid; place-items: center; cursor: pointer; font-size: 18px; font-weight: 800;
+  border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06); color: #dbe4f3; border-radius: 9px;
+  transition: background .12s ease, transform .08s ease;
+}
+.pl-ctr-b:hover { background: rgba(255,255,255,.12); }
+.pl-ctr-b:active { transform: scale(.92); }
+.pl-ctr-inc { background: rgba(43,212,192,.18); border-color: rgba(43,212,192,.5); color: #7ff0e2; }
+.pl-ctr-inc:hover { background: rgba(43,212,192,.3); color: #fff; }
+.pl-ctr-v { min-width: 26px; text-align: center; font-size: 17px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
+
+/* ---- bottom row: turn column + life pill + zone counts ---- */
+.pl-bottom { display: flex; align-items: stretch; gap: 10px; }
+
+.pl-turncol { display: flex; flex-direction: column; gap: 6px; justify-content: center; }
+.pl-pass {
+  cursor: pointer; border: 0; border-radius: 12px; padding: 9px 16px;
+  background: linear-gradient(120deg, #3d72bd, #284c8a); color: #eaf2ff;
+  display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800;
+  box-shadow: 0 10px 24px rgba(40,76,138,.5); transition: filter .12s ease, transform .08s ease;
+}
+.pl-pass svg { width: 16px; height: 16px; }
+.pl-pass:hover { filter: brightness(1.08); }
+.pl-pass:active { transform: translateY(1px); }
+.pl-untap {
+  cursor: pointer; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; padding: 6px 14px;
+  background: rgba(17,25,37,.9); color: #b9c5d6; display: inline-flex; align-items: center; gap: 7px;
+  font-size: 11.5px; font-weight: 700; transition: background .12s ease, color .12s ease, border-color .12s ease;
+}
+.pl-untap svg { width: 14px; height: 14px; }
+.pl-untap:hover { background: rgba(28,40,58,.95); color: #fff; border-color: rgba(43,212,192,.45); }
+
+/* ---- live zone counts: Library / Graveyard / Exile (G1.4) ---- */
+.pl-zones { display: flex; flex-direction: column; gap: 4px; justify-content: center; }
+.pl-zones[hidden] { display: none; }
+.pl-zone {
+  display: flex; align-items: center; gap: 8px; min-width: 64px; padding: 3px 10px;
+  border-radius: 9px; background: rgba(13,19,30,.9); border: 1px solid rgba(255,255,255,.09);
+  font-size: 10.5px; font-weight: 700; color: #9fb0c6; letter-spacing: .04em; text-transform: uppercase;
+}
+.pl-zone b { margin-left: auto; color: #fff; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+
+/* ---- life pill ---- */
+.pl-pill {
+  position: relative; display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  background: rgba(10,15,24,.95); border: 1px solid rgba(255,255,255,.14); border-radius: 16px;
+  box-shadow: 0 16px 40px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); overflow: visible;
+}
+.pl-step {
+  cursor: pointer; width: 40px; height: 40px; border-radius: 11px; line-height: 1;
+  border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.07); color: #fff;
+  font-size: 24px; font-weight: 800; transition: background .12s ease, color .12s ease, transform .07s ease;
+  display: grid; place-items: center; touch-action: none;
+}
+.pl-step:hover { background: #2bd4c0; color: #06302b; border-color: #2bd4c0; }
+.pl-step:active { transform: scale(.92); }
+
+.pl-core { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 96px; }
+.pl-life {
+  cursor: pointer; border: 0; background: transparent; color: #fff; line-height: 1;
+  font-size: 44px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .01em;
+  padding: 0 6px; transition: transform .12s ease, color .12s ease, text-shadow .12s ease;
+}
+.pl-life:hover { color: #eafffb; text-shadow: 0 0 18px rgba(43,212,192,.5); }
+
+/* G1.6 / G1.10 — red flash on loss, green flash on gain (every hold tick re-triggers it) */
+.pl-life.hit { animation: plLifeHit .45s ease-out; }
+.pl-life.heal { animation: plLifeHeal .45s ease-out; }
+@keyframes plLifeHit { 0% { color: #ff5a63; text-shadow: 0 0 20px rgba(229,72,77,.85); transform: scale(1.12); } 100% { color: #fff; text-shadow: none; transform: scale(1); } }
+@keyframes plLifeHeal { 0% { color: #4ade80; text-shadow: 0 0 20px rgba(63,185,80,.85); transform: scale(1.12); } 100% { color: #fff; text-shadow: none; transform: scale(1); } }
+.pl-pill.hit { animation: plPillHit .45s ease-out; }
+.pl-pill.heal { animation: plPillHeal .45s ease-out; }
+@keyframes plPillHit { 0% { box-shadow: 0 0 0 3px rgba(229,72,77,.6), 0 16px 40px rgba(0,0,0,.55); } 100% { box-shadow: 0 16px 40px rgba(0,0,0,.55); } }
+@keyframes plPillHeal { 0% { box-shadow: 0 0 0 3px rgba(63,185,80,.6), 0 16px 40px rgba(0,0,0,.55); } 100% { box-shadow: 0 16px 40px rgba(0,0,0,.55); } }
+
+/* G1.9 — at 0 life the whole health area fills red with white "YOU ARE DEAD" */
+.pl-dead {
+  position: absolute; inset: 0; z-index: 4; display: flex; align-items: center; justify-content: center;
+  border-radius: 16px; background: linear-gradient(160deg, rgba(214,28,40,.97), rgba(150,12,22,.97));
+  color: #fff; font-size: 15px; font-weight: 900; letter-spacing: .16em; text-transform: uppercase;
+  text-shadow: 0 2px 8px rgba(0,0,0,.45);
+}
+.pl-dead[hidden] { display: none; }
+.pl-cluster.pl-is-dead .pl-pill { border-color: rgba(229,72,77,.7); }
+
+/* pending "+N / −N" readout (G1.5) */
+.pl-math {
+  height: 0; opacity: 0; overflow: hidden; font-size: 13px; font-weight: 800;
+  font-variant-numeric: tabular-nums; letter-spacing: .02em; color: #9fb0c6;
+  transition: opacity .12s ease; white-space: nowrap;
+}
+.pl-math.show { height: auto; opacity: 1; margin-top: 1px; }
+.pl-math.neg { color: #ff8a8f; }
+.pl-math.pos { color: #6fe3a0; }
+
+/* poison badge — green, top-right of the pill */
+.pl-poison {
+  position: absolute; top: -9px; right: -8px; z-index: 5; display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 8px; border-radius: 999px; background: #3fb950; color: #06270f;
+  border: 1px solid rgba(0,0,0,.25); box-shadow: 0 4px 12px rgba(63,185,80,.5); font-weight: 800; font-size: 12px;
+}
+.pl-poison[hidden] { display: none; }
+.pl-poison-i { font-size: 12px; line-height: 1; }
+.pl-poison b { font-variant-numeric: tabular-nums; }
+
+/* one-shot pulse label (Draw / Conceded) over the pill */
+.pl-flash {
+  position: absolute; left: 50%; top: -14px; transform: translate(-50%, 0); z-index: 6;
+  padding: 3px 12px; border-radius: 999px; background: rgba(43,212,192,.16);
+  border: 1px solid rgba(43,212,192,.5); color: #2bd4c0; font-size: 11px; font-weight: 800;
+  letter-spacing: .06em; text-transform: uppercase; opacity: 0; pointer-events: none; white-space: nowrap;
+}
+.pl-flash.go { animation: plFlash .7s ease-out; }
+@keyframes plFlash { 0% { opacity: 0; transform: translate(-50%, 6px) scale(.85); } 25% { opacity: 1; transform: translate(-50%, -2px) scale(1.05); } 100% { opacity: 0; transform: translate(-50%, -16px) scale(1); } }
+
+/* ============================================================
+   SHARED MODAL SHELL (escapes board overflow; fixed, high z)
+   ============================================================ */
+.pl-modal {
+  position: fixed; inset: 0; z-index: 140; display: flex; align-items: center; justify-content: center;
+  padding: 20px; background: rgba(5,9,15,.6); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  font-family: Inter, system-ui, sans-serif;
+}
+.pl-sheet {
+  position: relative; width: min(360px, 94vw); max-height: 88vh; overflow-y: auto;
+  background: linear-gradient(180deg, #10211d, #0b1622); border: 1px solid rgba(43,212,192,.30);
+  border-radius: 18px; box-shadow: 0 30px 80px rgba(0,0,0,.65); color: #e9eef6; padding: 18px 18px 20px;
+}
+.pl-sheet-x {
+  position: absolute; top: 12px; right: 12px; display: grid; place-items: center; width: 32px; height: 32px;
+  border-radius: 50%; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.14);
+  color: #cdd6e6; cursor: pointer;
+}
+.pl-sheet-x:hover { background: rgba(255,255,255,.12); color: #fff; }
+.pl-sheet-x svg { width: 15px; height: 15px; }
+
+.pl-kick { margin: 0; color: #2bd4c0; font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+.pl-sheet-hd { display: flex; align-items: center; gap: 13px; padding: 4px 36px 12px 2px; }
+.pl-sheet-tt h3 { margin: 2px 0 0; font-size: 20px; font-weight: 800; letter-spacing: .01em; }
+
+/* ============================================================
+   SCOOP / CONCEDE CONFIRM (G1.3) — red Confirm · green Cancel
+   ============================================================ */
+.pl-confirm { width: min(340px, 92vw); text-align: center; padding: 22px 20px 20px; }
+.pl-confirm-t { margin: 0 0 8px; font-size: 19px; font-weight: 800; letter-spacing: .01em; }
+.pl-confirm-p { margin: 0 0 18px; color: #c7d2e2; font-size: 13.5px; line-height: 1.5; }
+.pl-confirm-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
+.pl-cbtn {
+  cursor: pointer; background: transparent; border: 1px solid transparent; border-radius: 10px;
+  padding: 10px 20px; font-size: 15px; font-weight: 800; letter-spacing: .02em;
+  transition: background .12s ease, color .12s ease, border-color .12s ease, transform .07s ease;
+}
+.pl-cbtn:active { transform: translateY(1px); }
+.pl-cbtn-confirm { color: #ff5a63; }
+.pl-cbtn-confirm:hover { background: rgba(229,72,77,.15); border-color: rgba(229,72,77,.55); color: #ff8a8f; }
+.pl-cbtn-cancel { color: #3fb950; }
+.pl-cbtn-cancel:hover { background: rgba(63,185,80,.14); border-color: rgba(63,185,80,.55); color: #6fe3a0; }
+
+/* ============================================================
+   COMMANDER-DAMAGE SHEET (G1.8) — card-art tiles, −/+ per opponent
+   ============================================================ */
+.pl-cd-sheet { width: min(440px, 94vw); }
+.pl-cd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(122px, 1fr)); gap: 10px; margin-top: 4px; }
+.pl-cd-empty { margin: 4px 0 0; color: #8a98ad; font-size: 12.5px; }
+.pl-cd-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 8px 10px;
+  border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.03); border-radius: 12px;
+}
+.pl-cd-tile.me { border-color: rgba(43,212,192,.35); background: rgba(43,212,192,.06); }
+.pl-cd-art {
+  width: 100%; height: 64px; border-radius: 8px; background-size: cover; background-position: center 22%;
+  border: 1px solid rgba(255,255,255,.16); box-shadow: 0 4px 12px rgba(0,0,0,.4);
+}
+.pl-cd-art.blank { background: radial-gradient(circle at 50% 35%, #213244, #0c1622); }
+.pl-cd-nm {
+  font-size: 11.5px; font-weight: 700; text-align: center; line-height: 1.2; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.pl-cd-owner { font-size: 10px; font-weight: 700; color: #8a98ad; letter-spacing: .03em; }
+.pl-cd-tot { font-size: 11px; font-weight: 800; letter-spacing: .03em; color: #9fb2c8; background: rgba(255,255,255,.07); border-radius: 999px; padding: 2px 9px; font-variant-numeric: tabular-nums; }
+.pl-cd-tot.warn { color: #ffd08a; background: rgba(245,158,11,.16); }
+.pl-cd-tot.lethal { color: #ff8f9e; background: rgba(244,63,94,.18); }
+.pl-cd-tot.me { background: transparent; color: #6b7b91; }
+.pl-cd-steps { display: inline-flex; align-items: center; gap: 8px; }
+.pl-cd-b {
+  cursor: pointer; width: 32px; height: 32px; border-radius: 9px; line-height: 1; display: grid; place-items: center;
+  border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.06); color: #fff;
+  font-size: 18px; font-weight: 800; transition: background .12s ease, color .12s ease, border-color .12s ease, transform .07s ease;
+}
+.pl-cd-b:active { transform: scale(.92); }
+.pl-cd-minus:hover { background: rgba(229,72,77,.2); border-color: rgba(229,72,77,.55); color: #ffb4b6; }
+.pl-cd-plus:hover { background: #2bd4c0; border-color: #2bd4c0; color: #06302b; }
+.pl-cd-b[disabled] { opacity: .32; cursor: not-allowed; }
+.pl-cd-b[disabled]:hover { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.16); color: #fff; }
+.pl-cd-hint { margin: 12px 0 0; color: #8a98ad; font-size: 11px; line-height: 1.5; }
+
+/* ---- reduced motion: no pulses/flashes ---- */
+@media (prefers-reduced-motion: reduce) {
+  .pl-life.hit, .pl-life.heal, .pl-pill.hit, .pl-pill.heal, .pl-flash.go { animation: none; }
+}

@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Sigil — Magic table tracker</title>
+    <meta name="description" content="Sigil — a free, arcane multiplayer table for Magic: The Gathering. Life counter, deck builder, and a full virtual tabletop in your browser." />
+    <meta name="theme-color" content="#070d1a" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="table.css" />
+    <link rel="stylesheet" href="play-shell.css" />
+    <link rel="stylesheet" href="play-hud.css" />
+    <link rel="stylesheet" href="play-life.css" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0&family=Inter:wght@400;500;600;700;800;900&family=Cinzel:wght@500;600;700;800;900&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Spline+Sans+Mono:wght@500;600&display=swap" />
+    <!-- Arcane Foil design system — loaded last so its :root tokens win the cascade -->
+    <link rel="stylesheet" href="theme.css" />
+    <link rel="stylesheet" href="home.css" />
+    <link rel="stylesheet" href="pages.css" />
+  </head>
+  <body>
+    <!-- 3D landing backdrop lives at body level as a permanent fixed layer, so the tab system
+         never sets it to display:none (which broke its WebGL compositor layer on return). It is
+         shown only on the Home tab via opacity (see home.css / body.on-home). -->
+    <div class="home-sky" id="homeSky" aria-hidden="true">
+      <canvas class="home-canvas" id="homeCanvas"></canvas>
+      <div class="home-veil"></div>
+    </div>
+    <main class="app-shell">
+      <header class="app-nav" aria-label="Primary">
+        <a class="brand-mark" href="#home" data-page-target="home" aria-label="Sigil — home">
+          <span class="brand-seal" aria-hidden="true">
+            <svg viewBox="0 0 48 48" width="30" height="30" role="img" aria-hidden="true">
+              <defs>
+                <radialGradient id="sigilGlow" cx="50%" cy="42%" r="60%">
+                  <stop offset="0%" stop-color="#8fd0ff" stop-opacity="0.55" />
+                  <stop offset="100%" stop-color="#4da3ff" stop-opacity="0" />
+                </radialGradient>
+              </defs>
+              <circle cx="24" cy="24" r="21" fill="url(#sigilGlow)" />
+              <circle cx="24" cy="24" r="18.5" fill="none" stroke="#8fd0ff" stroke-width="1.3" opacity="0.85" />
+              <polygon points="24,7 40.2,18.8 34,37.8 14,37.8 7.8,18.8" fill="none" stroke="#6fa8e0" stroke-width="1.1" opacity="0.7" />
+              <circle cx="24" cy="7" r="3.1" fill="#eef0ea" stroke="#070d1a" stroke-width="0.6" />
+              <circle cx="40.2" cy="18.8" r="3.1" fill="#4aa3e6" stroke="#070d1a" stroke-width="0.6" />
+              <circle cx="34" cy="37.8" r="3.1" fill="#9b86c4" stroke="#070d1a" stroke-width="0.6" />
+              <circle cx="14" cy="37.8" r="3.1" fill="#e0655c" stroke="#070d1a" stroke-width="0.6" />
+              <circle cx="7.8" cy="18.8" r="3.1" fill="#46b277" stroke="#070d1a" stroke-width="0.6" />
+            </svg>
+          </span>
+          <span class="brand-word">Sigil</span>
+        </a>
+        <nav class="nav-tabs" aria-label="App pages">
+          <button type="button" class="active" data-page-target="home" aria-current="page">Home</button>
+          <button type="button" id="playTabButton">Play</button>
+          <button type="button" data-page-target="deck">Deck builder</button>
+          <button type="button" data-page-target="ranked">Ranked</button>
+          <button type="button" data-page-target="profile">Profile</button>
+          <button type="button" data-page-target="tournaments">Tournaments</button>
+          <button type="button" data-page-target="watch">Watch</button>
+          <button type="button" data-page-target="life">Paper Tracker</button>
+        </nav>
+        <div class="nav-actions"></div>
+      </header>
+
+      <section class="page-panel home-page" data-page="home" id="homePage" aria-label="Home">
+        <div class="home-stage" id="homeStage">
+          <div class="home-content" id="homeRoot">
+            <!-- React renders the full landing here; this static markup is the pre-hydration / no-JS fallback -->
+            <section class="home-section home-hero-sec">
+              <div class="home-hero">
+                <p class="home-eyebrow">Multiplayer tabletop · Magic: The Gathering</p>
+                <h1 class="home-title foil-text">Sigil</h1>
+                <p class="home-tagline">Your arcane table for every game — life totals, decks, and a full virtual battlefield, right in the browser.</p>
+                <div class="home-cta">
+                  <button type="button" class="home-btn home-btn-ghost" data-home-go="life">Paper tracking</button>
+                  <button type="button" class="home-btn home-btn-primary" data-home-go="play">Enter the table</button>
+                  <button type="button" class="home-btn home-btn-ghost" data-home-go="deck">Build a deck</button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-panel life-page active" data-page="life" id="lifeCounterPage" aria-label="Life counter">
+        <section class="tools" aria-label="Shared tools">
+          <button type="button" id="randomButton">Random player</button>
+          <button type="button" id="historyButton">Table log <span id="historyCount">0</span></button>
+          <button type="button" id="keywordsButton">Keywords</button>
+          <button type="button" id="slangButton">Slang &amp; archetypes</button>
+          <div class="roll-tools" aria-label="Dice and coin tools">
+            <button type="button" data-roll="4"><span class="roll-icon die-d6" aria-hidden="true">4</span><span>D4</span></button>
+            <button type="button" data-roll="6"><span class="roll-icon die-d6" aria-hidden="true">6</span><span>D6</span></button>
+            <button type="button" data-roll="8"><span class="roll-icon die-d8" aria-hidden="true">8</span><span>D8</span></button>
+            <button type="button" data-roll="10"><span class="roll-icon die-d10" aria-hidden="true">10</span><span>D10</span></button>
+            <button type="button" data-roll="12"><span class="roll-icon die-d12" aria-hidden="true">12</span><span>D12</span></button>
+            <button type="button" data-roll="20"><span class="roll-icon die-d20" aria-hidden="true">20</span><span>D20</span></button>
+            <button type="button" data-roll="100"><span class="roll-icon die-d20" aria-hidden="true">%</span><span>D100</span></button>
+            <button type="button" data-roll="coin"><span class="roll-icon coin-icon" aria-hidden="true">$</span><span>Coin</span></button>
+          </div>
+          <div class="roll-display" id="rollDisplay" aria-live="polite">
+            <span class="roll-label">Roll</span>
+            <output id="rollResult">-</output>
+          </div>
+          <div class="roll-display random-display" id="randomDisplay" aria-live="polite">
+            <span class="roll-label">Random</span>
+            <output id="randomResult">-</output>
+          </div>
+        </section>
+
+        <section class="turn-tracker-strip" id="turnTrackerPanel" aria-label="Turn tracker">
+          <div class="turn-tracker-head">
+            <label class="turn-tracker-toggle">
+              <input id="turnTrackingEnabled" type="checkbox" checked />
+              <span>Enable turn tracking</span>
+            </label>
+            <output class="last-action-output" id="tableMessage" aria-live="polite">Ready for the next game.</output>
+            <output class="turn-tracker-text" id="turnTrackerText">Total turns: 0 | Turn cycles: 0 | Next player: Player 1</output>
+          </div>
+          <div class="turn-tracker-controls">
+            <button type="button" class="mini-button" id="turnDown" aria-label="Undo last turn">Prev turn</button>
+            <button type="button" class="mini-button undo-button" id="undoButton" aria-label="Undo last board action">Undo</button>
+            <button type="button" class="mini-button" id="turnUp" aria-label="Pass turn">Pass turn</button>
+          </div>
+        </section>
+
+        <section class="controls" aria-label="Game setup">
+          <form class="rules-tools" id="rulesSearch" aria-label="Official Magic rules search">
+            <a href="https://magic.wizards.com/en/rules" target="_blank" rel="noopener">Rules</a>
+            <input id="rulesQuery" type="search" placeholder="Search official rules" />
+            <button type="submit">Search</button>
+          </form>
+
+          <div class="control-group">
+            <label for="playerCount">Players</label>
+            <div class="segmented" id="playerCount" role="group" aria-label="Number of players">
+              <button type="button" data-players="2">2</button>
+              <button type="button" data-players="3">3</button>
+              <button type="button" data-players="4" class="active">4</button>
+              <button type="button" data-players="5">5</button>
+              <button type="button" data-players="6">6</button>
+            </div>
+          </div>
+
+          <div class="control-group">
+            <label for="startLife">Starting life</label>
+            <div class="stepper">
+              <button type="button" class="mini-button" data-start-life="-1" aria-label="Decrease starting life">&minus;</button>
+              <input id="startLife" type="number" inputmode="numeric" min="1" max="999" value="40" />
+              <button type="button" class="mini-button" data-start-life="1" aria-label="Increase starting life">+</button>
+            </div>
+          </div>
+
+          <div class="control-group">
+            <label>Quick modes</label>
+            <div class="mode-buttons">
+              <button type="button" data-mode-life="20">Standard</button>
+              <button type="button" data-mode-life="40" class="active">Commander</button>
+            </div>
+          </div>
+
+          <div class="control-group">
+            <label>Layout</label>
+            <div class="mode-buttons">
+              <button type="button" data-layout="auto" class="active">Auto</button>
+              <button type="button" data-layout="duel">2x2</button>
+              <button type="button" data-layout="pod">3x3</button>
+            </div>
+          </div>
+
+          <div class="control-group new-game-control">
+            <label>Game</label>
+            <button class="text-button new-game-button" id="resetButton" type="button">New game</button>
+          </div>
+        </section>
+
+        <section class="board" id="board" aria-label="Player life counters"></section>
+      </section>
+
+      <section class="page-panel deck-page deck-builder" data-page="deck" id="deckBuilder" aria-label="MTG deck builder">
+        <div class="deck-builder-head">
+          <div>
+            <p class="section-kicker">Deck builder</p>
+            <h1>Build, save, and bring decks to the table</h1>
+          </div>
+          <div class="deck-toolbar">
+            <button type="button" id="newDeckButton">New deck</button>
+            <button type="button" id="saveDeckButton">Save deck to library</button>
+            <button type="button" id="importDeckToTableButton">Import to table</button>
+          </div>
+        </div>
+
+        <div class="deck-import-strip">
+          <label for="moxfieldDeckInput">Moxfield / Archidekt deck</label>
+          <input id="moxfieldDeckInput" type="text" placeholder="Paste a Moxfield or Archidekt deck link" />
+          <button type="button" id="importMoxfieldDeckButton">Import deck</button>
+          <button type="button" id="openPreconsButton">Browse precons</button>
+          <textarea id="deckListInput" rows="4" placeholder="…or paste a decklist (e.g. 1 Sol Ring, 30 Mountain) then Import list" style="width:100%;margin-top:8px;resize:vertical"></textarea>
+          <button type="button" id="importDeckListButton">Import list</button>
+        </div>
+        <div class="deck-toast" id="deckToast" hidden></div>
+
+        <section class="saved-decks-panel" aria-label="Saved decks">
+          <div class="saved-decks-head">
+            <div>
+              <p class="section-kicker">Saved decks</p>
+              <h2>Your commander library</h2>
+            </div>
+            <p id="savedDecksSummary">No saved decks yet.</p>
+          </div>
+          <div class="saved-decks-grid" id="savedDecksGrid"></div>
+        </section>
+
+        <div class="deck-builder-grid">
+          <form class="deck-search-panel" id="deckCardSearch" autocomplete="off">
+            <div class="deck-search-row">
+              <input id="deckSearchInput" type="search" placeholder="Search Scryfall cards" aria-label="Search Scryfall cards" />
+              <button type="submit">Search</button>
+              <div class="deck-review-stack">
+                <button type="button" id="reviewDeckButton">Review deck</button>
+                <button type="button" id="drawHandButton">Draw hand</button>
+              </div>
+            </div>
+            <div class="deck-filter-row">
+              <label>
+                Format
+                <select id="deckSearchFormat">
+                  <option value="commander">Commander</option>
+                  <option value="standard">Standard</option>
+                  <option value="modern">Modern</option>
+                  <option value="pioneer">Pioneer</option>
+                  <option value="legacy">Legacy</option>
+                  <option value="vintage">Vintage</option>
+                  <option value="">Any</option>
+                </select>
+              </label>
+              <label>
+                Color ID
+                <input id="deckSearchColors" type="text" placeholder="wubrg" maxlength="5" />
+              </label>
+              <label>
+                Sort
+                <select id="deckSearchSort">
+                  <option value="name">Name</option>
+                  <option value="edhrec">EDHREC</option>
+                  <option value="released">Newest</option>
+                  <option value="cmc">Mana value</option>
+                </select>
+              </label>
+            </div>
+            <div class="deck-search-suggestions" id="deckSearchSuggestions" hidden></div>
+            <div class="deck-results" id="deckResults" aria-live="polite"></div>
+          </form>
+
+          <section class="deck-editor-panel" aria-label="Active deck">
+            <div class="deck-editor-fields">
+              <label>
+                Deck name
+                <input id="deckNameInput" type="text" />
+              </label>
+              <label>
+                Format
+                <select id="deckFormatInput">
+                  <option value="commander">Commander</option>
+                  <option value="standard">Standard</option>
+                  <option value="modern">Modern</option>
+                  <option value="pioneer">Pioneer</option>
+                  <option value="legacy">Legacy</option>
+                  <option value="vintage">Vintage</option>
+                </select>
+              </label>
+              <div class="ai-bracket-field">
+                <span>AI bracket</span>
+                <output id="deckBracketOutput">Review needed</output>
+              </div>
+              <label class="deck-notes-field">
+                Notes
+                <textarea id="deckNotesInput" rows="2" placeholder="Goals, budget, upgrades, table notes"></textarea>
+              </label>
+            </div>
+            <div class="deck-stats" id="deckStats"></div>
+            <div class="deck-mana-profile" id="deckManaProfile"></div>
+            <div class="deck-warnings" id="deckWarnings" aria-live="polite"></div>
+            <div class="deck-ai-review" id="deckAiReview" hidden></div>
+            <div class="deck-list-search">
+              <label for="deckListSearchInput">Search deck</label>
+              <input id="deckListSearchInput" type="search" placeholder="Find cards already in this deck" />
+            </div>
+            <div class="deck-list" id="deckList"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="page-panel play-page" data-page="table" id="playPage" aria-label="Virtual tabletop">
+        <div class="tbl-controls">
+          <button type="button" class="primary" id="tblLoad">Load deck</button>
+          <label class="tbl-status" for="tblDeckSelect">Deck</label>
+          <select id="tblDeckSelect" aria-label="Choose deck"></select>
+          <button type="button" id="tblDraw">Draw (d)</button>
+          <button type="button" id="tblUntap">Untap all (u)</button>
+          <button type="button" id="tblShuffle">Shuffle</button>
+          <button type="button" id="tblMulligan">Mulligan</button>
+          <button type="button" id="tblUndo">Undo (z)</button>
+          <span class="grow"></span>
+          <span class="tbl-status" id="tblStatus">No game loaded.</span>
+          <span class="tbl-hotkeys">Hover a card: <kbd>t</kbd>ap <kbd>f</kbd>lip <kbd>g</kbd>rave <kbd>e</kbd>xile <kbd>h</kbd>and <kbd>x</kbd> copy</span>
+        </div>
+        <div class="tbl-main">
+          <div class="tbl-viewport" id="tblViewport">
+            <div class="tbl-surface" id="tblSurface"></div>
+            <div class="tbl-hand" id="tblHand"></div>
+          </div>
+          <div class="tbl-rail">
+            <div class="tbl-preview" id="tblPreview"><span class="hint">Hover a card to preview</span></div>
+            <div class="tbl-log-head">Action log</div>
+            <div class="tbl-log" id="tblLog"></div>
+          </div>
+        </div>
+      </section>
+      <section class="page-panel" data-page="ranked" id="rankedPage" aria-label="Ranked">
+        <div id="rankedRoot"></div>
+      </section>
+
+      <section class="page-panel" data-page="profile" id="profilePage" aria-label="Profile">
+        <div id="profileRoot"></div>
+      </section>
+
+      <section class="page-panel" data-page="tournaments" id="tournamentsPage" aria-label="Tournaments">
+        <div id="tournamentsRoot"></div>
+      </section>
+
+      <section class="page-panel" data-page="watch" id="watchPage" aria-label="Watch">
+        <div id="watchRoot"></div>
+      </section>
+
+    </main>
+
+    <template id="playerTemplate">
+      <article class="player-card">
+        <div class="card-art" aria-hidden="true"></div>
+        <div class="card-shade" aria-hidden="true"></div>
+        <div class="player-header">
+          <div class="player-name-wrap">
+            <input class="player-name" type="text" />
+            <select class="saved-deck-select" aria-label="Load saved deck">
+              <option value="">Saved decks</option>
+            </select>
+          </div>
+          <button type="button" data-action="set-art-deck">Set art/deck</button>
+          <button type="button" data-action="arts">All arts</button>
+          <button type="button" data-action="smart">Smart counters</button>
+          <button type="button" data-action="deck">Deck</button>
+          <button class="icon-button small" type="button" data-action="color" aria-label="Change player color" title="Change player color">
+            <span aria-hidden="true">&#9679;</span>
+          </button>
+        </div>
+
+        <form class="deck-tools">
+          <button class="deck-import-close" type="button" data-action="close-deck-import" aria-label="Close deck import">X</button>
+          <textarea class="deck-import" placeholder="Commander card, Moxfield link, deck ID, or pasted decklist"></textarea>
+        </form>
+        <div class="life-area">
+          <button class="life-button" type="button" data-life="-1" aria-label="Lose 1 life">&minus;</button>
+          <output class="life-total"></output>
+          <button class="life-button" type="button" data-life="1" aria-label="Gain 1 life">+</button>
+        </div>
+        <button class="commander-damage-button" type="button" data-action="commander-damage">Commander Damage</button>
+
+        <div class="counter-grid"></div>
+        <details class="counter-picker">
+          <summary>More counters</summary>
+          <div class="counter-options"></div>
+        </details>
+        <div class="death-overlay" aria-hidden="true">
+          <div class="death-skull">&#9760;</div>
+          <strong>You are dead!</strong>
+          <span class="death-reason"></span>
+        </div>
+      </article>
+    </template>
+
+    <div class="suggestions" id="globalSuggestions" hidden></div>
+    <div class="rules-suggestions" id="rulesSuggestions" hidden></div>
+
+    <dialog id="historyModal" class="history-modal">
+      <div class="history-panel">
+        <div class="modal-header">
+          <div>
+            <p class="section-kicker">Game log</p>
+            <h2>Table log</h2>
+          </div>
+          <div class="history-summary" id="historySummary" aria-live="polite">0 inputs recorded this game.</div>
+          <button class="icon-button small" id="closeHistoryModal" type="button" aria-label="Close table log">X</button>
+        </div>
+        <div class="history-list" id="historyList" aria-live="polite"></div>
+        <div class="history-actions">
+          <button class="text-button" type="button" id="copyHistoryButton">Copy log</button>
+          <button class="text-button" type="button" id="clearHistoryButton">Clear history</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="keywordModal" class="keyword-modal">
+      <div class="keyword-panel">
+        <div class="modal-header">
+          <div>
+            <p class="section-kicker">Reference</p>
+            <h2>Magic keywords</h2>
+          </div>
+          <input type="search" id="keywordSearch" class="keyword-search" placeholder="Filter keywords…" aria-label="Filter keywords" />
+          <button class="icon-button small" id="closeKeywordModal" type="button" aria-label="Close keywords">X</button>
+        </div>
+        <div class="keyword-list" id="keywordList" aria-live="polite"></div>
+      </div>
+    </dialog>
+
+    <dialog id="slangModal" class="keyword-modal">
+      <div class="keyword-panel">
+        <div class="modal-header">
+          <div>
+            <p class="section-kicker">Reference</p>
+            <h2>Slang &amp; archetypes</h2>
+          </div>
+          <input type="search" id="slangSearch" class="keyword-search" placeholder="Filter slang…" aria-label="Filter slang and archetypes" />
+          <button class="icon-button small" id="closeSlangModal" type="button" aria-label="Close slang">X</button>
+        </div>
+        <div class="keyword-list" id="slangList" aria-live="polite"></div>
+      </div>
+    </dialog>
+
+    <dialog id="cardModal">
+      <div class="modal-panel">
+        <div class="modal-header">
+          <h2 id="modalTitle">Cards</h2>
+          <button class="icon-button small" id="closeModal" type="button" aria-label="Close card picker">X</button>
+        </div>
+        <div class="card-preview" id="cardPreview" hidden></div>
+        <div class="modal-grid" id="modalGrid"></div>
+      </div>
+    </dialog>
+
+    <dialog id="deckImageModal" class="deck-image-modal">
+      <div class="deck-image-panel">
+        <div class="modal-header">
+          <h2 id="deckImageTitle">Card preview</h2>
+          <button class="icon-button small" id="closeDeckImageModal" type="button" aria-label="Close card preview">X</button>
+        </div>
+        <div class="deck-image-layout">
+          <div class="deck-image-main">
+            <img id="deckImagePreview" alt="" />
+            <p class="deck-image-status" id="deckImageStatus"></p>
+          </div>
+          <div class="deck-art-choice-grid" id="deckArtChoices" aria-label="Alternate card arts"></div>
+        </div>
+        <div class="deck-image-actions">
+          <button class="primary-button" id="deckImageAddButton" type="button" hidden>Add to deck</button>
+          <button class="text-button" id="deckImageCmdrButton" type="button" hidden>Set as commander</button>
+          <button class="text-button" id="selectDeckArtButton" type="button">Set art</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="deckLibraryModal" class="deck-library-modal">
+      <div class="deck-library-panel">
+        <div class="modal-header">
+          <button class="deck-library-select" id="selectDeckLibraryButton" type="button">Select deck</button>
+          <button class="icon-button small deck-library-back" id="deckLibraryBackButton" type="button" aria-label="Back to deck list">&larr;</button>
+          <h2 id="deckLibraryTitle">Deck</h2>
+          <button class="icon-button small" id="closeDeckLibraryModal" type="button" aria-label="Close deck library">X</button>
+        </div>
+        <div id="deckLibraryContent"></div>
+      </div>
+    </dialog>
+
+    <dialog id="drawHandModal" class="draw-hand-modal">
+      <div class="draw-hand-panel">
+        <div class="modal-header">
+          <h2 id="drawHandTitle">Opening hand</h2>
+          <button class="icon-button small" id="closeDrawHandModal" type="button" aria-label="Close opening hand">X</button>
+        </div>
+        <div class="draw-hand-grid" id="drawHandGrid"></div>
+        <div class="draw-hand-actions">
+          <button class="draw-hand-action primary" type="button" id="drawAgainButton">Draw again</button>
+          <button class="draw-hand-action secondary" type="button" id="closeDrawHandButton">Close</button>
+        </div>
+      </div>
+    </dialog>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <script src="web-sync.js"></script>
+    <script src="auth.js"></script>
+    <script src="app.js"></script>
+    <script src="keywords.js"></script>
+    <script src="slang.js"></script>
+    <script src="deck-builder.js"></script>
+    <script src="precons-data.js"></script>
+    <script src="precons.js"></script>
+    <script src="deck-cloud.js"></script>
+    <script src="table-core.js"></script>
+    <script src="table-sync.js"></script>
+    <script src="voice.js"></script>
+    <!-- Rules engine (R0–R4): available as window.MTGEngine / MTGCards / MTGRules* / MTGEngineAssist.
+         Pure UMD modules, inert at load (define globals only) — no change to existing app behavior.
+         Opt-in via MTGEngineAssist.analyze(state) for advisory SBA + effective P/T overlays. -->
+    <script src="engine-core.js"></script>
+    <script src="card-defs.js"></script>
+    <script src="rules-layers.js"></script>
+    <script src="rules-combat.js"></script>
+    <script src="rules-triggers.js"></script>
+    <script src="rules-sba.js"></script>
+    <script src="engine-assist.js"></script>
+    <script src="combat-duel.js"></script>
+    <script src="table.js"></script>
+    <script src="engine-assist-ui.js"></script>
+    <script src="play-shell.js"></script>
+    <script src="play-hud.js"></script>
+    <script src="play-life.js"></script>
+    <script src="whatsnew.js"></script>
+    <script src="ranked.js"></script>
+    <script src="profile.js"></script>
+    <script src="tournaments.js"></script>
+    <script src="watch.js"></script>
+    <script src="onboarding.js"></script>
+
+    <!-- Landing hero: libraries vendored locally as classic scripts so the 3D
+         works when index.html is opened over file:// AND offline (no ES modules,
+         no importmap, no CDN). home.js fails closed to the static hero. -->
+    <script defer src="vendor/three.min.js"></script>
+    <script defer src="vendor/react.production.min.js"></script>
+    <script defer src="vendor/react-dom.production.min.js"></script>
+    <script defer src="vendor/htm.umd.js"></script>
+    <script defer src="home.js"></script>
+  </body>
+</html>

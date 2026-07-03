@@ -1,0 +1,15 @@
+{
+  "name": "magic-table-tracker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "hyperframes:lint": "cd hyperframes/mtg-table-tracker && npx hyperframes lint",
+    "hyperframes:validate": "cd hyperframes/mtg-table-tracker && npx hyperframes validate",
+    "hyperframes:inspect": "cd hyperframes/mtg-table-tracker && npx hyperframes inspect",
+    "hyperframes:preview": "cd hyperframes/mtg-table-tracker && npx hyperframes preview",
+    "hyperframes:render": "cd hyperframes/mtg-table-tracker && npx hyperframes render --quality high --output ../../dist/magic-table-tracker-promo.mp4"
+  },
+  "devDependencies": {
+    "hyperframes": "0.6.114"
+  }
+}

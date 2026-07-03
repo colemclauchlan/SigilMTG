@@ -1,0 +1,15 @@
+# dependencies
+node_modules/
+dist/
+dist-ssr/
+
+# env — NEVER commit local secrets
+.env.local
+.env.*.local
+
+# editor
+.DS_Store
+*.local
+
+.vercel
+.env*
