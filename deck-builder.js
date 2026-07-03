@@ -1285,7 +1285,10 @@ const manaProfileColors = [
 ];
 
 function getManaCostSymbols(card) {
-  return [...String(card.mana_cost || "").matchAll(/\{([^}]+)\}/g)].map((match) => match[1].toUpperCase());
+  let mc = String(card.mana_cost || "");
+  // MDFC / adventure cards keep their cost on the front face; fall back so their colors still count.
+  if (!mc && Array.isArray(card.card_faces) && card.card_faces[0]) mc = String(card.card_faces[0].mana_cost || "");
+  return [...mc.matchAll(/\{([^}]+)\}/g)].map((match) => match[1].toUpperCase());
 }
 
 function landProducesColor(entry, color) {

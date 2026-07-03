@@ -195,7 +195,22 @@
     actions.insertBefore(wn, actions.firstChild);
   }
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mountButtons);
-  else mountButtons();
+  // Auto-open the changelog once when the version bumps (returning users only — brand-new
+  // visitors and in-game players aren't interrupted).
+  function autoOpenIfNew() {
+    try {
+      var latest = (CHANGELOG[0] && CHANGELOG[0].version) || "";
+      if (!latest) return;
+      var seen = localStorage.getItem("mtg-whatsnew-seen");
+      if (seen == null) { localStorage.setItem("mtg-whatsnew-seen", latest); return; }
+      if (seen === latest) return;
+      if (document.body && document.body.classList.contains("play-fs")) { localStorage.setItem("mtg-whatsnew-seen", latest); return; }
+      setTimeout(function () { try { openWhatsNew(); } catch (e) {} }, 900);
+      localStorage.setItem("mtg-whatsnew-seen", latest);
+    } catch (e) {}
+  }
+  function boot() { mountButtons(); autoOpenIfNew(); }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
   window.MTGWhatsNew = { open: openWhatsNew, openBug: openBugReport };
 })();
