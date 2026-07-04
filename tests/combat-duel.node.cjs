@@ -53,5 +53,17 @@ ok(fc.toPlayer === 4, "full combat: blocked 3/3 + unblocked 4/4 -> 4 to player")
 var fc2 = D.resolveFullCombat([{ attacker: C(6, 6, { keywords: ["Trample"] }), blockers: [C(2, 2)] }, { attacker: C(2, 2), blockers: [] }]);
 ok(fc2.toPlayer === 6, "full combat: 6/6 trample-over (4) + unblocked 2/2 (2) -> 6 to player");
 
+// block legality (canBlock / legalBlockGroup)
+function K(p, t, ks, x) { return Object.assign({ power: p, toughness: t, keywords: ks || [] }, x || {}); }
+ok(D.canBlock(K(2, 2, ["Flying"]), K(2, 2)).ok === false, "flyer can't be blocked by a ground creature");
+ok(D.canBlock(K(2, 2, ["Flying"]), K(2, 2, ["Reach"])).ok === true, "reach can block a flyer");
+ok(D.canBlock(K(2, 2, ["Flying"]), K(2, 2, ["Flying"])).ok === true, "flyer can block a flyer");
+ok(D.legalBlockGroup(K(3, 3, ["Menace"]), [K(2, 2)]).ok === false, "menace requires two blockers");
+ok(D.legalBlockGroup(K(3, 3, ["Menace"]), [K(2, 2), K(2, 2)]).ok === true, "menace satisfied by two blockers");
+ok(D.canBlock(K(2, 2, ["Fear"]), K(2, 2, [], { colors: ["W"] })).ok === false, "fear can't be blocked by white");
+ok(D.canBlock(K(2, 2, ["Fear"]), K(2, 2, [], { colors: ["B"] })).ok === true, "fear can be blocked by black");
+ok(D.canBlock(K(2, 2, ["Skulk"]), K(3, 3)).ok === false, "skulk can't be blocked by higher power");
+ok(D.canBlock(K(2, 2, [], { oracle: "Protection from red" }), K(2, 2, [], { colors: ["R"] })).ok === false, "protection from red blocks red blockers");
+
 console.log("\n" + pass + " passed, " + fail + " failed");
 process.exit(fail ? 1 : 0);

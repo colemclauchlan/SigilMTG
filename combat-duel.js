@@ -199,7 +199,29 @@
     return { toPlayer: toPlayer, lifegain: { attackers: life }, results: results, steps: steps };
   }
 
-  var api = { resolveDuel: resolveDuel, resolveCombat: resolveCombat, resolveFullCombat: resolveFullCombat, _eff: eff, _has: has, _protectedFrom: protectedFrom };
+  // ---- block legality (declaration-time evasion / protection / menace rules) ----
+  function _lc(s) { return String(s == null ? "" : s).toLowerCase(); }
+  function _colors(card) { return (card.colors || []).map(_lc); }
+  function _isArtifact(card) { var t = card.type || card.type_line || ""; if (Array.isArray(card.types)) t = card.types.join(" "); return _lc(t).indexOf("artifact") >= 0; }
+  function _shares(a, b) { var ca = _colors(a), cb = _colors(b); for (var i = 0; i < ca.length; i++) if (cb.indexOf(ca[i]) >= 0) return true; return false; }
+  function canBlock(attacker, blocker) {
+    if (has(attacker, "flying") && !(has(blocker, "flying") || has(blocker, "reach"))) return { ok: false, reason: "flying (needs flying or reach)" };
+    if (has(attacker, "shadow") !== has(blocker, "shadow")) return { ok: false, reason: "shadow" };
+    if (has(attacker, "horsemanship") && !has(blocker, "horsemanship")) return { ok: false, reason: "horsemanship" };
+    if (has(attacker, "fear") && !(_colors(blocker).indexOf("b") >= 0 || _isArtifact(blocker))) return { ok: false, reason: "fear (needs black or artifact)" };
+    if (has(attacker, "intimidate") && !(_isArtifact(blocker) || _shares(attacker, blocker))) return { ok: false, reason: "intimidate" };
+    if (protectedFrom(attacker, blocker)) return { ok: false, reason: "protection" };
+    if (has(attacker, "skulk") && eff(blocker).p > eff(attacker).p) return { ok: false, reason: "skulk (blocker power too high)" };
+    return { ok: true, reason: "" };
+  }
+  function legalBlockGroup(attacker, blockers) {
+    blockers = blockers || [];
+    for (var i = 0; i < blockers.length; i++) { var c = canBlock(attacker, blockers[i]); if (!c.ok) return { ok: false, reason: (blockers[i].name || ("blocker " + (i + 1))) + ": " + c.reason }; }
+    if (blockers.length === 1 && has(attacker, "menace")) return { ok: false, reason: "menace (must be blocked by two or more)" };
+    return { ok: true, reason: "" };
+  }
+
+  var api = { resolveDuel: resolveDuel, resolveCombat: resolveCombat, resolveFullCombat: resolveFullCombat, canBlock: canBlock, legalBlockGroup: legalBlockGroup, _eff: eff, _has: has, _protectedFrom: protectedFrom };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.MTGDuel = api;
 })(typeof window !== "undefined" ? window : (typeof globalThis !== "undefined" ? globalThis : this));
