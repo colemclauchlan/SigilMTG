@@ -742,7 +742,8 @@
     if (!el.vitals || !state) return;
     var p = state.players[mySeat]; if (!p) { el.vitals.innerHTML = ""; return; }
     var PHASES = [["untap", "Untap"], ["upkeep", "Upkeep"], ["draw", "Draw"], ["main1", "Main 1"], ["combat", "Combat"], ["main2", "Main 2"], ["end", "End"]];
-    var phaseHtml = '<div class="vit-phases">' + PHASES.map(function (ph) { return '<button data-ph="' + ph[0] + '"' + (state.phase === ph[0] ? ' class="on"' : "") + ">" + ph[1] + "</button>"; }).join("") + "</div>";
+    var _myTurn = (state.activeSeat === mySeat);
+    var phaseHtml = '<div class="vit-phases' + (_myTurn ? "" : " off-turn") + '">' + PHASES.map(function (ph) { return '<button data-ph="' + ph[0] + '"' + (state.phase === ph[0] && _myTurn ? ' class="on"' : "") + ">" + ph[1] + "</button>"; }).join("") + "</div>";
     var html = '<div class="vit-turn">Turn ' + (state.turn || 1) + (online ? " · seat " + mySeat : "") + '</div>' + phaseHtml + '<div class="vit-life"><span class="vit-label">Life</span>' +
       '<button data-v="-5">-5</button><button data-v="-1">-1</button>' +
       '<span class="vit-num">' + p.life + '</span>' +
@@ -1484,8 +1485,8 @@
       if (r.bDies) dispatch({ t: "card_move", instanceId: toId, toZone: "graveyard" });
       var tramp = (r.trample && (r.trample.toA + r.trample.toB)) || 0;
       var outcome = (r.aDies && r.bDies) ? "both die" : r.aDies ? (esc(A.name) + " dies") : r.bDies ? (esc(B.name) + " dies") : "both survive";
-      if (tramp) outcome += " · " + tramp + " trample";
-      log("<b>Duel</b> " + esc(A.name) + " (" + A.power + "/" + A.toughness + ") vs " + esc(B.name) + " (" + B.power + "/" + B.toughness + ") — " + outcome);
+      if (tramp) outcome += " &middot; " + tramp + " trample";
+      log("<b>Duel</b> " + esc(A.name) + " (" + A.power + "/" + A.toughness + ") vs " + esc(B.name) + " (" + B.power + "/" + B.toughness + ") &mdash; " + outcome);
       return true;
     } catch (e) { return false; }
   }
@@ -1568,15 +1569,27 @@
 
   // pile browse modal (graveyard/exile/command)
   var pileEl = null;
-  function closePile() { if (pileEl) { pileEl.remove(); pileEl = null; } }
+  var _pileZone = null;
+  function closePile() { if (pileEl) { pileEl.remove(); pileEl = null; } _pileZone = null; }
+  // Searching your library is a shuffle-triggering action (CR 701.19): reshuffle when the viewer closes.
+  function exitPile() { var wasLib = (_pileZone === "library"); closePile(); if (wasLib) { try { dispatch({ t: "library_shuffle", seat: mySeat, seed: "search-" + Date.now() }); setStatus("Library shuffled."); } catch (e) {} } }
   function openPile(zone) {
     closePile();
-    var cards = cardsIn(zone);
+    var allCards = cardsIn(zone);
+    var isLib = (zone === "library");
     var back = document.createElement("div"); back.className = "tbl-pileview";
-    back.addEventListener("click", function (e) { if (e.target === back) closePile(); });
+    back.addEventListener("click", function (e) { if (e.target === back) exitPile(); });
     var panel = document.createElement("div"); panel.className = "pv-panel pv-modern";
-    panel.innerHTML = '<div class="pv-head"><span class="pv-title">' + (PILES[zone] ? PILES[zone].label : zone) + ' <span class="pv-count">' + cards.length + '</span></span><button class="pv-x pv-x-ic" title="Close" aria-label="Close"><span class="msym">close</span></button></div>';
+    // Library search: quick card-type filter chips (multi-select OR). Types read from Scryfall type_line.
+    var FILTERS = [
+      { k: "all", label: "All", all: 1 }, { k: "creature", label: "Creatures" }, { k: "legendary", label: "Legendary" },
+      { k: "planeswalker", label: "Planeswalkers" }, { k: "instant", label: "Instants" }, { k: "sorcery", label: "Sorceries" },
+      { k: "artifact", label: "Artifacts" }, { k: "enchantment", label: "Enchantments" }, { k: "land", label: "Lands" }
+    ];
+    var filterBar = isLib ? ('<div class="pv-filters" id="pvFilters">' + FILTERS.map(function (f) { return '<button class="pv-chip' + (f.all ? " on" : "") + '" data-f="' + f.k + '">' + esc(f.label) + '</button>'; }).join("") + '</div>') : "";
+    panel.innerHTML = '<div class="pv-head"><span class="pv-title">' + (PILES[zone] ? PILES[zone].label : zone) + ' <span class="pv-count" id="pvCount">' + allCards.length + '</span></span>' + (isLib ? '<span class="pv-hint">Closing shuffles your library</span>' : "") + '<button class="pv-x pv-x-ic" title="Close" aria-label="Close"><span class="msym">close</span></button></div>' + filterBar;
     var grid = document.createElement("div"); grid.className = "pv-grid";
+    var active = {};
     // G3.26 — icon buttons with tooltips instead of raw text-button rows.
     var ACTS = [
       { to: "hand", ic: "back_hand", tip: "To hand" },
@@ -1584,7 +1597,18 @@
       { to: "library", ic: "style", tip: "Top of library" },
       { to: "exile", ic: "block", tip: "Exile" }
     ];
-    cards.forEach(function (c) {
+    function typeOf(c) { var m = imagesById[c.cardId] || imagesById[c.name] || {}; return { t: String(m.type || "").toLowerCase(), cre: !!m.isCreature }; }
+    function passes(c) {
+      var keys = Object.keys(active); if (!keys.length) return true;
+      var ti = typeOf(c);
+      return keys.some(function (k) {
+        if (k === "creature") return /creature/.test(ti.t) || ti.cre;
+        if (k === "legendary") return /legendary/.test(ti.t);
+        if (k === "land") return /\bland\b/.test(ti.t);
+        return ti.t.indexOf(k) >= 0;
+      });
+    }
+    function buildCard(c) {
       var card = document.createElement("div"); card.className = "pv-card";
       var src = imgFor(c);
       card.innerHTML = (src ? '<img src="' + src + '">' : '<div class="nm">' + esc(c.name) + "</div>") +
@@ -1600,11 +1624,32 @@
           closePile(); openPile(zone);
         };
       });
-      grid.appendChild(card);
-    });
-    if (!cards.length) grid.innerHTML = '<div class="pv-emptymsg">Nothing here yet.</div>';
+      return card;
+    }
+    function paint() {
+      var cards = allCards.filter(passes);
+      grid.innerHTML = "";
+      var cnt = document.getElementById("pvCount"); if (cnt) cnt.textContent = (cards.length !== allCards.length ? cards.length + " / " + allCards.length : allCards.length);
+      cards.forEach(function (c) { grid.appendChild(buildCard(c)); });
+      if (!cards.length) grid.innerHTML = '<div class="pv-emptymsg">' + (allCards.length ? "No matching cards." : "Nothing here yet.") + '</div>';
+    }
+    paint();
     panel.appendChild(grid); back.appendChild(panel); document.body.appendChild(back);
-    panel.querySelector(".pv-x").onclick = closePile; pileEl = back;
+    panel.querySelector(".pv-x").onclick = exitPile;
+    if (isLib) {
+      var fb = panel.querySelector("#pvFilters");
+      fb.addEventListener("click", function (e) {
+        var b = e.target.closest(".pv-chip"); if (!b) return;
+        var k = b.dataset.f;
+        if (k === "all") { active = {}; fb.querySelectorAll(".pv-chip").forEach(function (x) { x.classList.remove("on"); }); b.classList.add("on"); }
+        else {
+          if (active[k]) { delete active[k]; b.classList.remove("on"); } else { active[k] = 1; b.classList.add("on"); }
+          var allc = fb.querySelector('[data-f="all"]'); if (allc) allc.classList.toggle("on", Object.keys(active).length === 0);
+        }
+        paint();
+      });
+    }
+    _pileZone = zone; pileEl = back;
   }
 
   var ctrEl = null;
@@ -2111,7 +2156,7 @@
         case "i": if (c) openInspect(c); break;
         case "?": showHotkeyHelp(); break;
         case "0": recenter(); break;
-        case "escape": var _ovs = document.querySelectorAll(".tbl-pileview"); if (_ovs.length) { _ovs[_ovs.length - 1].remove(); } closeMenu(); closePile(); closeCounters(); clearLink(); clearSelection(); break;
+        case "escape": var _ovs = document.querySelectorAll(".tbl-pileview"); if (_ovs.length) { _ovs[_ovs.length - 1].remove(); } closeMenu(); exitPile(); closeCounters(); clearLink(); clearSelection(); break;
       }
     });
   }

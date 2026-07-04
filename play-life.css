@@ -1,6 +1,9 @@
 /* play-life.css — bottom-left life + actions hub (playgroup.gg-style), QA G1 2026-07-02.
    Harmonizes with play-hud.css: dark glass, teal #2bd4c0 accent, Inter, tabular numerals. */
 
+/* While the opening-hand / mulligan modal is up, hide the life hub so it can't overlap the
+   Keep/Mulligan buttons (the modal lives in #playPage's stacking context; the hub is root-fixed). */
+body.oh-open .pl-cluster { display: none !important; }
 .pl-cluster {
   position: fixed; left: 16px; bottom: 14px; z-index: 93;
   display: flex; flex-direction: column; align-items: flex-start; gap: 8px;

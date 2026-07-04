@@ -1067,6 +1067,7 @@
       (document.getElementById("playPage") || document.body).appendChild(ohEl);
     }
     ohEl.style.display = "";
+    try { document.body.classList.add("oh-open"); } catch (e) {}   // hide the life hub / bars beneath the modal (mobile stacking)
     renderOpeningHand();
   }
   function renderOpeningHand() {
@@ -1094,7 +1095,7 @@
       if (missing) { ohPolls++; setTimeout(renderOpeningHand, 500); }
     }
   }
-  function closeOpeningHand() { if (ohEl) ohEl.style.display = "none"; }
+  function closeOpeningHand() { if (ohEl) ohEl.style.display = "none"; try { document.body.classList.remove("oh-open"); } catch (e) {} }
 
   // ---- floating Leave button (header is hidden in full-screen) ----
   function showLeave() {

@@ -99,6 +99,13 @@
 .pv-head { display: flex; justify-content: space-between; align-items: center; color: #fff; margin-bottom: 10px; font-size: 15px; }
 .pv-head .pv-x { background: var(--tbl-panel2); color: #fff; border: 1px solid var(--tbl-border); border-radius: 7px; padding: 5px 10px; cursor: pointer; }
 .pv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.pv-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.pv-chip { font: 600 12px Inter, system-ui, sans-serif; color: #b9c6da; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.14); border-radius: 999px; padding: 4px 11px; cursor: pointer; transition: background .12s ease, color .12s ease, border-color .12s ease; }
+.pv-chip:hover { background: rgba(120,160,230,.16); color: #fff; }
+.pv-chip.on { background: rgba(77,163,255,.24); color: #eaf3ff; border-color: rgba(77,163,255,.6); }
+.pv-hint { font-size: 11px; color: #8a98ad; margin-left: auto; margin-right: 10px; align-self: center; white-space: nowrap; }
+.vit-phases.off-turn { opacity: .5; }
+.vit-phases.off-turn button.on { background: none; color: inherit; box-shadow: none; }
 .pv-card { background: var(--tbl-panel2); border: 1px solid var(--tbl-border); border-radius: 8px; overflow: hidden; }
 .pv-card img { width: 100%; display: block; }
 .pv-card .nm { padding: 10px; color: #fff; font-size: 12px; min-height: 60px; }
