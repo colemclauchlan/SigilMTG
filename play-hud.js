@@ -277,9 +277,11 @@
     var advOn = !!(window.MTGEngineAssistUI && MTGEngineAssistUI.isOn && MTGEngineAssistUI.isOn());
     var enfOn = !!(T.engineEnforceOn && T.engineEnforceOn());
     var ptOn = T.showPTOn ? !!T.showPTOn() : true;
+    var kwOn = T.showKWOn ? !!T.showKWOn() : true;
     var body =
       tog("enforce", "Auto-enforce rules", "State-based actions: 0-toughness creatures die; 0-life, 10-poison and 21-commander losses flagged; +1/+1 and -1/-1 counters cancel; leftover tokens cleared.", enfOn) +
       tog("pt", "Power & toughness on cards", "Show each creature's total power and effective P/T (base + counters) on the board.", ptOn) +
+      tog("kw", "Ability keywords on cards", "Show compact keyword chips (flying, deathtouch, trample, lifelink...) on creatures.", kwOn) +
       tog("adv", "Advisory analysis", "The engine watches the game and flags rules issues without changing anything (the E button on the bar).", advOn) +
       '<p class="hud-eng-note">The full rules engine is still rolling out - these are the parts live today. Leave all three off to disable the engine entirely.</p>';
     var ov = popup("engine", "Rules engine", "Engine settings", body, false);
@@ -290,6 +292,7 @@
       try {
         if (which === "enforce" && T.setEngineEnforce) T.setEngineEnforce(on);
         else if (which === "pt" && T.setShowPT) T.setShowPT(on);
+        else if (which === "kw" && T.setShowKW) T.setShowKW(on);
         else if (which === "adv" && window.MTGEngineAssistUI) { if (on) MTGEngineAssistUI.enable(); else MTGEngineAssistUI.disable(); }
       } catch (err) {}
       b.classList.toggle("on", on); b.setAttribute("aria-checked", on ? "true" : "false");

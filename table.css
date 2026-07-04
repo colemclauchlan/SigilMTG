@@ -46,6 +46,8 @@
 @keyframes tokZoomIn { from { transform: scale(.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 .tbl-card:hover { box-shadow: 0 0 0 2px var(--tbl-glow), 0 6px 18px rgba(0,0,0,.6); z-index: 999; }
 .tbl-card .badge { position: absolute; bottom: 14%; right: 3px; background: rgba(8,12,20,.86); color: #fff; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 5px; box-shadow: 0 1px 4px rgba(0,0,0,.5); pointer-events: none; }
+.tbl-card .kw-strip { position: absolute; top: 20px; left: 3px; display: flex; flex-direction: column; gap: 2px; align-items: flex-start; max-height: 84px; flex-wrap: wrap; pointer-events: none; z-index: 4; }
+.tbl-card .kw-chip { font: 700 8.5px/1 "Spline Sans Mono", ui-monospace, monospace; letter-spacing: .3px; color: #e7effb; background: rgba(10,16,28,.85); border: 1px solid rgba(140,180,240,.4); border-radius: 4px; padding: 2px 3px; box-shadow: 0 1px 3px rgba(0,0,0,.5); }
 .tbl-card .cardback { width: 100%; height: 100%; object-fit: cover; display: block; }
 .tbl-card.facedown { background: repeating-linear-gradient(45deg, #243, #243 6px, #1c3 6px, #1c3 7px), #234; }
 
