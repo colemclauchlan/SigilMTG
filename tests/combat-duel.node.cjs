@@ -33,4 +33,17 @@ var r2 = D.resolveDuel(
 ok(r2.bDies === false, "granted-deathtouch creature does not falsely kill a 5-toughness blocker");
 
 // ---- multi-blocker combat (resolveCombat): one attacker vs N blockers ----
-function 
+function C(p, t, x) { return Object.assign({ power: p, toughness: t }, x || {}); }
+function combat(a, b) { return D.resolveCombat(a, b); }
+var rc;
+rc = combat(C(4, 4), [C(2, 2), C(2, 2)]); ok(rc.attackerDies && rc.blockers[0].dies && rc.blockers[1].dies, "4/4 vs two 2/2: all die");
+rc = combat(C(5, 5, { keywords: ["Trample"] }), [C(2, 2), C(2, 2)]); ok(!rc.attackerDies && rc.playerDamage === 1, "5/5 trample vs two 2/2: 1 tramples, attacker lives");
+rc = combat(C(3, 3), [C(2, 2), C(2, 2)]); ok(rc.blockers[0].dies && !rc.blockers[1].dies, "3/3 vs two 2/2: ordered lethal — first dies, second lives");
+rc = combat(C(3, 3, { keywords: ["Deathtouch"] }), [C(1, 1), C(1, 1), C(1, 1)]); ok(rc.blockers.every(function (b) { return b.dies; }), "deathtouch 3/3 vs three 1/1: all die");
+rc = combat(C(3, 3, { keywords: ["Deathtouch", "Trample"] }), [C(2, 2), C(2, 2)]); ok(rc.blockers[0].dies && rc.blockers[1].dies && rc.playerDamage === 1, "deathtouch+trample: 1 lethal each, rest tramples");
+rc = combat(C(4, 4, { keywords: ["First strike"] }), [C(2, 2), C(2, 2)]); ok(!rc.attackerDies && rc.blockers[0].dies && rc.blockers[1].dies, "first strike 4/4 kills both blockers unscathed");
+rc = combat(C(1, 1, { keywords: ["Indestructible"] }), [C(5, 5), C(5, 5)]); ok(!rc.attackerDies, "indestructible attacker survives multiple blockers");
+rc = combat(C(8, 8, { keywords: ["Trample"] }), [C(2, 2), C(2, 2)]); ok(rc.playerDamage === 4, "8/8 trample assigns 4 lethal, tramples 4");
+
+console.log("\n" + pass + " passed, " + fail + " failed");
+process.exit(fail ? 1 : 0);
