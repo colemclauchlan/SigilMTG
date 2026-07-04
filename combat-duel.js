@@ -115,9 +115,6 @@
     };
   }
 
-  // ---- multi-blocker combat: one attacker vs N blockers (CR 509/510) ----
-  // opts.order = array of blocker indices giving the attacker's damage-assignment order (default natural).
-  // Returns { attackerDies, blockers:[{dies,damage}], playerDamage (trample), lifegain:{attacker}, damageToAttacker, steps }.
   function resolveCombat(attacker, blockers, opts) {
     opts = opts || {};
     var atk = flags(attacker), ea = eff(attacker);
@@ -139,7 +136,6 @@
     }
     function sba() { chk(A, "Attacker"); Bs.forEach(function (B, i) { chk(B, B.name + " " + (i + 1)); }); }
 
-    // attacker assigns its power across living blockers in order (lethal each), trample remainder to player
     function attackerStrike() {
       if (!A.alive || A.p <= 0) return;
       var remaining = A.p, dealt = 0, lastLiving = -1;
@@ -153,7 +149,7 @@
         if (!B.protFromAtk) { B.dmg += assign; if (atk.dt && assign > 0) B.dtHit = true; }
       }
       if (remaining > 0) {
-        if (atk.tr) { playerDmg += remaining; }
+        if (atk.tr || Bs.length === 0) { playerDmg += remaining; }
         else if (lastLiving >= 0 && !Bs[lastLiving].protFromAtk) { Bs[lastLiving].dmg += remaining; dealt += remaining; }
       }
       if (atk.ll) life.attacker += A.p;
@@ -188,7 +184,22 @@
     };
   }
 
-  var api = { resolveDuel: resolveDuel, resolveCombat: resolveCombat, _eff: eff, _has: has, _protectedFrom: protectedFrom };
+  // ---- full combat: several attackers, each with its own (possibly empty) blocker list ----
+  // pairs = [{ attacker, blockers:[...], order?:[...] }]. An empty blocker list = unblocked (hits the player).
+  function resolveFullCombat(pairs, opts) {
+    pairs = pairs || []; opts = opts || {};
+    var toPlayer = 0, life = 0, results = [], steps = [];
+    pairs.forEach(function (p, i) {
+      var r = resolveCombat(p.attacker, p.blockers || [], { order: p.order });
+      results.push(r);
+      toPlayer += r.playerDamage;
+      life += (r.lifegain && r.lifegain.attacker) || 0;
+      steps.push("Attacker " + (i + 1) + ": " + r.steps.join("; "));
+    });
+    return { toPlayer: toPlayer, lifegain: { attackers: life }, results: results, steps: steps };
+  }
+
+  var api = { resolveDuel: resolveDuel, resolveCombat: resolveCombat, resolveFullCombat: resolveFullCombat, _eff: eff, _has: has, _protectedFrom: protectedFrom };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.MTGDuel = api;
 })(typeof window !== "undefined" ? window : (typeof globalThis !== "undefined" ? globalThis : this));

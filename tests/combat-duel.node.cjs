@@ -45,5 +45,13 @@ rc = combat(C(4, 4, { keywords: ["First strike"] }), [C(2, 2), C(2, 2)]); ok(!rc
 rc = combat(C(1, 1, { keywords: ["Indestructible"] }), [C(5, 5), C(5, 5)]); ok(!rc.attackerDies, "indestructible attacker survives multiple blockers");
 rc = combat(C(8, 8, { keywords: ["Trample"] }), [C(2, 2), C(2, 2)]); ok(rc.playerDamage === 4, "8/8 trample assigns 4 lethal, tramples 4");
 
+// unblocked attackers + full multi-attacker combat
+rc = combat(C(5, 5), []); ok(rc.playerDamage === 5, "unblocked 5/5 deals 5 to the player");
+rc = combat(C(5, 5, { keywords: ["Trample"] }), []); ok(rc.playerDamage === 5, "unblocked trampler deals its full power");
+var fc = D.resolveFullCombat([{ attacker: C(3, 3), blockers: [C(2, 2)] }, { attacker: C(4, 4), blockers: [] }]);
+ok(fc.toPlayer === 4, "full combat: blocked 3/3 + unblocked 4/4 -> 4 to player");
+var fc2 = D.resolveFullCombat([{ attacker: C(6, 6, { keywords: ["Trample"] }), blockers: [C(2, 2)] }, { attacker: C(2, 2), blockers: [] }]);
+ok(fc2.toPlayer === 6, "full combat: 6/6 trample-over (4) + unblocked 2/2 (2) -> 6 to player");
+
 console.log("\n" + pass + " passed, " + fail + " failed");
 process.exit(fail ? 1 : 0);
