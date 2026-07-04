@@ -76,6 +76,8 @@
 .vc-selwrap::after { content: ""; position: absolute; right: 14px; top: 50%; width: 8px; height: 8px; border-right: 2px solid #9fb2cf; border-bottom: 2px solid #9fb2cf; transform: translateY(-70%) rotate(45deg); pointer-events: none; }
 .vc-selwrap select:disabled { opacity: .5; cursor: not-allowed; }
 .vc-hint { font-size: 11px; color: #8a99b2; margin: 6px 2px 0; }
+.vc-test-btn { float: right; font: 700 10px system-ui, sans-serif; text-transform: uppercase; letter-spacing: .5px; color: #7fb4ff; background: rgba(120,160,230,.14); border: 1px solid rgba(120,160,230,.3); border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+.vc-test-btn.on { color: #ff9a9a; background: rgba(229,72,77,.16); border-color: rgba(229,72,77,.4); }
 .vc-meter { height: 12px; border-radius: 999px; background: rgba(255,255,255,.1); overflow: hidden; }
 .vc-meter-fill { display: block; height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg, #45d17f, #d7c53a 70%, #e5544d); transition: width .05s linear; }
 .vc-sheet-foot { display: flex; gap: 10px; margin-top: 20px; }

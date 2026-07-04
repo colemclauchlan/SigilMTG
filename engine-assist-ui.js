@@ -56,10 +56,10 @@
       "font:12.5px/1.5 -apple-system,Segoe UI,Inter,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.5);overflow:hidden;backdrop-filter:blur(6px);";
     var head = document.createElement("div");
     head.style.cssText = "display:flex;align-items:center;gap:8px;padding:8px 11px;border-bottom:1px solid #2b333d;";
-    head.innerHTML = "<span style='font-weight:650'>🧠 Rules Engine</span><span style='color:#8b949e;font-size:11px'>advisory · beta</span>";
-    var mb = document.createElement("button"); mb.textContent = "–"; mb.title = "minimize";
+    head.innerHTML = "<span style='font-weight:650'>" + (window.MTGIcons ? MTGIcons.get("cpu", "1em") : "") + " Rules Engine</span><span style='color:#8b949e;font-size:11px'>advisory · beta</span>";
+    var mb = document.createElement("button"); mb.innerHTML = (window.MTGIcons ? MTGIcons.get("minus", "1em") : "–"); mb.title = "minimize";
     mb.style.cssText = "margin-left:auto;background:#1c232d;color:#e6edf3;border:1px solid #2b333d;border-radius:6px;width:22px;height:22px;cursor:pointer;line-height:1;";
-    var xb = document.createElement("button"); xb.textContent = "✕"; xb.title = "close";
+    var xb = document.createElement("button"); xb.innerHTML = (window.MTGIcons ? MTGIcons.get("close", "1em") : "✕"); xb.title = "close";
     xb.style.cssText = "background:#1c232d;color:#e6edf3;border:1px solid #2b333d;border-radius:6px;width:22px;height:22px;cursor:pointer;line-height:1;";
     head.appendChild(mb); head.appendChild(xb);
     body = document.createElement("div");

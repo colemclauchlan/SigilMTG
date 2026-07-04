@@ -50,7 +50,14 @@ window.MTGIcons = (function () {
 
     // --- people ---
     user:         '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/>',
-    users:        '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 21v-1a6.5 6.5 0 0 1 13 0v1"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7"/><path d="M17.5 14.2A6.5 6.5 0 0 1 21.5 20v1"/>'
+    users:        '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 21v-1a6.5 6.5 0 0 1 13 0v1"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7"/><path d="M17.5 14.2A6.5 6.5 0 0 1 21.5 20v1"/>',
+
+    // --- home / misc glyphs ---
+    star:         '<path d="M12 3.4l2.6 5.3 5.8.9-4.2 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.2-4.1 5.8-.9L12 3.4Z"/>',
+    spark:        '<path d="M12 2.6l1.9 6.1 6.1 1.9-6.1 1.9L12 18.6l-1.9-6.1L4 10.6l6.1-1.9L12 2.6Z"/>',
+    layers:       '<path d="m12 2.4 9.2 5.1-9.2 5.1L2.8 7.5 12 2.4Z"/><path d="m3 12.4 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
+    hex:          '<path d="M12 2.6 20 7v10l-8 4.4L4 17V7l8-4.4Z"/>',
+    cpu:          '<rect x="5" y="5" width="14" height="14" rx="2.5"/><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/>'
   };
 
   function get(name, size, cls) {

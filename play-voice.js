@@ -166,9 +166,16 @@ window.MTGVoiceUI = (function () {
   }
 
   // ============================ AUDIO SETTINGS MODAL ============================
-  var testStop = null;
-  function closeAudio() {
+  var testStop = null, meterPoll = null, metering = false;
+  function stopMeter() {
     if (testStop) { try { testStop(); } catch (e) {} testStop = null; }
+    if (meterPoll) { clearInterval(meterPoll); meterPoll = null; }
+    metering = false;
+    var b = document.getElementById("vcMicTest"); if (b) { b.textContent = "Test"; b.classList.remove("on"); }
+    var f = document.getElementById("vcMeterFill"); if (f) f.style.width = "0%";
+  }
+  function closeAudio() {
+    stopMeter();
     var m = document.getElementById("vcAudioModal"); if (m) m.remove();
   }
   function openAudioSettings() {
@@ -180,7 +187,7 @@ window.MTGVoiceUI = (function () {
         '<div class="vc-sheet-head">' + ic("sliders", "1.1em") + '<h2>Audio &amp; voice</h2>' +
           '<button class="vc-sheet-x" id="vcAudioX" aria-label="Close">' + ic("close", "1.1em") + '</button></div>' +
         '<div class="vc-field"><label>Microphone</label><div class="vc-selwrap"><select id="vcMicSel"><option>Default</option></select></div></div>' +
-        '<div class="vc-field"><label>Mic level</label><div class="vc-meter"><span class="vc-meter-fill" id="vcMeterFill"></span></div></div>' +
+        '<div class="vc-field"><label>Mic level <button type="button" class="vc-test-btn" id="vcMicTest">Test</button></label><div class="vc-meter"><span class="vc-meter-fill" id="vcMeterFill"></span></div></div>' +
         '<div class="vc-field"><label>Speaker / output</label><div class="vc-selwrap"><select id="vcOutSel"><option>Default</option></select></div><p class="vc-hint" id="vcOutHint"></p></div>' +
         '<div class="vc-sheet-foot">' +
           '<button class="vc-foot-btn" id="vcJoinToggle"></button>' +
@@ -209,6 +216,10 @@ window.MTGVoiceUI = (function () {
     };
     refreshJoinBtn();
 
+    var micTestBtn = modal.querySelector("#vcMicTest");
+    if (micTestBtn) micTestBtn.onclick = function () { if (v && v.status().active) return; if (metering) stopMeter(); else startTestMeter(micSel && micSel.value ? micSel.value : null); };
+    if (v && v.status().active) { if (micTestBtn) micTestBtn.style.display = "none"; meterPoll = setInterval(function () { if (fill) fill.style.width = Math.min(100, Math.round((v.getSelf().level || 0) * 320)) + "%"; }, 100); }
+
     if (!v) { micSel.disabled = outSel.disabled = true; return; }
     v.listDevices().then(function (d) {
       // populate mic
@@ -216,7 +227,7 @@ window.MTGVoiceUI = (function () {
       var curIn = v.getInputDevice();
       var optd = el("option", null, "System default"); optd.value = ""; micSel.appendChild(optd);
       d.inputs.forEach(function (dev, i) { var o = el("option", null, esc(dev.label || ("Microphone " + (i + 1)))); o.value = dev.deviceId; if (dev.deviceId === curIn) o.selected = true; micSel.appendChild(o); });
-      micSel.onchange = function () { if (V()) V().setInputDevice(micSel.value || null); startMeter(micSel.value || null); };
+      micSel.onchange = function () { if (V()) V().setInputDevice(micSel.value || null); if (metering) startTestMeter(micSel.value || null); };
       // populate output
       outSel.innerHTML = "";
       var curOut = v.getOutputDevice();
@@ -225,13 +236,12 @@ window.MTGVoiceUI = (function () {
       outSel.disabled = !d.canPickOutput;
       outHint.textContent = d.canPickOutput ? "" : "Your browser doesn't allow choosing the output device; it uses the system default.";
       outSel.onchange = function () { if (V()) V().setOutputDevice(outSel.value || null); };
-      startMeter(curIn || null);
     });
 
-    function startMeter(devId) {
-      if (testStop) { try { testStop(); } catch (e) {} testStop = null; }
-      // when connected we already have a live mic; still open a light preview stream for the meter
-      v.testMic(devId, function (lvl) { if (fill) fill.style.width = Math.min(100, Math.round(lvl * 320)) + "%"; }).then(function (stop) { testStop = stop; }, function () {});
+    function startTestMeter(devId) {
+      stopMeter(); metering = true;
+      var tb = modal.querySelector("#vcMicTest"); if (tb) { tb.textContent = "Stop"; tb.classList.add("on"); }
+      v.testMic(devId, function (lvl) { if (fill) fill.style.width = Math.min(100, Math.round(lvl * 320)) + "%"; }).then(function (stop) { testStop = stop; }, function () { stopMeter(); });
     }
   }
 

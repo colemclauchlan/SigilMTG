@@ -33,11 +33,11 @@
     var useEffect = React.useEffect, useRef = React.useRef;
 
     var FEATURES = [
-      { key: "life", glyph: "✦", title: "Life & counters", dot: "var(--mana-r)",
+      { key: "life", glyph: "spark", title: "Life & counters", dot: "var(--mana-r)",
         body: "Tap-and-hold life totals, commander damage, poison, energy, and smart counters pulled from your decklist.", cta: "Open life counter" },
-      { key: "deck", glyph: "❖", title: "Deck builder", dot: "var(--mana-u)",
+      { key: "deck", glyph: "layers", title: "Deck builder", dot: "var(--mana-u)",
         body: "Search every card on Scryfall, build and save decks, see your mana curve, and send a deck straight to the table.", cta: "Build a deck" },
-      { key: "play", glyph: "⬡", title: "Virtual tabletop", dot: "var(--mana-g)",
+      { key: "play", glyph: "hex", title: "Virtual tabletop", dot: "var(--mana-g)",
         body: "A full battlefield — draw, tap, drag, scry, mulligan, tokens, stack, and pods of up to four, solo or online.", cta: "Enter the table" }
     ];
     var FORMATS = ["Commander", "Draft", "Planechase", "20 Life"];
@@ -84,7 +84,7 @@
               ${FEATURES.map(function (f, i) {
                 return html`
                   <${Reveal} key=${f.key} cls=${"home-feature delay-" + i}>
-                    <span class="home-feature-glyph" style=${{ "--dot": f.dot }}>${f.glyph}</span>
+                    <span class="home-feature-glyph" style=${{ "--dot": f.dot }} dangerouslySetInnerHTML=${{ __html: (window.MTGIcons ? MTGIcons.get(f.glyph, "1em") : "") }}></span>
                     <h3 class="home-feature-title">${f.title}</h3>
                     <p class="home-feature-body">${f.body}</p>
                     <button type="button" class="home-feature-link" onClick=${function () { go(f.key); }}>${f.cta + " →"}</button>

@@ -34,12 +34,12 @@
         ? "background-image:linear-gradient(180deg,rgba(6,12,20,0.12),rgba(6,12,20,0.9)),url('" + art + "')"
         : "background:linear-gradient(135deg,#1a2740,#0d1626)";
       return '<button type="button" class="prof-deck' + (isFav ? " fav" : "") + '" data-deck="' + esc(String(d.id || "")) + '" style="' + style + '">' +
-        (isFav ? '<span class="prof-deck-fav" title="Favorite">★</span>' : "") +
+        (isFav ? '<span class="prof-deck-fav" title="Favorite">' + (window.MTGIcons ? MTGIcons.get("star", "1em") : "") + '</span>' : "") +
         '<div class="prof-deck-meta"><b>' + esc(d.name || "Untitled deck") + '</b>' +
         '<span>' + esc(d.commanderName || (d.format || "Commander")) + '</span></div></button>';
     }).join("");
     return '<div style="display:flex;align-items:baseline;justify-content:space-between;margin:0 0 8px"><h3 style="color:#f3f6fb;margin:0">Decks</h3>' +
-      '<span style="color:#9aa6b8;font-size:12px">' + decks.length + ' saved' + (favCount ? ' · ' + favCount + ' ★' : '') + '</span></div>' +
+      '<span style="color:#9aa6b8;font-size:12px">' + decks.length + ' saved' + (favCount ? ' · ' + favCount + ' ' + (window.MTGIcons ? MTGIcons.get("star", "0.9em") : "") : '') + '</span></div>' +
       '<div class="prof-decks">' + cards + '</div>';
   }
 
