@@ -229,6 +229,7 @@
   var pinned = loadPins();
   function isPinned(k) { return pinned.indexOf(k) >= 0; }
   function togglePin(k) { var i = pinned.indexOf(k); if (i >= 0) pinned.splice(i, 1); else pinned.push(k); savePins(pinned); renderPins(); }
+  function resetPins() { pinned = []; savePins(pinned); try { renderPins(); } catch (e) {} }   // fresh pins each new game
   var PIN_ICON = svg('<path d="M12 17v5"/><path d="M9 10.76V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6.76a2 2 0 0 0 .59 1.42l1.7 1.7A1 1 0 0 1 17.59 16H6.41a1 1 0 0 1-.7-1.71l1.7-1.71A2 2 0 0 0 8 11.18"/>');
 
   function openTrackers() {
@@ -309,7 +310,9 @@
           seats.map(function (s) { return '<option value="' + s.seat + '">' + esc(s.name || ("Seat " + s.seat)) + '</option>'; }).join("") +
         '</select><button id="hudWinGo" type="button">Declare winner</button></div>'
       : '';
-    var body = '<div class="hud-set"><button class="hud-set-row hud-set-eng" id="hudSetEng" type="button">Rules engine settings</button>' +
+    var autoOn = T.autoTurnOn ? !!T.autoTurnOn() : true;
+    var body = '<div class="hud-set"><div class="hud-eng-row"><div class="hud-eng-tx"><b>Auto untap &amp; draw</b><i>Untap your permanents and draw for the turn automatically at the start of each of your turns.</i></div><button type="button" class="hud-eng-tog' + (autoOn ? " on" : "") + '" id="hudAutoTurn" role="switch" aria-checked="' + (autoOn ? "true" : "false") + '" aria-label="Auto untap and draw"><span></span></button></div>' +
+      '<button class="hud-set-row hud-set-eng" id="hudSetEng" type="button">Rules engine settings</button>' +
       '<button class="hud-set-row hud-set-audio" id="hudSetAudio" type="button">Audio &amp; voice</button>' +
       '<button class="hud-set-row" id="hudSetMat" type="button">Change playmat</button>' +
       '<button class="hud-set-row" id="hudSetShuf" type="button">Shuffle library</button>' +
@@ -322,6 +325,7 @@
     ov.querySelector("#hudSetMat").onclick = function () { if (T.openPlaymat) T.openPlaymat(); done(); };
     ov.querySelector("#hudSetEng").onclick = function () { done(); openEngineSettings(); };
     var hudAu = ov.querySelector("#hudSetAudio"); if (hudAu) hudAu.onclick = function () { done(); if (window.MTGVoiceUI) MTGVoiceUI.openAudioSettings(); };
+    var hudAt = ov.querySelector("#hudAutoTurn"); if (hudAt) hudAt.onclick = function () { var on = !hudAt.classList.contains("on"); if (T.setAutoTurn) T.setAutoTurn(on); hudAt.classList.toggle("on", on); hudAt.setAttribute("aria-checked", on ? "true" : "false"); };
     ov.querySelector("#hudSetShuf").onclick = function () { if (T.shuffle) T.shuffle(); done(); };
     var wg = ov.querySelector("#hudWinGo");
     if (wg) wg.onclick = function () { var sel = ov.querySelector("#hudWinSel"); if (T.declareWinner) T.declareWinner(Number(sel ? sel.value : 0)); done(); };
@@ -365,5 +369,5 @@
     }).join("");
   }
 
-  window.MTGHUD = { show: show, hide: hide, openDice: openDice, openTrackers: openTrackers, updateLife: updateLife, renderPins: renderPins };
+  window.MTGHUD = { show: show, hide: hide, openDice: openDice, openTrackers: openTrackers, updateLife: updateLife, renderPins: renderPins, resetPins: resetPins };
 })();

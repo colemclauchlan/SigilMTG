@@ -666,10 +666,13 @@
       var frag = document.createDocumentFragment();
       data.slice(0, 400).forEach(function (p) {
         var row = eln("button", "ps-prec-row"); row.type = "button";
-        row.innerHTML = '<span class="ps-pr-nm"><b>' + escapeHtml(p.name) + '</b>' +
+        var avImg = p.commanderName ? '<img loading="lazy" src="https://api.scryfall.com/cards/named?exact=' + encodeURIComponent(p.commanderName) + '&format=image&version=art_crop" alt="">' : '';
+        row.innerHTML = '<span class="ps-pr-av">' + avImg + '</span>' +
+          '<span class="ps-pr-nm"><b>' + escapeHtml(p.name) + '</b>' +
           (p.commanderName ? '<i>' + escapeHtml(p.commanderName) + '</i>' : '') + '</span>' +
           '<span class="ps-pr-set">' + escapeHtml(p.setName || p.set || "") + (p.year ? " · " + p.year : "") + '</span>' +
           '<span class="ps-pr-go">Select ›</span>';
+        var _im = row.querySelector(".ps-pr-av img"); if (_im) _im.onerror = function () { this.style.display = "none"; };
         row.onclick = function () { choosePrecon(s, p, row, ov); };
         frag.appendChild(row);
       });
