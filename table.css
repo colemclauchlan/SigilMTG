@@ -80,6 +80,8 @@
 .tbl-log { flex: 1 1 auto; min-height: 140px; border: 1px solid var(--tbl-border); border-radius: 12px; background: var(--tbl-panel); padding: 8px; overflow: auto; font-size: 12px; color: var(--tbl-muted); }
 .tbl-log .row { padding: 3px 4px; border-bottom: 1px solid #232c3a; }
 .tbl-log .row b { color: var(--tbl-text); font-weight: 600; }
+.tbl-log .log-ts { color: var(--tbl-muted); opacity: .55; font-variant-numeric: tabular-nums; font-size: 10.5px; margin-right: 3px; }
+.tbl-log .log-who { color: #7fd3ff; font-weight: 700; }
 .tbl-log .log-card { color: #8fc6ff; cursor: zoom-in; text-decoration: underline dotted rgba(143,198,255,.5); text-underline-offset: 2px; }
 .tbl-log .log-card:hover { color: #bfe0ff; text-decoration-style: solid; }
 

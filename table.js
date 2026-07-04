@@ -103,7 +103,8 @@
         // Clicking Untap while at End (or past Main 2) wraps to a NEW turn — roll the turn like Pass turn.
         var order = ["untap", "upkeep", "draw", "main1", "combat", "main2", "end"];
         var cur = order.indexOf(state.phase);
-        if (b.dataset.ph === "untap" && cur >= order.indexOf("end")) { var pass = document.getElementById("tblPass"); if (pass) pass.click(); }
+        if (b.dataset.ph === "end") { dispatch({ t: "set_phase", phase: "end" }); var pEnd = document.getElementById("tblPass"); if (pEnd) pEnd.click(); } // moving to End auto-passes the turn
+        else if (b.dataset.ph === "untap" && cur >= order.indexOf("end")) { var pass = document.getElementById("tblPass"); if (pass) pass.click(); }
         else dispatch({ t: "set_phase", phase: b.dataset.ph });
       }
       else if (b.dataset.ol != null) { floatDelta(b, Number(b.dataset.d)); dispatch({ t: "adjust_life", seat: Number(b.dataset.ol), delta: Number(b.dataset.d) }); }
@@ -489,7 +490,7 @@
     var inv = MTGCore.invert(action, state);
     var next = MTGCore.reduce(state, action);
     if (JSON.stringify(next) === JSON.stringify(state)) return;
-    undoStack.push(inv); state = next; var _logMsg = describe(action); if (_logMsg) log(_logMsg); render();
+    undoStack.push(inv); state = next; logAction(action); render();
     if (anim) postAnim(anim);
     if (action.t === "library_shuffle") animateShuffle();
     if (action.t === "draw" && el.hand) { var _lib = findPileNode("library"); if (_lib) animateFlyTo(_lib.getBoundingClientRect(), el.hand.getBoundingClientRect(), CARD_BACK); }
@@ -1061,7 +1062,7 @@
       if (idx >= cards.length) idx = cards.length - 1; if (idx < 0) idx = 0;
       var c = cards[idx], src = imgFor(c), tax = (c.counters && c.counters.tax) || 0;
       var pl = state.players[seat];
-      var who = seat === mySeat ? "Your" : ((pl && pl.name ? esc(pl.name) : "Seat " + seat) + "’s");
+      var who = seat === mySeat ? "Your" : ((pl && pl.name ? esc(pl.name) : "Seat " + seat) + "'s");
       var h = '<div class="pv-head"><span class="pv-title">' + who + ' command zone</span><button class="pv-x pv-x-ic" title="Close" aria-label="Close"><span class="msym">close</span></button></div>';
       h += '<div class="cmdv-body">';
       if (cards.length > 1) h += '<button class="cmdv-nav cmdv-prev" title="Previous commander" aria-label="Previous"><span class="msym">chevron_left</span></button>';
@@ -2253,7 +2254,31 @@
       setTimeout(function () { c.classList.remove("show"); }, 2600);
     } else { c.className = "tbl-conn ok"; }
   }
-  function log(html) { if (!el.log) return; var row = document.createElement("div"); row.className = "row"; row.innerHTML = html; el.log.insertBefore(row, el.log.firstChild); }
+  function nowStamp() { var d = new Date(), tn = (state && state.turn) || 1; return '<span class="log-ts">' + d.getHours() + ":" + ("0" + d.getMinutes()).slice(-2) + " · T" + tn + "</span> "; }
+  function log(html) { if (!el.log) return null; var row = document.createElement("div"); row.className = "row"; row.innerHTML = nowStamp() + html; el.log.insertBefore(row, el.log.firstChild); return row; }
+  // Action-log: every entry gets the acting player's name + a [time · turn] stamp, and rapid repeats
+  // of the same counter/life change coalesce into one summed entry (e.g. +5, not five +1 rows).
+  var _lastLog = null;
+  function actorName(action) { var seat = (action && action.seat != null) ? action.seat : mySeat; var pl = state && state.players && state.players[seat]; return (pl && pl.name) || ("Seat " + seat); }
+  function coalesceSig(a) {
+    if (a.t === "card_counter") return "cc:" + a.instanceId + ":" + a.kind + ":" + (a.seat == null ? mySeat : a.seat);
+    if (a.t === "player_counter") return "pc:" + a.seat + ":" + a.kind;
+    if (a.t === "adjust_life") return "al:" + a.seat;
+    return null;
+  }
+  function logAction(action) {
+    var base = describe(action); if (!base) return;
+    var who = '<b class="log-who">' + esc(actorName(action)) + '</b> ';
+    var sig = coalesceSig(action), now = Date.now();
+    if (sig && _lastLog && _lastLog.sig === sig && (now - _lastLog.t) < 2500 && _lastLog.row && _lastLog.row.parentNode) {
+      _lastLog.delta += (Number(action.delta) || 0); _lastLog.t = now;
+      var merged = {}; for (var k in action) merged[k] = action[k]; merged.delta = _lastLog.delta;
+      var md = describe(merged); _lastLog.row.innerHTML = nowStamp() + who + (md || base);
+      return;
+    }
+    var row = log(who + base);
+    _lastLog = sig ? { sig: sig, delta: (Number(action.delta) || 0), row: row, t: now } : null;
+  }
   function nameOf(id) { var c = state && state.cards[id]; return c ? (c.name || "card") : "card"; }
   // Resolve the local player's display name from the signed-in account; guests get "You".
   function accountPlayerName() {
@@ -2294,8 +2319,8 @@
         var _who = _tp && _tp.name ? esc(_tp.name) : ("Seat " + a.seat);
         return "<b>Commander damage</b> " + (a.delta > 0 ? "+" + a.delta : a.delta) + " to " + _who + " (from seat " + a.fromSeat + (a.fromCmd && a.fromCmd !== "primary" ? " · " + esc(a.fromCmd) : "") + ")";
       }
-      case "draw": return "<b>Draw</b> " + (a.count || 1);
-      case "mill": return "<b>Mill</b> " + (a.count || 1);
+      case "draw": return "drew " + (a.count || 1) + " card" + ((a.count || 1) !== 1 ? "s" : "");
+      case "mill": return "milled " + (a.count || 1) + " card" + ((a.count || 1) !== 1 ? "s" : "");
       case "card_move": return null; // moving cards must NOT create a log entry (user request 2026-07-03)
       case "card_combat": return (a.attacking ? "<b>Attacks</b> " : "<b>Removed from combat</b> ") + cardLink(a.instanceId);
       case "card_tap": return "<b>Tap/Untap</b> " + cardLink(a.instanceId);
@@ -2304,9 +2329,9 @@
       case "card_transform": return "<b>Transform</b> " + cardLink(a.instanceId);
       case "card_phase": return "<b>Phase</b> " + cardLink(a.instanceId);
       case "card_attach": return "<b>Attach</b> " + cardLink(a.instanceId);
-      case "card_counter": return "<b>Counter</b> " + cardLink(a.instanceId) + " " + a.kind + " " + (a.delta > 0 ? "+" + a.delta : a.delta);
-      case "player_counter": return "<b>" + a.kind + "</b> " + (a.delta > 0 ? "+" + a.delta : a.delta);
-      case "adjust_life": return "<b>Life</b> " + (a.delta > 0 ? "+" + a.delta : a.delta);
+      case "card_counter": { var dcc = Number(a.delta) || 0; return (dcc >= 0 ? "added " : "removed ") + Math.abs(dcc) + " " + esc(a.kind) + " counter" + (Math.abs(dcc) !== 1 ? "s" : "") + (dcc >= 0 ? " to " : " from ") + cardLink(a.instanceId); }
+      case "player_counter": { var dpc = Number(a.delta) || 0; return (dpc >= 0 ? "added " : "removed ") + Math.abs(dpc) + " " + esc(a.kind) + " counter" + (Math.abs(dpc) !== 1 ? "s" : ""); }
+      case "adjust_life": { var dal = Number(a.delta) || 0; return dal >= 0 ? "gained " + dal + " life" : "lost " + (-dal) + " life"; }
       case "card_clone": return "<b>Token copy</b> of " + cardLink(a.fromId);
       case "library_shuffle": return "<b>Shuffle</b> library";
       case "set_phase": {
