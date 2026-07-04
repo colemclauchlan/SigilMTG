@@ -1,5 +1,5 @@
 /*
- * table.js — Play tab: solo virtual tabletop (DOM renderer + input) over the pure table-core.js reducer.
+ * table.js \u2014 Play tab: solo virtual tabletop (DOM renderer + input) over the pure table-core.js reducer.
  * No build, no framework. Owns its own tab activation (app.js's setActivePage coerces non-"deck" to "life").
  */
 (function () {
@@ -40,11 +40,11 @@
   var attachPending = null, booted = false, el = {};
   var mySeat = 0, online = false, selected = [], targetPending = null, annSeq = 0;
   var previewCard = null;
-  var onStackIds = {};  // "on the stack" — keeps the card on the board (greyed) instead of moving it to a stack zone
+  var onStackIds = {};  // "on the stack" \u2014 keeps the card on the board (greyed) instead of moving it to a stack zone
   var stackOrder = []; // LIFO order of instanceIds on the stack (last = top); drives the stack panel + reorder
   var blockingIds = {}; // local "declared blocker" shield flags (cleared on untap_all / new game)
   var handPan = 0;      // hand overflow pan offset in px (G3.20), applied via the --hand-pan CSS var
-  var _stackWasEmpty = null; // tracks empty→filled transitions so the stack can animate in/out (G2.17)
+  var _stackWasEmpty = null; // tracks empty\u2192filled transitions so the stack can animate in/out (G2.17)
   var _turnKey = null;  // "turn:activeSeat" fingerprint for turn-change flashes + online turn-start engine
   var gameOverShown = false; // guards the auto game-over overlay so it fires once per game
   var matchRecorded = false; // guards local match-history recording to once per game
@@ -100,7 +100,7 @@
       if (b.dataset.v != null) { floatDelta(b, Number(b.dataset.v)); dispatch({ t: "adjust_life", seat: mySeat, delta: Number(b.dataset.v) }); }
       else if (b.dataset.pc) dispatch({ t: "player_counter", seat: mySeat, kind: b.dataset.pc, delta: Number(b.dataset.d) });
       else if (b.dataset.ph) {
-        // Clicking Untap while at End (or past Main 2) wraps to a NEW turn — roll the turn like Pass turn.
+        // Clicking Untap while at End (or past Main 2) wraps to a NEW turn \u2014 roll the turn like Pass turn.
         var order = ["untap", "upkeep", "draw", "main1", "combat", "main2", "end"];
         var cur = order.indexOf(state.phase);
         if (b.dataset.ph === "end") { dispatch({ t: "set_phase", phase: "end" }); var pEnd = document.getElementById("tblPass"); if (pEnd) pEnd.click(); } // moving to End auto-passes the turn
@@ -136,20 +136,20 @@
     if (ctrls) {
       var pt = document.createElement("button"); pt.type = "button"; pt.id = "tblPass"; pt.innerHTML = '<span class="msym">skip_next</span>Pass turn'; pt.onclick = doPassTurn; ctrls.appendChild(pt);
       var mu = document.createElement("button"); mu.type = "button"; mu.innerHTML = '<span class="msym">cached</span>Mulligan'; mu.title = "London mulligan"; mu.onclick = doMulligan; ctrls.appendChild(mu);
-      // (standalone End-game button removed — End game now lives in the HUD Settings menu, G4.31)
+      // (standalone End-game button removed \u2014 End game now lives in the HUD Settings menu, G4.31)
       var pod = document.createElement("select"); pod.title = "Solo pod size (reshuffles & restarts)"; [[0, "Solo"], [1, "+1 opp"], [2, "+2 opp"], [3, "+3 opp"]].forEach(function (o) { var op = document.createElement("option"); op.value = o[0]; op.textContent = o[1]; pod.appendChild(op); }); pod.value = String(numOpponents); pod.onchange = function () { numOpponents = +pod.value; if (lastList) buildAndStart(lastList, lastImages, lastLabel); else setStatus("Load a deck first, then pick a pod size."); }; ctrls.appendChild(pod);
       function ctlBtn(label, fn, title, icon) { var b = document.createElement("button"); b.type = "button"; b.innerHTML = (icon ? '<span class="msym">' + icon + '</span>' : "") + label; if (title) b.title = title; b.onclick = fn; return b; }
       function barMenu(label, items) {
-        var ICON = ({ Table: "casino", Deck: "style", Online: "groups" })[label] || ""; var b = document.createElement("button"); b.type = "button"; b.className = "bar-menu-btn"; b.innerHTML = (ICON ? '<span class="msym">' + ICON + '</span>' : "") + label + " ▾";
+        var ICON = ({ Table: "casino", Deck: "style", Online: "groups" })[label] || ""; var b = document.createElement("button"); b.type = "button"; b.className = "bar-menu-btn"; b.innerHTML = (ICON ? '<span class="msym">' + ICON + '</span>' : "") + label + " \u25BE";
         b.onclick = function (e) { e.stopPropagation(); closeMenu(); var m = document.createElement("div"); m.className = "tbl-menu"; items.forEach(function (it) { if (it === "-") { var s = document.createElement("div"); s.className = "sep"; m.appendChild(s); return; } var ib = document.createElement("button"); ib.textContent = it[0]; ib.onclick = function () { closeMenu(); it[1](); }; m.appendChild(ib); }); document.body.appendChild(m); var r = b.getBoundingClientRect(), vw = document.documentElement.clientWidth; m.style.left = Math.min(r.left, vw - m.offsetWidth - 8) + "px"; m.style.top = (r.bottom + 4) + "px"; menuEl = m; };
         return b;
       }
       ctrls.appendChild(ctlBtn("Combat", openCombat, "Resolve declared attackers", "swords"));
       ctrls.appendChild(ctlBtn("Cmd dmg", openCmdMatrix, "Commander damage matrix", "skull"));
-      ctrls.appendChild(barMenu("Table", [["Recenter view", recenter], ["Restart game", function () { if (lastList) buildAndStart(lastList, lastImages, lastLabel); else { state = null; loadGame(); } }], ["Starting life…", function () { var v = parseInt(window.prompt("Starting life total", String(startingLife)), 10); if (v > 0) { startingLife = v; if (lastList) buildAndStart(lastList, lastImages, lastLabel); else setStatus("Starting life set to " + v + " — load a deck to apply."); } }], ["Playmat…", openPlaymat], "-", ["Roll d20", function () { rollDice("d20"); }], ["Roll d6", function () { rollDice("d6"); }], ["Flip coin", function () { rollDice("Coin"); }], "-", ["Planechase…", openPlanechase], ["Draft a pool…", openDraft], ["Deck insights…", openInsights]]));
-      ctrls.appendChild(barMenu("Deck", [["Paste decklist…", openPasteDeck], ["Sideboard…", openSideboard], "-", ["Save board", saveBoard], ["Load board", loadBoard], "-", ["Share playtest link", shareLink], ["Hotkeys (?)", showHotkeyHelp]]));
+      ctrls.appendChild(barMenu("Table", [["Recenter view", recenter], ["Restart game", function () { if (lastList) buildAndStart(lastList, lastImages, lastLabel); else { state = null; loadGame(); } }], ["Starting life\u2026", function () { var v = parseInt(window.prompt("Starting life total", String(startingLife)), 10); if (v > 0) { startingLife = v; if (lastList) buildAndStart(lastList, lastImages, lastLabel); else setStatus("Starting life set to " + v + " \u2014 load a deck to apply."); } }], ["Playmat\u2026", openPlaymat], "-", ["Roll d20", function () { rollDice("d20"); }], ["Roll d6", function () { rollDice("d6"); }], ["Flip coin", function () { rollDice("Coin"); }], "-", ["Planechase\u2026", openPlanechase], ["Draft a pool\u2026", openDraft], ["Deck insights\u2026", openInsights]]));
+      ctrls.appendChild(barMenu("Deck", [["Paste decklist\u2026", openPasteDeck], ["Sideboard\u2026", openSideboard], "-", ["Save board", saveBoard], ["Load board", loadBoard], "-", ["Share playtest link", shareLink], ["Hotkeys (?)", showHotkeyHelp]]));
       if (window.MTGTableSync) {
-        ctrls.appendChild(barMenu("Online", [["Find games…", openLobby], "-", ["Host public game", function () { doHost({ visibility: "public" }); }], ["Host private game", function () { doHost(); }], ["Join by ID…", function () { doJoin(); }], "-", ["Text chat (toggle)", toggleChat], ["Voice chat (toggle)", toggleVoice]]));
+        ctrls.appendChild(barMenu("Online", [["Find games\u2026", openLobby], "-", ["Host public game", function () { doHost({ visibility: "public" }); }], ["Host private game", function () { doHost(); }], ["Join by ID\u2026", function () { doJoin(); }], "-", ["Text chat (toggle)", toggleChat], ["Voice chat (toggle)", toggleVoice]]));
       }
     }
   }
@@ -207,7 +207,7 @@
   async function loadGame() {
     seatDecks = {};
     var choice = el.deckSelect ? el.deckSelect.value : "__sample";
-    setStatus("Loading deck…");
+    setStatus("Loading deck\u2026");
     if (choice && choice !== "__sample") {
       var deck = readSavedDecks()[Number(choice)]; var images = {}, list = [], sbCollected = [];
       (deck.cards || []).forEach(function (entry) {
@@ -240,7 +240,7 @@
       });
     } catch (err) {
       SAMPLE.list.forEach(function (e) { images[e.name] = { img: "", name: e.name }; for (var k = 0; k < e.qty; k++) list.push({ cardId: e.name, name: e.name, isCommander: !!e.isCommander }); });
-      setStatus("Offline — cards shown as text.");
+      setStatus("Offline \u2014 cards shown as text.");
     }
     buildAndStart(list, images, SAMPLE.name);
   }
@@ -261,12 +261,12 @@
       state = MTGCore.reduce(state, { t: "library_shuffle", seat: s2, seed: gameSeed + "-" + s2 });
       state = MTGCore.reduce(state, { t: "draw", seat: s2, count: 7 });
     }
-    // Auto-populate the local player's name from the signed-in account (guest → "You").
+    // Auto-populate the local player's name from the signed-in account (guest \u2192 "You").
     try { if (state.players && state.players[mySeat] && !state.players[mySeat]._namedByUser) state.players[mySeat].name = accountPlayerName(); } catch (e) {}
     // Baseline deck size (library + hand + battlefield) for the soft sideboard-swap warning. Snapshot once per deck load.
     startDeckSize = mySeatDeckCount();
-    log("<b>Loaded</b> " + esc(label || "deck") + (hotseat ? (" — hotseat " + seats + "-player (Pass turn hands control to the next seat).") : " — drew 7."));
-    setStatus(MTGCore.zoneCount(state, mySeat, "library") + " in library · " + MTGCore.zoneCount(state, mySeat, "hand") + " in hand");
+    log("<b>Loaded</b> " + esc(label || "deck") + (hotseat ? (" \u2014 hotseat " + seats + "-player (Pass turn hands control to the next seat).") : " \u2014 drew 7."));
+    setStatus(MTGCore.zoneCount(state, mySeat, "library") + " in library \u00b7 " + MTGCore.zoneCount(state, mySeat, "hand") + " in hand");
     render();
   }
   function mySeatDeckCount() {
@@ -292,10 +292,13 @@
   function deckListFromState() { var out = []; for (var id in state.cards) { var c = state.cards[id]; out.push({ cardId: c.cardId, name: c.name, isCommander: c.isCommander }); } return out; }
   function toggleVoice() {
     if (!window.MTGVoice) { setStatus("Voice module not loaded."); return; }
-    if (!MTGVoice.isEnabled()) { setStatus("Voice is off — set window.MTG_VOICE_CONFIG = { enabled: true, iceServers: [ …TURN… ] } before table.js to enable it."); return; }
+    if (!MTGVoice.isEnabled()) { setStatus("Voice is off \u2014 set window.MTG_VOICE_CONFIG = { enabled: true, iceServers: [ \u2026TURN\u2026 ] } before table.js to enable it."); return; }
     if (!online || !window.MTGTableSync) { setStatus("Host or join an online game first to use voice."); return; }
-    if (MTGVoice.status().active) { MTGVoice.leave(); setStatus("Left voice chat."); }
-    else { MTGVoice.join({ gameId: (MTGTableSync.info && MTGTableSync.info().gameId) || null, selfId: voiceSelfId, send: function (m) { if (MTGTableSync.broadcastEphemeral) MTGTableSync.broadcastEphemeral(m); } }).then(function () { setStatus("Joined voice chat."); }, function (e) { setStatus("Voice: " + ((e && e.message) || e)); }); }
+    if (MTGVoice.status().active) { MTGVoice.leave(); if (window.MTGVoiceUI) MTGVoiceUI.hide(); setStatus("Left voice chat."); return; }
+    var vmeta = null;
+    try { var vsl = window.MTGTable ? MTGTable.seatsInfo() : []; for (var vi = 0; vi < vsl.length; vi++) { if (vsl[vi] && vsl[vi].isMe) { vmeta = { seat: vsl[vi].seat, name: vsl[vi].name, art: vsl[vi].commanderArt, color: vsl[vi].color, commander: vsl[vi].commanderName }; break; } } } catch (e) {}
+    if (window.MTGVoiceUI) MTGVoiceUI.show();
+    MTGVoice.join({ gameId: (MTGTableSync.info && MTGTableSync.info().gameId) || null, selfId: voiceSelfId, meta: vmeta, send: function (m) { if (MTGTableSync.broadcastEphemeral) MTGTableSync.broadcastEphemeral(m); } }).then(function () { setStatus("Joined voice chat."); }, function (e) { if (window.MTGVoiceUI) MTGVoiceUI.hide(); setStatus("Voice: " + ((e && e.message) || e)); });
   }
   async function doHost(opts) {
     opts = opts || {};
@@ -306,10 +309,10 @@
       MTGTableSync.onEphemeral = handleEphemeral;
       var pub = opts.visibility === "public";
       var gname = opts.name || "Commander table";
-      if (opts.bracket && /^[1-5]$/.test(String(opts.bracket))) gname = "B" + opts.bracket + " · " + (opts.name || "Commander table"); // expected bracket shown in the lobby list
+      if (opts.bracket && /^[1-5]$/.test(String(opts.bracket))) gname = "B" + opts.bracket + " \u00b7 " + (opts.name || "Commander table"); // expected bracket shown in the lobby list
       var gid = await MTGTableSync.host(deckListFromState(), { displayName: "Host", visibility: pub ? "public" : "private", name: gname, scheduledAt: opts.scheduledAt || null });
       online = true; mySeat = MTGTableSync.info().mySeat;
-      setStatus((pub ? "Hosting PUBLIC game " : "Hosting private game ") + gid); log("<b>Hosting</b> " + (pub ? "public " : "") + "game " + gid + (pub ? " — others can Find it." : " (share the id)")); render();
+      setStatus((pub ? "Hosting PUBLIC game " : "Hosting private game ") + gid); log("<b>Hosting</b> " + (pub ? "public " : "") + "game " + gid + (pub ? " \u2014 others can Find it." : " (share the id)")); render();
     } catch (e) { setStatus("Host failed: " + (e && e.message ? e.message : e)); }
   }
   // Create an EMPTY online room instantly (no deck yet) so the lobby can hand out an invite link before the host picks a deck.
@@ -322,7 +325,7 @@
       var pub = opts.visibility === "public";
       var gid = await MTGTableSync.host([], { displayName: "Host", visibility: pub ? "public" : "private", name: opts.name });
       online = true; mySeat = MTGTableSync.info().mySeat;
-      setStatus("Online room created — share your invite link."); log("<b>Room created</b> " + gid + " — pick your deck to take your seat.");
+      setStatus("Online room created \u2014 share your invite link."); log("<b>Room created</b> " + gid + " \u2014 pick your deck to take your seat.");
       return gid;
     } catch (e) { setStatus("Couldn't create room: " + (e && e.message ? e.message : e)); throw e; }
   }
@@ -336,7 +339,7 @@
     if (!state) { setStatus("Load your deck first."); showToast("Load a deck first."); return false; }
     if (!window.MTGTableSync) { setStatus("Sync not loaded."); showToast("Online sync isn't available."); return false; }
     var gid = gameId || window.prompt("Game id to join:"); if (!gid) return false; gid = String(gid).trim();
-    setStatus("Joining " + gid + "…"); showToast("Joining game…");
+    setStatus("Joining " + gid + "\u2026"); showToast("Joining game\u2026");
     try {
       MTGTableSync.onRemote = function (rs) { state = rs; render(); };
       MTGTableSync.onEphemeral = handleEphemeral;
@@ -347,12 +350,12 @@
     } catch (e) {
       var msg = (e && e.message ? e.message : String(e || ""));
       setStatus("Join failed: " + msg);
-      showToast(/not found|no rows|does not exist|invalid|permission|policy/i.test(msg) ? "Couldn't join — invalid or expired game code." : ("Join failed: " + msg));
+      showToast(/not found|no rows|does not exist|invalid|permission|policy/i.test(msg) ? "Couldn't join \u2014 invalid or expired game code." : ("Join failed: " + msg));
       return false;
     }
   }
 
-  // Pass turn — the turn engine (auto-untap + draw for turn) fires for the seat RECEIVING the
+  // Pass turn \u2014 the turn engine (auto-untap + draw for turn) fires for the seat RECEIVING the
   // turn (G4.32). Solo/hotseat runs it here; online, the receiving client runs it in checkTurnChange.
   function doPassTurn() {
     if (!state) return;
@@ -365,15 +368,15 @@
       var drew = false;
       if (state.turn > 1 && MTGCore.zoneCount(state, as, "library") > 0) { dispatch({ t: "draw", seat: as, count: 1 }); drew = true; }
       dispatch({ t: "set_phase", phase: "main1" });
-      log("<b>Turn " + state.turn + "</b> — untapped" + (drew ? " &amp; drew for turn." : "."));
-      setStatus("Turn " + state.turn + " · " + MTGCore.zoneCount(state, mySeat, "hand") + " in hand");
+      log("<b>Turn " + state.turn + "</b> \u2014 untapped" + (drew ? " &amp; drew for turn." : "."));
+      setStatus("Turn " + state.turn + " \u00b7 " + MTGCore.zoneCount(state, mySeat, "hand") + " in hand");
     }
   }
-  // Declare the game a draw/tie from the Settings menu (G4.31) — ends the game, records no winner.
+  // Declare the game a draw/tie from the Settings menu (G4.31) \u2014 ends the game, records no winner.
   function declareDraw() {
     if (!state) { setStatus("No game in progress."); return; }
     gameOverShown = true; matchRecorded = true; // a draw records no winner
-    log("<b>Game over</b> — declared a draw (tie) on turn " + (state.turn || 1) + ".");
+    log("<b>Game over</b> \u2014 declared a draw (tie) on turn " + (state.turn || 1) + ".");
     var ov = document.createElement("div"); ov.className = "tbl-pileview"; ov.addEventListener("pointerdown", function (e) { if (e.target === ov) ov.remove(); });
     var panel = document.createElement("div"); panel.className = "pv-panel gameover-panel"; ov.appendChild(panel);
     panel.innerHTML = '<div class="gameover-hero"><span class="msym gameover-trophy" style="color:#9aa6b8">handshake</span><div class="gameover-win">Draw (tie)</div><div class="gameover-sub">Turn ' + (state.turn || 1) + '</div></div>' +
@@ -393,8 +396,8 @@
     function outp(p) { if (p.life <= 0) return true; var cd = p.cmdDamage || {}; for (var k in cd) if (cd[k] >= 21) return true; return false; }
     var defWin = 0, best = -Infinity; ps.forEach(function (p, i) { if (!outp(p) && p.life > best) { best = p.life; defWin = i; } });
     if (best === -Infinity) ps.forEach(function (p, i) { if (p.life > best) { best = p.life; defWin = i; } });
-    var h = '<div class="pv-head"><span>Game results — turn ' + (state.turn || 1) + '</span><button class="pv-x">Close</button></div>';
-    h += '<div class="end-rows">' + ps.map(function (p, i) { return '<label class="end-row"><input type="radio" name="winner" value="' + i + '"' + (i === defWin ? " checked" : "") + '><span class="end-name">' + (p.name ? esc(p.name) : (i === mySeat ? "You" : "Seat " + i)) + '</span><span class="end-stat">' + p.life + " life · " + cmdTaken(p) + " cmdr dmg · " + (outp(p) ? "out" : "alive") + "</span></label>"; }).join("") + "</div>";
+    var h = '<div class="pv-head"><span>Game results \u2014 turn ' + (state.turn || 1) + '</span><button class="pv-x">Close</button></div>';
+    h += '<div class="end-rows">' + ps.map(function (p, i) { return '<label class="end-row"><input type="radio" name="winner" value="' + i + '"' + (i === defWin ? " checked" : "") + '><span class="end-name">' + (p.name ? esc(p.name) : (i === mySeat ? "You" : "Seat " + i)) + '</span><span class="end-stat">' + p.life + " life \u00b7 " + cmdTaken(p) + " cmdr dmg \u00b7 " + (outp(p) ? "out" : "alive") + "</span></label>"; }).join("") + "</div>";
     h += '<div class="end-foot"><button class="primary end-record">' + (online ? "Record result" : "Declare winner") + '</button><button class="end-new">New game</button></div>';
     panel.innerHTML = h;
     panel.querySelector(".pv-x").onclick = close;
@@ -404,9 +407,9 @@
       var summary = { turns: state.turn, winnerSeat: win, finals: ps.map(function (p, i) { return { seat: i, life: p.life, cmdrTaken: cmdTaken(p) }; }) };
       var who = (win === mySeat ? "you" : "seat " + win);
       recordLocalMatch(win);
-      if (online && window.MTGTableSync && MTGTableSync.recordWinner) { MTGTableSync.recordWinner(win, summary).then(function () { setStatus("Recorded — winner " + who); }).catch(function (e) { setStatus("Record failed: " + ((e && e.message) || e)); }); }
+      if (online && window.MTGTableSync && MTGTableSync.recordWinner) { MTGTableSync.recordWinner(win, summary).then(function () { setStatus("Recorded \u2014 winner " + who); }).catch(function (e) { setStatus("Record failed: " + ((e && e.message) || e)); }); }
       else { setStatus("Winner: " + who); }
-      log("<b>Game over</b> — winner " + who + " on turn " + state.turn + ".");
+      log("<b>Game over</b> \u2014 winner " + who + " on turn " + state.turn + ".");
       close();
     };
     document.body.appendChild(ov);
@@ -454,7 +457,7 @@
     h += '<div class="gameover-rows">' + order.map(function (o, idx) {
       return '<div class="gameover-row"><span class="gameover-place" style="color:' + (medals[idx] || "#9aa6b8") + '">' + (idx + 1) + "</span>" +
         '<span class="gameover-name">' + whoName(o.seat) + "</span>" +
-        '<span class="gameover-stat">' + (o.p ? o.p.life : 0) + " life · " + (o.out ? "out" : "alive") + "</span></div>";
+        '<span class="gameover-stat">' + (o.p ? o.p.life : 0) + " life \u00b7 " + (o.out ? "out" : "alive") + "</span></div>";
     }).join("") + "</div>";
     h += '<div class="end-foot"><button class="primary gameover-new">New game</button>' +
       (online ? '<button class="gameover-record">Record result</button>' : "") +
@@ -465,10 +468,10 @@
     var rec = panel.querySelector(".gameover-record");
     if (rec) rec.onclick = function () {
       var summary = { turns: state.turn, winnerSeat: win, finals: ps.map(function (p, i) { return { seat: i, life: p.life }; }) };
-      if (window.MTGTableSync && MTGTableSync.recordWinner) MTGTableSync.recordWinner(win, summary).then(function () { setStatus("Recorded — winner " + whoName(win)); rec.textContent = "Recorded"; rec.disabled = true; }).catch(function (e) { setStatus("Record failed: " + ((e && e.message) || e)); });
+      if (window.MTGTableSync && MTGTableSync.recordWinner) MTGTableSync.recordWinner(win, summary).then(function () { setStatus("Recorded \u2014 winner " + whoName(win)); rec.textContent = "Recorded"; rec.disabled = true; }).catch(function (e) { setStatus("Record failed: " + ((e && e.message) || e)); });
     };
     recordLocalMatch(win);
-    log("<b>Game over</b> — winner " + (win != null ? whoName(win) : "?") + " on turn " + (state.turn || 1) + ".");
+    log("<b>Game over</b> \u2014 winner " + (win != null ? whoName(win) : "?") + " on turn " + (state.turn || 1) + ".");
     document.body.appendChild(ov);
   }
   function dispatch(action) {
@@ -477,7 +480,7 @@
       var _cmdr = state.cards[action.instanceId];
       if (_cmdr && _cmdr.isCommander) { action = { t: "card_move", instanceId: action.instanceId, toZone: "command" }; setStatus("Commander returned to the command zone."); }
     }
-    // G3.23 — only commanders may enter the command zone; reject anything else with a status message.
+    // G3.23 \u2014 only commanders may enter the command zone; reject anything else with a status message.
     if (action && action.t === "card_move" && action.instanceId && action.toZone === "command") {
       var _cz = state.cards[action.instanceId];
       if (_cz && !_cz.isCommander) { setStatus("Only a commander can enter the command zone."); try { showToast("Only commanders go to the command zone."); } catch (e) {} return; }
@@ -499,7 +502,8 @@
     checkGameOver();
   }
   // ---- engine: opt-in state-based-action enforcement on the live board (CR 704) ----
-  var engineEnforce = false, _enforcing = false, _lossFlagged = {};
+  var engineEnforce = false, _enforcing = false, _lossFlagged = {}, showPT = true;
+  try { showPT = localStorage.getItem("mtg_show_pt") !== "0"; engineEnforce = localStorage.getItem("mtg_engine_enforce") === "1"; } catch (e) {}
   // effective toughness via the real CR-613 layer engine (counters etc.); falls back to a manual counter calc
   function effToughness(c) {
     var im = imagesById[c.cardId]; if (!im || !im.isCreature || !im.pt) return null;
@@ -534,19 +538,19 @@
     if (!engineEnforce || _enforcing || !state) return;
     _enforcing = true;
     try {
-      // CR 704.5q — a permanent with both +1/+1 and -1/-1 counters removes N of each (N = the smaller count).
+      // CR 704.5q \u2014 a permanent with both +1/+1 and -1/-1 counters removes N of each (N = the smaller count).
       var anni = [];
       for (var aid in state.cards) { var ac = state.cards[aid]; if (!ac || ac.zone !== "battlefield" || !ac.counters) continue; var k = Math.min(ac.counters["+1/+1"] || 0, ac.counters["-1/-1"] || 0); if (k > 0) anni.push({ id: aid, k: k, name: ac.name }); }
-      anni.forEach(function (x) { log("<b>SBA</b> " + esc(x.name || "creature") + " — " + x.k + " +1/+1 and " + x.k + " -1/-1 counters annihilate"); dispatch({ t: "card_counter", instanceId: x.id, kind: "+1/+1", delta: -x.k }); dispatch({ t: "card_counter", instanceId: x.id, kind: "-1/-1", delta: -x.k }); });
-      // CR 704.5d — a token in a zone other than the battlefield ceases to exist.
+      anni.forEach(function (x) { log("<b>SBA</b> " + esc(x.name || "creature") + " \u2014 " + x.k + " +1/+1 and " + x.k + " -1/-1 counters annihilate"); dispatch({ t: "card_counter", instanceId: x.id, kind: "+1/+1", delta: -x.k }); dispatch({ t: "card_counter", instanceId: x.id, kind: "-1/-1", delta: -x.k }); });
+      // CR 704.5d \u2014 a token in a zone other than the battlefield ceases to exist.
       var gone = [];
-      for (var tid in state.cards) { var tc = state.cards[tid]; if (tc && tc.isToken && tc.zone !== "battlefield") { gone.push(tid); log("<b>SBA</b> token " + esc(tc.name || "") + " left play → ceases to exist"); } }
+      for (var tid in state.cards) { var tc = state.cards[tid]; if (tc && tc.isToken && tc.zone !== "battlefield") { gone.push(tid); log("<b>SBA</b> token " + esc(tc.name || "") + " left play \u2192 ceases to exist"); } }
       if (gone.length) dispatch({ t: "__remove", ids: gone });
-      // CR 704.5f — a creature with toughness 0 or less is put into its owner's graveyard (indestructible does NOT save it).
+      // CR 704.5f \u2014 a creature with toughness 0 or less is put into its owner's graveyard (indestructible does NOT save it).
       var dead = [];
       for (var id in state.cards) { var c = state.cards[id]; if (!c || c.zone !== "battlefield" || c.faceDown) continue; var t = effToughness(c); if (t != null && t <= 0) dead.push(id); }
-      dead.forEach(function (id) { var c = state.cards[id]; if (!c) return; log("<b>SBA</b> " + esc(c.name || "creature") + " has 0 toughness → graveyard"); dispatch({ t: "card_move", instanceId: id, toZone: "graveyard" }); });
-      // player-loss findings via the rules engine (advisory surface — never auto-removes a player)
+      dead.forEach(function (id) { var c = state.cards[id]; if (!c) return; log("<b>SBA</b> " + esc(c.name || "creature") + " has 0 toughness \u2192 graveyard"); dispatch({ t: "card_move", instanceId: id, toZone: "graveyard" }); });
+      // player-loss findings via the rules engine (advisory surface \u2014 never auto-removes a player)
       if (window.MTGEngineAssist && MTGEngineAssist.analyze) {
         var a = MTGEngineAssist.analyze(state) || {};
         (a.sba || []).forEach(function (f) {
@@ -559,8 +563,8 @@
     } catch (e) {} finally { _enforcing = false; }
   }
   function setEngineEnforce(on) {
-    engineEnforce = !!on; _lossFlagged = {};
-    setStatus("Rules auto-enforce " + (engineEnforce ? "ON — 0-toughness creatures die, player losses flagged." : "OFF."));
+    engineEnforce = !!on; _lossFlagged = {}; try { localStorage.setItem("mtg_engine_enforce", engineEnforce ? "1" : "0"); } catch (e) {}
+    setStatus("Rules auto-enforce " + (engineEnforce ? "ON \u2014 0-toughness creatures die, player losses flagged." : "OFF."));
     if (engineEnforce) enforceSBAs();
   }
   function findCardNode(id) { var n = el.surface.querySelectorAll(".tbl-card"); for (var i = 0; i < n.length; i++) if (n[i].dataset.id === id) return n[i]; var h = el.hand.querySelectorAll(".tbl-card"); for (var j = 0; j < h.length; j++) if (h[j].dataset.id === id) return h[j]; return null; }
@@ -682,7 +686,7 @@
       var outHtml = "";
       if (pl0 && isOut(pl0)) {
         var why = pl0.life <= 0 ? "0 life" : (pl0.counters && pl0.counters.poison >= 10 ? "10 poison" : "21 commander damage");
-        outHtml = '<span class="rl-out" title="Eliminated — ' + why + '">OUT</span>';
+        outHtml = '<span class="rl-out" title="Eliminated \u2014 ' + why + '">OUT</span>';
         lab.classList.add("out");
       }
       lab.innerHTML = '<span class="rl-name">' + (seat === mySeat ? "You" : (pl0 && pl0.name ? esc(pl0.name) : "Seat " + seat)) + '</span><span class="rl-life">' + (pl0 ? pl0.life : 40) + '</span>' + outHtml;
@@ -701,10 +705,10 @@
       if (pileImg) inner = '<img style="width:100%;height:100%;object-fit:cover;border-radius:7px" src="' + pileImg + '"><div class="pile-name">' + labels[z] + "</div>";
       d.innerHTML = inner + '<div class="pile-count">' + n + "</div>";
       if (z === "command") {
-        // Commander tax badge — the tax counter rides on the commander card wherever it is.
+        // Commander tax badge \u2014 the tax counter rides on the commander card wherever it is.
         var taxTot = 0;
         try { for (var cid in state.cards) { var cc = state.cards[cid]; if (cc && cc.ownerSeat === seat && cc.isCommander) taxTot += (cc.counters && cc.counters.tax) || 0; } } catch (e) {}
-        if (taxTot > 0) d.innerHTML += '<div class="pile-tax" title="Commander tax — casting from here costs +' + taxTot + '">tax +' + taxTot + '</div>';
+        if (taxTot > 0) d.innerHTML += '<div class="pile-tax" title="Commander tax \u2014 casting from here costs +' + taxTot + '">tax +' + taxTot + '</div>';
       }
       cont.appendChild(d);
     });
@@ -727,7 +731,7 @@
     var p = state.players[mySeat]; if (!p) { el.vitals.innerHTML = ""; return; }
     var PHASES = [["untap", "Untap"], ["upkeep", "Upkeep"], ["draw", "Draw"], ["main1", "Main 1"], ["combat", "Combat"], ["main2", "Main 2"], ["end", "End"]];
     var phaseHtml = '<div class="vit-phases">' + PHASES.map(function (ph) { return '<button data-ph="' + ph[0] + '"' + (state.phase === ph[0] ? ' class="on"' : "") + ">" + ph[1] + "</button>"; }).join("") + "</div>";
-    var html = '<div class="vit-turn">Turn ' + (state.turn || 1) + (online ? " · seat " + mySeat : "") + '</div>' + phaseHtml + '<div class="vit-life"><span class="vit-label">Life</span>' +
+    var html = '<div class="vit-turn">Turn ' + (state.turn || 1) + (online ? " \u00b7 seat " + mySeat : "") + '</div>' + phaseHtml + '<div class="vit-life"><span class="vit-label">Life</span>' +
       '<button data-v="-5">-5</button><button data-v="-1">-1</button>' +
       '<span class="vit-num">' + p.life + '</span>' +
       '<button data-v="1">+1</button><button data-v="5">+5</button></div>';
@@ -735,16 +739,16 @@
       var ct = manaPool[m] || 0;
       var pop = (openMana === m) ? '<span class="mana-pop"><button class="mana-step" data-mana="' + m + '" data-d="-1" aria-label="minus ' + m + '">-</button><b>' + ct + '</b><button class="mana-step" data-mana="' + m + '" data-d="1" aria-label="plus ' + m + '">+</button></span>' : "";
       return '<span class="vit-m m-' + m + (openMana === m ? " open" : "") + '"><button class="mana-icon" data-manaopen="' + m + '" title="' + m + ' mana"><img src="https://svgs.scryfall.io/card-symbols/' + m + '.svg" alt="' + m + '" /><b class="mana-ct">' + ct + '</b></button>' + pop + '</span>';
-    }).join("") + '<button class="mana-clear" data-mana="_clear" title="Empty mana pool">✕</button></div>';
+    }).join("") + '<button class="mana-clear" data-mana="_clear" title="Empty mana pool">\u2715</button></div>';
     html += '<div class="vit-counters">';
     visibleCounters.forEach(function (k) {
       var v = (p.counters && p.counters[k]) || 0;
       html += '<span class="vit-c"><button data-pc="' + k + '" data-d="-1">-</button>' + k + ' ' + v + '<button data-pc="' + k + '" data-d="1">+</button></span>';
     });
-    html += '<span class="vit-ctr-pick' + (ctrPickOpen ? " open" : "") + '"><button class="ctr-pick-btn" data-ctrpick="1" title="Choose counters">Counters ▾</button>' + (ctrPickOpen ? ('<div class="vit-ctr-menu">' + ALL_COUNTERS.map(function (k) { return '<label><input type="checkbox" data-ctrtoggle="' + k + '"' + (visibleCounters.indexOf(k) >= 0 ? " checked" : "") + ">" + k + "</label>"; }).join("") + '</div>') : "") + '</span>';
+    html += '<span class="vit-ctr-pick' + (ctrPickOpen ? " open" : "") + '"><button class="ctr-pick-btn" data-ctrpick="1" title="Choose counters">Counters ' + (window.MTGIcons ? MTGIcons.get("chevronDown", "0.8em") : "") + '</button>' + (ctrPickOpen ? ('<div class="vit-ctr-menu">' + ALL_COUNTERS.map(function (k) { return '<label><input type="checkbox" data-ctrtoggle="' + k + '"' + (visibleCounters.indexOf(k) >= 0 ? " checked" : "") + ">" + k + "</label>"; }).join("") + '</div>') : "") + '</span>';
     html += "</div>";
     var cd = p.cmdDamage || {}, keys = Object.keys(cd).filter(function (k) { return cd[k] > 0; });
-    if (keys.length) html += '<div class="vit-cmd">Cmdr dmg: ' + keys.map(function (k) { return cd[k] + " (" + k + ")"; }).join(" · ") + "</div>";
+    if (keys.length) html += '<div class="vit-cmd">Cmdr dmg: ' + keys.map(function (k) { return cd[k] + " (" + k + ")"; }).join(" \u00b7 ") + "</div>";
     if (state.players.length > 1) { html += '<div class="vit-opps">'; state.players.forEach(function (pl, i) { if (i === mySeat || !pl) return; var hc = MTGCore.zoneCount(state, i, "hand"); html += '<span class="vit-opp">' + (pl.name ? esc(pl.name) : ("Seat " + i)) + ' <button data-ol="' + i + '" data-d="-1">-</button><b class="vit-onum">' + pl.life + '</b><button data-ol="' + i + '" data-d="1">+</button> &hearts;</span>'; }); html += "</div>"; }
     el.vitals.innerHTML = html;
   }
@@ -755,18 +759,18 @@
     Object.keys(onStackIds).forEach(function (id) { var c = state.cards[id]; if (c && c.zone === "battlefield") { if (stackOrder.indexOf(id) < 0) stackOrder.push(id); } else stackRemove(id); });
     stackOrder = stackOrder.filter(function (id) { return onStackIds[id]; });
     if (!stackOrder.length) {
-      // G2.17 — the empty stack fades/collapses and the action log slides up to take its place (CSS transition).
+      // G2.17 \u2014 the empty stack fades/collapses and the action log slides up to take its place (CSS transition).
       el.stack.innerHTML = '<div class="stk-empty">Stack empty</div>';
       el.stack.classList.add("empty");
       _stackWasEmpty = true;
       return;
     }
-    var appeared = _stackWasEmpty !== false; // first card after empty → animate in, pushing the log back down
+    var appeared = _stackWasEmpty !== false; // first card after empty \u2192 animate in, pushing the log back down
     _stackWasEmpty = false;
     el.stack.classList.remove("empty");
     el.stack.classList.toggle("stk-enter", appeared);
     var html = '<div class="stk-title">Stack (Last In First Out)</div>';
-    // Top of stack = last pushed → render reversed. idx is the position in stackOrder.
+    // Top of stack = last pushed \u2192 render reversed. idx is the position in stackOrder.
     for (var k = stackOrder.length - 1; k >= 0; k--) {
       var id = stackOrder[k], c = state.cards[id]; if (!c) continue;
       var src = imgFor(c);
@@ -793,7 +797,7 @@
         else { stackRemove(id); render(); } // resolve: leave the permanent on the battlefield
       };
     });
-    // Hover a stack row → preview; click the thumbnail → inspect/explode (G2.16); drag a row to reorder (G2.15).
+    // Hover a stack row \u2192 preview; click the thumbnail \u2192 inspect/explode (G2.16); drag a row to reorder (G2.15).
     Array.prototype.forEach.call(el.stack.querySelectorAll(".stk-item"), function (row) {
       row.addEventListener("mouseenter", function () { var c = state.cards[row.dataset.id]; if (c) showPreview(c); });
       var th = row.querySelector(".stk-thumb");
@@ -830,13 +834,13 @@
       var moved = st.moving; st = null; row.classList.remove("stk-dragging");
       if (!moved) return;
       var ids = Array.prototype.map.call(el.stack.querySelectorAll(".stk-item"), function (n) { return n.dataset.id; });
-      ids.reverse(); // displayed top-first → stackOrder is bottom-first (last = top)
+      ids.reverse(); // displayed top-first \u2192 stackOrder is bottom-first (last = top)
       stackOrder = ids.filter(function (x) { return onStackIds[x]; });
       render();
     }
     row.addEventListener("pointerup", up); row.addEventListener("pointercancel", up);
   }
-  // === G2.18 — turn-change flash + popup, and the online turn-start engine (G4.32) ===
+  // === G2.18 \u2014 turn-change flash + popup, and the online turn-start engine (G4.32) ===
   function turnFlash(mine) {
     var f = document.createElement("div"); f.className = "tbl-flash" + (mine ? " mine" : "");
     var pop = document.createElement("div"); pop.className = "tbl-turnpop" + (mine ? " mine" : "");
@@ -851,7 +855,7 @@
     if (_turnKey === key) return;
     var first = _turnKey === null;
     _turnKey = key;
-    if (first) return; // game just loaded — no flash
+    if (first) return; // game just loaded \u2014 no flash
     // Decide after the pass handler finishes (hotseat reassigns mySeat right after dispatch).
     setTimeout(function () {
       if (!state) return;
@@ -863,7 +867,7 @@
         var drew = false;
         if (state.turn > 1 && MTGCore.zoneCount(state, mySeat, "library") > 0) { dispatch({ t: "draw", seat: mySeat, count: 1 }); drew = true; }
         dispatch({ t: "set_phase", phase: "main1" });
-        log("<b>Turn " + state.turn + "</b> — your turn: untapped" + (drew ? " &amp; drew for turn." : "."));
+        log("<b>Turn " + state.turn + "</b> \u2014 your turn: untapped" + (drew ? " &amp; drew for turn." : "."));
       }
     }, 0);
   }
@@ -876,15 +880,16 @@
     var src = imgFor(c);
     node.innerHTML = (src && !c.faceDown) ? '<img src="' + src + '" alt="' + esc(c.name) + '">' : (c.faceDown ? '<img class="cardback" src="' + CARD_BACK + '" alt="card back">' : '<div class="nm">' + esc(c.name) + "</div>");
     var ctr = Object.keys(c.counters || {});
-    if (ctr.length) node.innerHTML += '<span class="badge">' + ctr.map(function (k) { var v = c.counters[k]; return (k === "+1/+1") ? ("+" + v + "/+" + v) : (k === "-1/-1") ? ("-" + v + "/-" + v) : (v + " " + k); }).join(" · ") + "</span>";
+    if (ctr.length) node.innerHTML += '<span class="badge">' + ctr.map(function (k) { var v = c.counters[k]; return (k === "+1/+1") ? ("+" + v + "/+" + v) : (k === "-1/-1") ? ("-" + v + "/-" + v) : (v + " " + k); }).join(" \u00b7 ") + "</span>";
     if (c.isToken) node.innerHTML += '<span class="tok-mark" title="Token">T</span>';
-    if (!inHand && c.attacking && c.zone === "battlefield") node.innerHTML += '<span class="atk-mark" title="Attacking">⚔</span>';
+    if (!inHand && c.attacking && c.zone === "battlefield") node.innerHTML += '<span class="atk-mark" title="Attacking">' + (window.MTGIcons ? MTGIcons.get("sword", "1em") : "") + '</span>';
     if (!inHand && blockingIds[c.instanceId] && c.zone === "battlefield") node.innerHTML += '<span class="blk-mark" title="Blocking"><span class="msym">shield</span></span>';
     var _pti = imagesById[c.cardId];
-    if (!inHand && c.zone === "battlefield" && _pti && _pti.isCreature && _pti.pt) {
-      // G3.22 — bottom-left effective P/T badge: base P/T + all counters/modifiers (rules-layer engine when present).
+    if (showPT && !inHand && c.zone === "battlefield" && _pti && _pti.isCreature && _pti.pt) {
+      // G3.22 \u2014 bottom-left effective P/T badge: base P/T + all counters/modifiers (rules-layer engine when present).
       var _e = effPT(c, _pti);
-      node.innerHTML += '<span class="pt-badge' + (_e.buff > 0 ? " buffed" : (_e.buff < 0 ? " debuffed" : "")) + '" title="Effective power/toughness — base ' + esc(_pti.pt[0] + "/" + _pti.pt[1]) + ' + counters">' + _e.p + "/" + _e.t + "</span>";
+      node.innerHTML += '<span class="pow-badge' + (_e.buff > 0 ? " buffed" : (_e.buff < 0 ? " debuffed" : "")) + '" title="Total power (base power + counters)"><span class="pow-ic">' + (window.MTGIcons ? MTGIcons.get("sword", "1em") : "") + '</span>' + _e.p + "</span>";
+      node.innerHTML += '<span class="pt-badge' + (_e.buff > 0 ? " buffed" : (_e.buff < 0 ? " debuffed" : "")) + '" title="Effective power/toughness \u2014 base ' + esc(_pti.pt[0] + "/" + _pti.pt[1]) + ' + counters">' + _e.p + "/" + _e.t + "</span>";
     }
     node.addEventListener("mouseenter", function () { hoveredId = c.instanceId; showPreview(c); if (inHand) Array.prototype.forEach.call(handCards(), function (n) { if (n !== node) n.classList.remove("walked"); }); });
     node.addEventListener("mouseleave", function () { if (hoveredId === c.instanceId) { hoveredId = null; clearPreview(); } });
@@ -894,7 +899,7 @@
     return node;
   }
   function onCardClick(c) {
-    if (bottomNeeded > 0 && c.zone === "hand" && c.ownerSeat === mySeat) { dispatch({ t: "card_move", instanceId: c.instanceId, toZone: "library" }); bottomNeeded--; setStatus(bottomNeeded > 0 ? ("Put " + bottomNeeded + " more on the bottom.") : "Hand kept — good luck!"); if (bottomNeeded === 0) log("<b>Kept</b> at " + MTGCore.zoneCount(state, mySeat, "hand") + " cards."); return; }
+    if (bottomNeeded > 0 && c.zone === "hand" && c.ownerSeat === mySeat) { dispatch({ t: "card_move", instanceId: c.instanceId, toZone: "library" }); bottomNeeded--; setStatus(bottomNeeded > 0 ? ("Put " + bottomNeeded + " more on the bottom.") : "Hand kept \u2014 good luck!"); if (bottomNeeded === 0) log("<b>Kept</b> at " + MTGCore.zoneCount(state, mySeat, "hand") + " cards."); return; }
     if (linkSource && linkSource !== c.instanceId) { chooseLink(c.instanceId); return; }
     if (c.zone === "hand") playFromHand(c);
     else if (c.zone === "battlefield") dispatch({ t: "card_tap", instanceId: c.instanceId });
@@ -920,7 +925,7 @@
     dispatch({ t: "library_shuffle", seat: mySeat, seed: "mull-" + Date.now() + "-" + Math.floor(Math.random() * 1e9) });
     dispatch({ t: "draw", seat: mySeat, count: 7 });
     mulliganCount++; bottomNeeded = mulliganCount;
-    log("<b>Mulligan</b> #" + mulliganCount + " — bottom " + bottomNeeded + ".");
+    log("<b>Mulligan</b> #" + mulliganCount + " \u2014 bottom " + bottomNeeded + ".");
     setStatus(bottomNeeded > 0 ? ("Mulligan " + mulliganCount + ": click " + bottomNeeded + " card(s) in hand to put on the bottom.") : "Opening hand.");
   }
 
@@ -978,7 +983,7 @@
     node.addEventListener("pointerup", up); node.addEventListener("pointercancel", up);
   }
 
-  // === G3.20 — hand overflow: scroll-wheel pans the fan; wheeling over a card walks the hover ===
+  // === G3.20 \u2014 hand overflow: scroll-wheel pans the fan; wheeling over a card walks the hover ===
   function handCards() { return el.hand ? el.hand.querySelectorAll(".tbl-card") : []; }
   function handOverflowPx() {
     var cards = handCards(); if (!cards.length) return 0;
@@ -1022,7 +1027,7 @@
     el.viewport.addEventListener("dblclick", function (e) { if (e.target.closest(".tbl-card") || e.target.closest(".tbl-pile")) return; recenter(); });
     el.viewport.addEventListener("pointerdown", function (e) {
       if (e.target.closest(".tbl-card")) return;
-      // G3.19 — only a LEFT click acts on a pile (right-click opens the menu via contextmenu; it must not draw).
+      // G3.19 \u2014 only a LEFT click acts on a pile (right-click opens the menu via contextmenu; it must not draw).
       var pile = e.target.closest(".tbl-pile"); if (pile) { if (e.button !== 0) return; onPileClick(pile.dataset.zone, e, pile.dataset.seat); return; }
       if (linkSource) { clearLink(); setStatus("Targeting cancelled."); return; } // clicking empty space exits targeting
       if (e.shiftKey) { marq = { sx: e.clientX, sy: e.clientY }; ensureMarqueeBox(); selected = []; render(); return; }
@@ -1044,10 +1049,10 @@
       if (seat != null && Number(seat) !== mySeat) { setStatus("You can only draw from your own library."); return; }
       dispatch({ t: "draw", seat: mySeat, count: 1 }); setStatus(MTGCore.zoneCount(state, mySeat, "library") + " in library"); return;
     }
-    if (zone === "command") { openCommandView(seat == null ? mySeat : Number(seat)); return; } // G3.23 — single-card viewer
+    if (zone === "command") { openCommandView(seat == null ? mySeat : Number(seat)); return; } // G3.23 \u2014 single-card viewer
     openPile(zone);
   }
-  // G3.23 — modernized command-zone viewer: big card art + one primary "Send to field" button.
+  // G3.23 \u2014 modernized command-zone viewer: big card art + one primary "Send to field" button.
   function openCommandView(seat) {
     if (!state) return;
     if (seat == null || isNaN(seat)) seat = mySeat;
@@ -1070,7 +1075,7 @@
       if (cards.length > 1) h += '<button class="cmdv-nav cmdv-next" title="Next commander" aria-label="Next"><span class="msym">chevron_right</span></button>';
       h += '</div>';
       h += '<div class="cmdv-meta"><span class="cmdv-name">' + esc(c.name || "Commander") + '</span>' +
-        (tax ? '<span class="cmdv-tax" title="Commander tax — next cast costs +' + tax + '">tax +' + tax + '</span>' : '') +
+        (tax ? '<span class="cmdv-tax" title="Commander tax \u2014 next cast costs +' + tax + '">tax +' + tax + '</span>' : '') +
         (cards.length > 1 ? '<span class="cmdv-count">' + (idx + 1) + ' / ' + cards.length + '</span>' : '') + '</div>';
       if (seat === mySeat) h += '<div class="cmdv-foot"><button class="cmdv-cast" type="button"><span class="msym">arrow_outward</span>Send to field</button></div>';
       panel.innerHTML = h;
@@ -1081,7 +1086,7 @@
       if (go) go.onclick = function () {
         // Casting from the command zone raises the tax by 2 for the NEXT cast (CR 903.8); one atomic batch.
         dispatch({ t: "batch", actions: [{ t: "card_move", instanceId: c.instanceId, toZone: "battlefield", x: 42, y: 55 }, { t: "card_counter", instanceId: c.instanceId, kind: "tax", delta: 2 }] });
-        setStatus("Commander sent to the battlefield" + (tax ? " — paid tax +" + tax : "") + " · next cast costs +" + (tax + 2) + ".");
+        setStatus("Commander sent to the battlefield" + (tax ? " \u2014 paid tax +" + tax : "") + " \u00b7 next cast costs +" + (tax + 2) + ".");
         draw();
       };
     }
@@ -1096,7 +1101,7 @@
     function item(label, fn, key) { var b = document.createElement("button"); b.innerHTML = "<span>" + label + "</span>" + (key ? '<span class="mk">' + key + "</span>" : ""); b.onclick = function () { closeMenu(); fn(); }; m.appendChild(b); }
     function sep() { var s = document.createElement("div"); s.className = "sep"; m.appendChild(s); }
     function submenu(label, items) {
-      var b = document.createElement("button"); b.textContent = label + " ▸";
+      var b = document.createElement("button"); b.textContent = label + " \u25B8";
       b.onclick = function (e) { e.stopPropagation(); var ex = m.querySelector(".tbl-submenu"); if (ex) { ex.remove(); return; } var sub = document.createElement("div"); sub.className = "tbl-submenu"; items.forEach(function (it) { var ib = document.createElement("button"); ib.textContent = it.label; ib.onclick = function (ev) { ev.stopPropagation(); closeMenu(); it.fn(); }; sub.appendChild(ib); }); b.insertAdjacentElement("afterend", sub); };
       m.appendChild(b);
     }
@@ -1106,12 +1111,12 @@
     item(c.phased ? "Phase in" : "Phase out", function () { dispatch({ t: "card_phase", instanceId: c.instanceId }); });
     sep();
     item("Add +1/+1 counter", function () { dispatch({ t: "card_counter", instanceId: c.instanceId, kind: "+1/+1", delta: 1 }); }, "+");
-    item("Counters & labels…", function () { openCounters(c); });
-    item("Proliferate…", function () { openProliferate(); });
+    item("Counters & labels\u2026", function () { openCounters(c); });
+    item("Proliferate\u2026", function () { openProliferate(); });
     submenu("Attach to", [{ label: "Select a card", fn: function () { startLink(c.instanceId, "select", "attach"); } }, { label: "Draw a line", fn: function () { startLink(c.instanceId, "draw", "attach"); } }, { label: "Clear attachment", fn: function () { dispatch({ t: "card_attach", instanceId: c.instanceId, attachedTo: null }); } }]);
     submenu("Target", [{ label: "Select a card", fn: function () { startLink(c.instanceId, "select", "target"); } }, { label: "Draw a line", fn: function () { startLink(c.instanceId, "draw", "target"); } }]);
     if (c.zone === "battlefield") item(c.attacking ? "Remove from combat" : "Declare attacker", function () { var willAttack = !c.attacking; dispatch({ t: "card_combat", instanceId: c.instanceId, attacking: willAttack }); if (willAttack && !c.tapped) dispatch({ t: "card_tap", instanceId: c.instanceId, tapped: true }); });
-    // G3.24 — Declare blocker: shield indicator + a BLUE arrow from this card to the attacker it blocks.
+    // G3.24 \u2014 Declare blocker: shield indicator + a BLUE arrow from this card to the attacker it blocks.
     if (c.zone === "battlefield") item(blockingIds[c.instanceId] ? "Remove blocker" : "Declare blocker", function () {
       if (blockingIds[c.instanceId]) { delete blockingIds[c.instanceId]; render(); return; }
       blockingIds[c.instanceId] = 1; render();
@@ -1124,16 +1129,16 @@
     var mvGrave = function () { item("Move to graveyard", function () { dispatch({ t: "card_move", instanceId: c.instanceId, toZone: "graveyard" }); }, "G"); };
     var mvCmd = function () { item("Move to command zone", function () { dispatch({ t: "card_move", instanceId: c.instanceId, toZone: "command" }); }, "C"); };
     if (c.isCommander) { mvCmd(); mvHand(); mvField(); mvGrave(); }   // commanders default to the command zone
-    else { mvHand(); mvField(); mvGrave(); }                          // G3.23 — command zone is commanders-only
-    submenu("More zones…", [
+    else { mvHand(); mvField(); mvGrave(); }                          // G3.23 \u2014 command zone is commanders-only
+    submenu("More zones\u2026", [
       { label: "Exile", fn: function () { dispatch({ t: "card_move", instanceId: c.instanceId, toZone: "exile" }); } },
       { label: "Library (top)", fn: function () { dispatch({ t: "card_move", instanceId: c.instanceId, toZone: "library", pos: minPos("library") - 1 }); } },
       { label: "Library (bottom)", fn: function () { dispatch({ t: "card_move", instanceId: c.instanceId, toZone: "library" }); } }
     ]);
     sep();
-    item("Create token…", function () { openCreateToken(mySeat); });
+    item("Create token\u2026", function () { openCreateToken(mySeat); });
     item("Create token copy", function () { dispatch({ t: "card_clone", fromId: c.instanceId, instanceId: "tok" + (tokenSeq++), x: 45, y: 60 }); }, "X");
-    item("Change print…", function () { openPrintPicker(c); });
+    item("Change print\u2026", function () { openPrintPicker(c); });
     sep();
     item("Inspect card", function () { openInspect(c); }, "I");
     document.body.appendChild(m);
@@ -1142,7 +1147,7 @@
     menuEl = m;
   }
   window.addEventListener("pointerdown", function (e) { if (menuEl && !e.target.closest(".tbl-menu")) closeMenu(); });
-  // G3.21 — dedicated right-click menu for cards in YOUR hand.
+  // G3.21 \u2014 dedicated right-click menu for cards in YOUR hand.
   function openHandMenu(x, y, c) {
     closeMenu();
     var m = document.createElement("div"); m.className = "tbl-menu";
@@ -1158,13 +1163,13 @@
     item("Discard at random", function () {
       var picks = randomFromHand(1); if (!picks.length) return;
       dispatch({ t: "card_move", instanceId: picks[0].instanceId, toZone: "graveyard" });
-      log("<b>Discard at random</b> — " + esc(picks[0].name || "card"));
+      log("<b>Discard at random</b> \u2014 " + esc(picks[0].name || "card"));
     });
-    item("Discard X at random…", function () {
+    item("Discard X at random\u2026", function () {
       var n = parseInt(window.prompt("Discard how many at random?", "2"), 10); if (!(n > 0)) return;
       var picks = randomFromHand(n); if (!picks.length) return;
       dispatch({ t: "batch", actions: picks.map(function (p) { return { t: "card_move", instanceId: p.instanceId, toZone: "graveyard" }; }) });
-      log("<b>Discard " + picks.length + " at random</b> — " + picks.map(function (p) { return esc(p.name || "card"); }).join(", "));
+      log("<b>Discard " + picks.length + " at random</b> \u2014 " + picks.map(function (p) { return esc(p.name || "card"); }).join(", "));
     });
     sep();
     item("Move to battlefield", function () { playFromHand(c); }, "P");
@@ -1184,11 +1189,11 @@
     closeMenu();
     var m = document.createElement("div"); m.className = "tbl-menu";
     function item(label, fn) { var b = document.createElement("button"); b.textContent = label; b.onclick = function () { closeMenu(); fn(); }; m.appendChild(b); }
-    if (state && state.seats > 1) { var _seat = (seat == null ? mySeat : seat); item("Load deck for " + (_seat === mySeat ? "your seat" : "seat " + _seat) + "…", function () { openPasteDeck(_seat); }); var sepd = document.createElement("div"); sepd.className = "sep"; m.appendChild(sepd); }
-    item("Create label…", function () { var t = window.prompt("Label text:"); if (t) createAnnotation("label", 45, 45, t); });
+    if (state && state.seats > 1) { var _seat = (seat == null ? mySeat : seat); item("Load deck for " + (_seat === mySeat ? "your seat" : "seat " + _seat) + "\u2026", function () { openPasteDeck(_seat); }); var sepd = document.createElement("div"); sepd.className = "sep"; m.appendChild(sepd); }
+    item("Create label\u2026", function () { var t = window.prompt("Label text:"); if (t) createAnnotation("label", 45, 45, t); });
     item("Create counter", function () { createAnnotation("counter", 48, 48, ""); });
     var sep0 = document.createElement("div"); sep0.className = "sep"; m.appendChild(sep0);
-    item("Create token…", function () { openCreateToken(seat == null ? mySeat : seat); });
+    item("Create token\u2026", function () { openCreateToken(seat == null ? mySeat : seat); });
     var sep = document.createElement("div"); sep.className = "sep"; m.appendChild(sep);
     QUICK_TOKENS.forEach(function (n) { item(n, function () { createToken(n); }); });
     document.body.appendChild(m);
@@ -1204,10 +1209,10 @@
       item("Draw 1", function () { dispatch({ t: "draw", seat: mySeat, count: 1 }); });
       item("Draw 7", function () { dispatch({ t: "draw", seat: mySeat, count: 7 }); });
       item("Mill 1", function () { dispatch({ t: "mill", seat: mySeat, count: 1 }); });
-      item("Mill X…", function () { var mn = parseInt(window.prompt("Mill how many?", "3"), 10); if (mn > 0) dispatch({ t: "mill", seat: mySeat, count: mn }); });
-      item("Search library…", function () { openPile("library"); });
+      item("Mill X\u2026", function () { var mn = parseInt(window.prompt("Mill how many?", "3"), 10); if (mn > 0) dispatch({ t: "mill", seat: mySeat, count: mn }); });
+      item("Search library\u2026", function () { openPile("library"); });
       item("Scry 1", function () { openScry(1, "scry"); });
-      item("Scry X…", function () { var sn = parseInt(window.prompt("Scry how many?", "3"), 10); if (sn > 0) openScry(sn, "scry"); });
+      item("Scry X\u2026", function () { var sn = parseInt(window.prompt("Scry how many?", "3"), 10); if (sn > 0) openScry(sn, "scry"); });
       item("Surveil 1", function () { openScry(1, "surveil"); });
       item("Shuffle", function () { gameSeed = "g" + Date.now(); dispatch({ t: "library_shuffle", seat: mySeat, seed: gameSeed }); });
     } else if (zone === "command") {
@@ -1216,10 +1221,10 @@
         var tax = (t.counters && t.counters.tax) || 0;
         // Casting from the command zone raises the tax by 2 for the NEXT cast (CR 903.8). The tax counter rides on the card.
         dispatch({ t: "batch", actions: [{ t: "card_move", instanceId: t.instanceId, toZone: "battlefield", x: 42, y: 55 }, { t: "card_counter", instanceId: t.instanceId, kind: "tax", delta: 2 }] });
-        setStatus("Commander cast" + (tax ? " — paid tax +" + tax : "") + " · next cast costs +" + (tax + 2) + ".");
+        setStatus("Commander cast" + (tax ? " \u2014 paid tax +" + tax : "") + " \u00b7 next cast costs +" + (tax + 2) + ".");
       });
       item("Commander tax +2", function () { var t = topCard("command"); if (t) dispatch({ t: "card_counter", instanceId: t.instanceId, kind: "tax", delta: 2 }); });
-      item("Commander tax −2", function () { var t = topCard("command"); if (t && t.counters && t.counters.tax) dispatch({ t: "card_counter", instanceId: t.instanceId, kind: "tax", delta: -2 }); });
+      item("Commander tax \u22122", function () { var t = topCard("command"); if (t && t.counters && t.counters.tax) dispatch({ t: "card_counter", instanceId: t.instanceId, kind: "tax", delta: -2 }); });
       item("Browse command", function () { openPile("command"); });
     } else {
       item("Browse " + zone, function () { openPile(zone); });
@@ -1242,7 +1247,7 @@
     }
     render();
   }
-  // Proliferate (CR 701.27): choose permanents/players that have a counter → give each another of every kind it already has.
+  // Proliferate (CR 701.27): choose permanents/players that have a counter \u2192 give each another of every kind it already has.
   function openProliferate() {
     if (!state) return;
     var perms = [];
@@ -1295,11 +1300,11 @@
     var ov = document.createElement("div"); ov.className = "tbl-pileview"; ov.addEventListener("pointerdown", function (e) { if (e.target === ov) closeTok(); });
     var panel = document.createElement("div"); panel.className = "tok-panel"; ov.appendChild(panel);
     panel.innerHTML =
-      '<div class="tok-head"><div><div class="tok-kicker">Battlefield</div><h2 class="tok-title">Create token</h2></div><button class="tok-x" aria-label="Close">✕</button></div>' +
-      '<div class="tok-search"><input class="tok-q" type="text" placeholder="Search for a token…" />' +
+      '<div class="tok-head"><div><div class="tok-kicker">Battlefield</div><h2 class="tok-title">Create token</h2></div><button class="tok-x" aria-label="Close">' + (window.MTGIcons ? MTGIcons.get("close", "1em") : "") + '</button></div>' +
+      '<div class="tok-search"><input class="tok-q" type="text" placeholder="Search for a token\u2026" />' +
         '<button class="tok-filter" type="button" aria-pressed="true" title="Tokens only"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg></button></div>' +
       '<label class="tok-only"><input type="checkbox" class="tok-only-cb" checked> Tokens only</label>' +
-      '<div class="tok-list"><p class="tok-empty">Loading tokens…</p></div>';
+      '<div class="tok-list"><p class="tok-empty">Loading tokens\u2026</p></div>';
     var q = panel.querySelector(".tok-q"), listEl = panel.querySelector(".tok-list"), cb = panel.querySelector(".tok-only-cb"), filterBtn = panel.querySelector(".tok-filter");
     var tokZoom = null;
     function showTokZoom(src) { if (!src) return; if (!tokZoom) { tokZoom = document.createElement("div"); tokZoom.className = "tok-zoom"; document.body.appendChild(tokZoom); } tokZoom.innerHTML = '<img src="' + src + '" alt="">'; tokZoom.style.display = "flex"; }
@@ -1317,12 +1322,12 @@
       row.innerHTML =
         '<div class="tok-thumb"><img src="' + im.img + '" alt=""></div>' +
         '<div class="tok-meta"><div class="tok-nm">' + esc(card.name) + '</div><div class="tok-type">' + esc(card.type_line || "Token") + '</div></div>' +
-        '<div class="tok-qty"><button class="tok-minus" type="button" aria-label="minus">−</button><b class="tok-n">1</b><button class="tok-plus" type="button" aria-label="plus">+</button></div>' +
+        '<div class="tok-qty"><button class="tok-minus" type="button" aria-label="minus">\u2212</button><b class="tok-n">1</b><button class="tok-plus" type="button" aria-label="plus">+</button></div>' +
         '<button class="tok-go" type="button">Create</button>';
       var nEl = row.querySelector(".tok-n"), go = row.querySelector(".tok-go");
       row.querySelector(".tok-minus").onclick = function () { n = Math.max(1, n - 1); nEl.textContent = n; };
       row.querySelector(".tok-plus").onclick = function () { n = Math.min(50, n + 1); nEl.textContent = n; };
-      go.onclick = function () { spawnPicked(card, n, seat); go.textContent = "✓ Added"; go.classList.add("done"); setTimeout(function () { go.textContent = "Create"; go.classList.remove("done"); }, 900); };
+      go.onclick = function () { spawnPicked(card, n, seat); go.innerHTML = (window.MTGIcons ? MTGIcons.get("check", "1em") : "") + " Added"; go.classList.add("done"); setTimeout(function () { go.textContent = "Create"; go.classList.remove("done"); }, 900); };
       var thumb = row.querySelector(".tok-thumb");
       if (thumb) { thumb.classList.add("zoomable"); thumb.addEventListener("mouseenter", function () { showTokZoom(im.img); }); thumb.addEventListener("mouseleave", hideTokZoom); thumb.addEventListener("click", function (e) { e.stopPropagation(); showTokZoom(im.img); }); }
       listEl.appendChild(row);
@@ -1330,7 +1335,7 @@
     function doSearch() {
       var term = q.value.trim(); lastTerm = term;
       var qq = term ? (cb.checked ? (term + " is:token") : term) : "is:token";
-      listEl.innerHTML = '<p class="tok-empty">Searching…</p>';
+      listEl.innerHTML = '<p class="tok-empty">Searching\u2026</p>';
       fetch("https://api.scryfall.com/cards/search?unique=cards&order=edhrec&dir=desc&q=" + encodeURIComponent(qq)).then(function (r) { return r.json(); }).then(function (j) {
         if (term !== lastTerm) return;
         var data = (j && j.data) || [];
@@ -1338,7 +1343,7 @@
         listEl.innerHTML = ""; var seen = {};
         data.forEach(function (card) { if (!card || seen[card.name]) return; seen[card.name] = 1; addRow(card); });
         if (!listEl.children.length) listEl.innerHTML = '<p class="tok-empty">No tokens found.</p>';
-      }).catch(function () { listEl.innerHTML = '<p class="tok-empty">Search failed — check your connection.</p>'; });
+      }).catch(function () { listEl.innerHTML = '<p class="tok-empty">Search failed \u2014 check your connection.</p>'; });
     }
     document.body.appendChild(ov);
     doSearch();
@@ -1357,7 +1362,7 @@
     function redraw() {
       panel.innerHTML = "";
       var head = document.createElement("div"); head.className = "pv-head";
-      var h = document.createElement("span"); h.textContent = (mode === "surveil" ? "Surveil " : "Scry ") + n + " — leftmost is top";
+      var h = document.createElement("span"); h.textContent = (mode === "surveil" ? "Surveil " : "Scry ") + n + " \u2014 leftmost is top";
       head.appendChild(h);
       var x = document.createElement("button"); x.className = "pv-x"; x.textContent = "Cancel"; x.onclick = close; head.appendChild(x); panel.appendChild(head);
       var grid = document.createElement("div"); grid.className = "scry-grid";
@@ -1367,8 +1372,8 @@
         cell.innerHTML = src ? ('<img src="' + src + '">') : ('<div class="scry-nm">' + esc(it.c.name) + "</div>");
         var ctrl = document.createElement("div"); ctrl.className = "scry-ctrl";
         var tg = document.createElement("button"); tg.textContent = it.dest === "top" ? "Top" : downLabel; tg.onclick = function () { it.dest = it.dest === "top" ? "down" : "top"; redraw(); };
-        var up = document.createElement("button"); up.textContent = "◀"; up.title = "toward top"; up.onclick = function () { if (i > 0) { var t = items[i - 1]; items[i - 1] = items[i]; items[i] = t; redraw(); } };
-        var dn = document.createElement("button"); dn.textContent = "▶"; dn.title = "toward bottom"; dn.onclick = function () { if (i < items.length - 1) { var t = items[i + 1]; items[i + 1] = items[i]; items[i] = t; redraw(); } };
+        var up = document.createElement("button"); up.textContent = "\u25C0"; up.title = "toward top"; up.onclick = function () { if (i > 0) { var t = items[i - 1]; items[i - 1] = items[i]; items[i] = t; redraw(); } };
+        var dn = document.createElement("button"); dn.textContent = "\u25B6"; dn.title = "toward bottom"; dn.onclick = function () { if (i < items.length - 1) { var t = items[i + 1]; items[i + 1] = items[i]; items[i] = t; redraw(); } };
         ctrl.appendChild(up); ctrl.appendChild(tg); ctrl.appendChild(dn); cell.appendChild(ctrl); grid.appendChild(cell);
       });
       panel.appendChild(grid);
@@ -1381,7 +1386,7 @@
       var keepIds = items.filter(function (it) { return it.dest === "top"; }).map(function (it) { return it.id; });
       downIds.forEach(function (id) { dispatch({ t: "card_move", instanceId: id, toZone: mode === "surveil" ? "graveyard" : "library" }); });
       if (keepIds.length) dispatch({ t: "library_scry", seat: mySeat, order: keepIds });
-      log("<b>" + (mode === "surveil" ? "Surveil" : "Scry") + " " + n + "</b> — kept " + keepIds.length + ", " + (mode === "surveil" ? "to grave " : "to bottom ") + downIds.length + ".");
+      log("<b>" + (mode === "surveil" ? "Surveil" : "Scry") + " " + n + "</b> \u2014 kept " + keepIds.length + ", " + (mode === "surveil" ? "to grave " : "to bottom ") + downIds.length + ".");
       setStatus((mode === "surveil" ? "Surveiled " : "Scryed ") + n + ".");
     }
     redraw();
@@ -1417,10 +1422,10 @@
     render();
   }
   var arrowTimer = null;
-  // Draw a transient arrow card-center → card-center. color is optional (blue = blocking, red = targeting).
+  // Draw a transient arrow card-center \u2192 card-center. color is optional (blue = blocking, red = targeting).
   function fireArrow(fromId, toId, fromRemote, color) {
     var a = state.cards[fromId], b = state.cards[toId]; if (!a || !b) return;
-    var col = /^#[0-9a-fA-F]{3,8}$/.test(String(color || "")) ? color : "#ff5470"; // sanitized — goes into innerHTML
+    var col = /^#[0-9a-fA-F]{3,8}$/.test(String(color || "")) ? color : "#ff5470"; // sanitized \u2014 goes into innerHTML
     var p1 = ptOfCard(fromId), p2 = ptOfCard(toId); if (!p1 || !p2) return;
     drawArrowPts(p1, p2, false, col);
     clearTimeout(arrowTimer); arrowTimer = setTimeout(clearArrow, 2200);
@@ -1454,7 +1459,7 @@
       var r = window.MTGDuel.resolveDuel(A, B);
       if (r.lifegain && r.lifegain.a) dispatch({ t: "adjust_life", seat: A.seat, delta: r.lifegain.a });
       if (r.lifegain && r.lifegain.b) dispatch({ t: "adjust_life", seat: B.seat, delta: r.lifegain.b });
-      // Trample carries to the defending controller — commander creatures accrue commander damage too (CR 903.10a).
+      // Trample carries to the defending controller \u2014 commander creatures accrue commander damage too (CR 903.10a).
       function playerDamage(srcCard, seat, dmg) {
         var acts = [{ t: "adjust_life", seat: seat, delta: -dmg }];
         if (srcCard && srcCard.isCommander && srcCard.ownerSeat !== seat) acts.unshift({ t: "commander_damage", seat: seat, fromSeat: srcCard.ownerSeat, fromCmd: cmdrKeyOf(srcCard) || "primary", delta: dmg });
@@ -1491,7 +1496,7 @@
   function linkMove(x, y) { if (!linkSource || linkMode !== "draw" || linkChosen) return; var p1 = ptOfCard(linkSource); if (!p1) return; var b = screenToBoard(x, y); drawArrowPts(p1, { x: b.bx, y: b.by }, true, linkColor()); }
   function chooseLink(toId) {
     linkChosen = toId;
-    // G3.25 — target/block arrows fire immediately and EXIT targeting mode (no sticky confirm step).
+    // G3.25 \u2014 target/block arrows fire immediately and EXIT targeting mode (no sticky confirm step).
     if (linkKind === "target" || linkKind === "block") { confirmLink(); return; }
     var p1 = ptOfCard(linkSource), p2 = ptOfCard(toId); if (p1 && p2) drawArrowPts(p1, p2, true, linkColor());
     showLinkToolbar();
@@ -1524,7 +1529,7 @@
       var band = document.createElement("div"); band.className = "tbl-seatband" + (i === mySeat ? " mine" : "");
       band.style.top = (i / seats * BOARD_H) + "px"; band.style.height = (BOARD_H / seats) + "px";
       var pl = state.players[i];
-      band.innerHTML = '<span class="sb-label">' + (i === mySeat ? "You" : ("Seat " + i)) + (pl && pl.name ? " · " + esc(pl.name) : "") + "</span>";
+      band.innerHTML = '<span class="sb-label">' + (i === mySeat ? "You" : ("Seat " + i)) + (pl && pl.name ? " \u00b7 " + esc(pl.name) : "") + "</span>";
       el.surface.appendChild(band);
     }
   }
@@ -1559,7 +1564,7 @@
     var panel = document.createElement("div"); panel.className = "pv-panel pv-modern";
     panel.innerHTML = '<div class="pv-head"><span class="pv-title">' + (PILES[zone] ? PILES[zone].label : zone) + ' <span class="pv-count">' + cards.length + '</span></span><button class="pv-x pv-x-ic" title="Close" aria-label="Close"><span class="msym">close</span></button></div>';
     var grid = document.createElement("div"); grid.className = "pv-grid";
-    // G3.26 — icon buttons with tooltips instead of raw text-button rows.
+    // G3.26 \u2014 icon buttons with tooltips instead of raw text-button rows.
     var ACTS = [
       { to: "hand", ic: "back_hand", tip: "To hand" },
       { to: "battlefield", ic: "play_arrow", tip: "To battlefield" },
@@ -1609,7 +1614,7 @@
     var kinds = [], seen = {};
     Object.keys(card.counters || {}).forEach(function (k) { if (!seen[k]) { seen[k] = 1; kinds.push(k); } });
     COMMON_COUNTERS.forEach(function (k) { if (!seen[k]) { seen[k] = 1; kinds.push(k); } });
-    var html = '<div class="pv-head">Counters — ' + esc(card.name || "card") + ' <button class="pv-x">close</button></div><div class="ctr-list">';
+    var html = '<div class="pv-head">Counters \u2014 ' + esc(card.name || "card") + ' <button class="pv-x">close</button></div><div class="ctr-list">';
     kinds.forEach(function (k) { var v = (card.counters && card.counters[k]) || 0;
       html += '<div class="ctr-row"><button data-k="' + esc(k) + '" data-d="-1">&minus;</button><span class="ctr-name">' + esc(k) + '</span><span class="ctr-val">' + v + '</span><button data-k="' + esc(k) + '" data-d="1">+</button></div>'; });
     html += "</div>"; panel.innerHTML = html;
@@ -1693,10 +1698,10 @@
   async function loadPastedDeck(text, seat) {
     var raw = String(text || "").trim();
     var parsed, deckLabel = "Pasted deck";
-    // A Moxfield / Archidekt deck link → fetch the list (reuses the deck-builder's relay import) instead of parsing text.
+    // A Moxfield / Archidekt deck link \u2192 fetch the list (reuses the deck-builder's relay import) instead of parsing text.
     if (/(?:moxfield\.com|archidekt\.com)\/decks\//i.test(raw) && window.MTGDeckUrlImport) {
       var site = /moxfield/i.test(raw) ? "Moxfield" : "Archidekt";
-      setStatus("Fetching deck from " + site + "…");
+      setStatus("Fetching deck from " + site + "\u2026");
       var res = null; try { res = await window.MTGDeckUrlImport(raw); } catch (e) {}
       if (!res || !res.cards || !res.cards.length) { setStatus("Couldn't fetch that " + site + " deck (it may be private). Paste the exported list instead."); return; }
       parsed = res.cards; deckLabel = res.name || (site + " deck");
@@ -1746,9 +1751,9 @@
     if (info && info.pt) { var bp = parseInt(info.pt[0], 10); if (isNaN(bp)) return 0; var pl = (c.counters && c.counters["+1/+1"]) || 0, mn = (c.counters && c.counters["-1/-1"]) || 0; return Math.max(0, bp + pl - mn); }
     return 0;
   }
-  // Expected-bracket encoded into the game name ("B3 · <name>") so it persists + shows in the lobby list (no schema change).
+  // Expected-bracket encoded into the game name ("B3 \u00b7 <name>") so it persists + shows in the lobby list (no schema change).
   var BRACKET_NAMES = { 1: "Exhibition", 2: "Core", 3: "Upgraded", 4: "Optimized", 5: "cEDH" };
-  function parseLobbyName(name) { var m = String(name || "").match(/^B([1-5])\s*·\s*(.*)$/); return m ? { bracket: +m[1], title: m[2] || "Commander table" } : { bracket: null, title: name || "Commander table" }; }
+  function parseLobbyName(name) { var m = String(name || "").match(/^B([1-5])\s*\u00b7\s*(.*)$/); return m ? { bracket: +m[1], title: m[2] || "Commander table" } : { bracket: null, title: name || "Commander table" }; }
   function openLobby() {
     if (!window.MTGTableSync) { setStatus("Online sync is not loaded."); return; }
     var ov = document.createElement("div"); ov.className = "tbl-pileview"; ov.addEventListener("pointerdown", function (e) { if (e.target === ov) ov.remove(); });
@@ -1771,7 +1776,7 @@
         var when = panel.querySelector(".lob-when"); var schedIso = null;
         if (when && when.value) {
           var ts = new Date(when.value).getTime();
-          if (isNaN(ts)) { setStatus("That schedule time didn't parse — hosting now instead."); }
+          if (isNaN(ts)) { setStatus("That schedule time didn't parse \u2014 hosting now instead."); }
           else if (ts - Date.now() > 7.5 * 24 * 3600 * 1000) { setStatus("Pick a start time within the next 7 days."); return; }
           else schedIso = new Date(ts).toISOString();
         }
@@ -1786,23 +1791,23 @@
     function draw(list, msg) {
       var h = '<div class="pv-head"><span>Find a game</span><button class="pv-x">Close</button></div>';
       h += '<div class="lob-actions"><select class="lob-bracket" title="Expected deck bracket for the game you host">' +
-        '<option value="">Any bracket</option><option value="1">Bracket 1 · Exhibition</option><option value="2">Bracket 2 · Core</option>' +
-        '<option value="3" selected>Bracket 3 · Upgraded</option><option value="4">Bracket 4 · Optimized</option><option value="5">Bracket 5 · cEDH</option></select>' +
+        '<option value="">Any bracket</option><option value="1">Bracket 1 \u00b7 Exhibition</option><option value="2">Bracket 2 \u00b7 Core</option>' +
+        '<option value="3" selected>Bracket 3 \u00b7 Upgraded</option><option value="4">Bracket 4 \u00b7 Optimized</option><option value="5">Bracket 5 \u00b7 cEDH</option></select>' +
         '<select class="lob-vis" title="Public games show in this list; private games are join-by-code only">' +
         '<option value="public" selected>Public</option><option value="private">Private</option></select>' +
-        '<input type="datetime-local" class="lob-when" title="Optional — schedule the game up to 7 days out; it lists with a Starts-in badge">' +
+        '<input type="datetime-local" class="lob-when" title="Optional \u2014 schedule the game up to 7 days out; it lists with a Starts-in badge">' +
         '<button class="primary lob-host">Host a public game</button><button class="lob-refresh">Refresh</button></div>';
       if (msg) h += '<div class="lob-msg">' + esc(msg) + "</div>";
-      else if (!list || !list.length) h += '<div class="lob-msg">No public games right now — host one and your pod can Find it.</div>';
+      else if (!list || !list.length) h += '<div class="lob-msg">No public games right now \u2014 host one and your pod can Find it.</div>';
       else h += '<div class="lob-list">' + list.map(function (g) {
         var pn = parseLobbyName(g.name);
         var badge = pn.bracket ? '<span class="lob-brk lob-brk-' + pn.bracket + '">B' + pn.bracket + '</span>' : "";
-        return '<div class="lob-row"><div class="lob-info"><b>' + badge + esc(pn.title) + schedBadge(g) + '</b><span>' + (g.players || 1) + ' in · host ' + esc(g.host || "?") + ' · ' + (g.startingLife || 40) + ' life' + (pn.bracket ? ' · ' + BRACKET_NAMES[pn.bracket] : "") + '</span></div><button class="lob-join" data-id="' + g.id + '">Join</button></div>';
+        return '<div class="lob-row"><div class="lob-info"><b>' + badge + esc(pn.title) + schedBadge(g) + '</b><span>' + (g.players || 1) + ' in \u00b7 host ' + esc(g.host || "?") + ' \u00b7 ' + (g.startingLife || 40) + ' life' + (pn.bracket ? ' \u00b7 ' + BRACKET_NAMES[pn.bracket] : "") + '</span></div><button class="lob-join" data-id="' + g.id + '">Join</button></div>';
       }).join("") + "</div>";
       panel.innerHTML = h; wire();
     }
     async function load() {
-      draw(null, "Loading…");
+      draw(null, "Loading\u2026");
       try {
         if (!(window.mtgSync && window.mtgSync.enabled && window.mtgSync.session)) { draw(null, "Sign in (account button, top-right) to host or join online games."); return; }
         if (!state) { draw(null, "Load a deck first so you can join with it."); return; }
@@ -1838,14 +1843,14 @@
     var ov = document.createElement("div"); ov.className = "tbl-pileview"; ov.addEventListener("pointerdown", function (e) { if (e.target === ov) ov.remove(); });
     var panel = document.createElement("div"); panel.className = "pv-panel drf-panel"; ov.appendChild(panel);
     panel.innerHTML = '<div class="pv-head"><span>Draft a pool</span><button class="pv-x">Close</button></div>'
-      + '<div class="drf-set"><input class="drf-input" placeholder="Set code — e.g. mh3, fdn, blb, dsk"><button class="primary drf-start">Start</button></div>'
+      + '<div class="drf-set"><input class="drf-input" placeholder="Set code \u2014 e.g. mh3, fdn, blb, dsk"><button class="primary drf-start">Start</button></div>'
       + '<div class="drf-body"><div class="drf-msg">Enter a set code, then pick one card from each pack. Build up to ' + draft.target + ', then Play the pool.</div></div>';
     function body() { return panel.querySelector(".drf-body"); }
-    function start() { var set = (panel.querySelector(".drf-input").value || "").trim().toLowerCase(); if (!set) { setStatus("Enter a set code."); return; } draft.pool = []; draft.picks = 0; body().innerHTML = '<div class="drf-msg">Loading ' + esc(set) + "…</div>"; draftLoadSet(set).then(function () { if (!draft.cards.length) { body().innerHTML = '<div class="drf-msg">No draftable cards for "' + esc(set) + '". Try mh3, fdn, blb, dsk, otj…</div>'; return; } draftNewPack(); draw(); }); }
+    function start() { var set = (panel.querySelector(".drf-input").value || "").trim().toLowerCase(); if (!set) { setStatus("Enter a set code."); return; } draft.pool = []; draft.picks = 0; body().innerHTML = '<div class="drf-msg">Loading ' + esc(set) + "\u2026</div>"; draftLoadSet(set).then(function () { if (!draft.cards.length) { body().innerHTML = '<div class="drf-msg">No draftable cards for "' + esc(set) + '". Try mh3, fdn, blb, dsk, otj\u2026</div>'; return; } draftNewPack(); draw(); }); }
     function pick(c) { if (!c) return; draft.pool.push(c); draft.picks++; if (draft.picks >= draft.target) return finish(); draftNewPack(); draw(); }
     function finish() { var images = {}, list = []; draft.pool.forEach(function (c) { images[c.id] = { img: c.img, name: c.name }; list.push({ cardId: c.id, name: c.name }); }); ov.remove(); if (!list.length) { setStatus("Draft pool is empty."); return; } numOpponents = 0; buildAndStart(list, images, "Drafted pool (" + draft.set + ")"); }
     function draw() {
-      var b = '<div class="drf-bar">Pick ' + (draft.picks + 1) + ' · pool ' + draft.pool.length + '/' + draft.target + '<button class="drf-finish">Play pool (' + draft.pool.length + ')</button></div>';
+      var b = '<div class="drf-bar">Pick ' + (draft.picks + 1) + ' \u00b7 pool ' + draft.pool.length + '/' + draft.target + '<button class="drf-finish">Play pool (' + draft.pool.length + ')</button></div>';
       b += '<div class="drf-pack">' + draft.pack.map(function (c, i) { return '<div class="drf-card" data-i="' + i + '" title="' + esc(c.name) + '">' + (c.img ? ('<img src="' + c.img + '">') : ('<div class="nm">' + esc(c.name) + "</div>")) + "</div>"; }).join("") + "</div>";
       body().innerHTML = b;
       Array.prototype.forEach.call(panel.querySelectorAll(".drf-card"), function (el2) { el2.onclick = function () { pick(draft.pack[+el2.dataset.i]); }; });
@@ -1876,7 +1881,7 @@
     var panel = document.createElement("div"); panel.className = "pv-panel ins-panel"; ov.appendChild(panel);
     function bar(label, val, max, cls) { var pct = max ? Math.round(val / max * 100) : 0; return '<div class="ins-bar"><span class="ins-bl">' + label + '</span><span class="ins-track"><span class="ins-fill ' + (cls || "") + '" style="width:' + pct + '%"></span></span><span class="ins-bv">' + val + "</span></div>"; }
     var h = '<div class="pv-head"><span>Deck insights</span><button class="pv-x">Close</button></div>';
-    if (!known) { h += '<div class="ins-msg">Card data is still loading from Scryfall — reopen this in a moment.</div>'; }
+    if (!known) { h += '<div class="ins-msg">Card data is still loading from Scryfall \u2014 reopen this in a moment.</div>'; }
     else {
       var maxCurve = Math.max.apply(null, curve.concat([1]));
       h += '<div class="ins-sec">Mana value (nonland)</div>';
@@ -1887,7 +1892,7 @@
       h += '<div class="ins-sec">Card types</div>';
       var maxT = Math.max.apply(null, Object.keys(types).map(function (k) { return types[k]; }).concat([1]));
       Object.keys(types).forEach(function (k) { if (types[k]) h += bar(k, types[k], maxT, "t"); });
-      h += '<div class="ins-foot">Lands ' + lands + ' · Nonland ' + nonland + ' · ' + known + "/" + total + " cards identified</div>";
+      h += '<div class="ins-foot">Lands ' + lands + ' \u00b7 Nonland ' + nonland + ' \u00b7 ' + known + "/" + total + " cards identified</div>";
     }
     panel.innerHTML = h; panel.querySelector(".pv-x").onclick = function () { ov.remove(); };
     document.body.appendChild(ov);
@@ -1908,20 +1913,20 @@
     var panel = document.createElement("div"); panel.className = "pv-panel pc-panel"; ov.appendChild(panel);
     function wire() {
       panel.querySelector(".pv-x").onclick = function () { ov.remove(); };
-      var l = panel.querySelector(".pc-load"); if (l) l.onclick = function () { l.textContent = "Loading…"; l.disabled = true; loadPlanarDeck().then(draw); };
-      var rl = panel.querySelector(".pc-roll"); if (rl) rl.onclick = function () { var f = rollPlanarFace(); var res = panel.querySelector(".pc-result"); if (f === "planeswalk") { planeswalk(); log("<b>Planar die:</b> Planeswalk"); draw(); } else if (f === "chaos") { if (res) res.textContent = "CHAOS — trigger the active plane's chaos ability."; log("<b>Planar die:</b> Chaos"); } else { if (res) res.textContent = "Blank — nothing happens."; } };
+      var l = panel.querySelector(".pc-load"); if (l) l.onclick = function () { l.textContent = "Loading\u2026"; l.disabled = true; loadPlanarDeck().then(draw); };
+      var rl = panel.querySelector(".pc-roll"); if (rl) rl.onclick = function () { var f = rollPlanarFace(); var res = panel.querySelector(".pc-result"); if (f === "planeswalk") { planeswalk(); log("<b>Planar die:</b> Planeswalk"); draw(); } else if (f === "chaos") { if (res) res.textContent = "CHAOS \u2014 trigger the active plane's chaos ability."; log("<b>Planar die:</b> Chaos"); } else { if (res) res.textContent = "Blank \u2014 nothing happens."; } };
       var wk = panel.querySelector(".pc-walk"); if (wk) wk.onclick = function () { planeswalk(); log("<b>Planeswalk</b> to " + esc(planar.deck[planar.pos].name)); draw(); };
     }
     function draw() {
       var h = '<div class="pv-head"><span>Planechase</span><button class="pv-x">Close</button></div>';
       if (!planar.loaded) { h += '<div class="pc-msg">Load a planar deck (every plane + phenomenon from Scryfall, shuffled) to begin.</div><div class="pc-foot"><button class="primary pc-load">Load planar deck</button></div>'; }
-      else if (!planar.deck.length) { h += '<div class="pc-msg">Could not load planes — check your connection and retry.</div><div class="pc-foot"><button class="primary pc-load">Retry</button></div>'; }
+      else if (!planar.deck.length) { h += '<div class="pc-msg">Could not load planes \u2014 check your connection and retry.</div><div class="pc-foot"><button class="primary pc-load">Retry</button></div>'; }
       else {
         var plane = planar.deck[planar.pos];
         h += '<div class="pc-active">' + (plane.img ? ('<img src="' + plane.img + '">') : ('<div class="pc-nm">' + esc(plane.name) + "</div>")) + "</div>";
         h += '<div class="pc-name">' + esc(plane.name) + ' <span class="pc-count">plane ' + (planar.pos + 1) + " / " + planar.deck.length + "</span></div>";
         if (plane.text) h += '<div class="pc-text">' + esc(plane.text) + "</div>";
-        h += '<div class="pc-foot"><button class="primary pc-roll">Roll planar die</button><button class="pc-walk">Planeswalk →</button></div><div class="pc-result"></div>';
+        h += '<div class="pc-foot"><button class="primary pc-roll">Roll planar die</button><button class="pc-walk">Planeswalk \u2192</button></div><div class="pc-result"></div>';
       }
       panel.innerHTML = h; wire();
     }
@@ -1951,7 +1956,7 @@
     var panel = document.createElement("div"); panel.className = "pv-panel mat-panel"; ov.appendChild(panel);
     var h = '<div class="pv-head"><span>Playmat</span><button class="pv-x">Close</button></div>';
     h += '<div class="mat-grid">' + PLAYMATS.map(function (m) { return '<button class="mat-swatch" data-css="' + esc(m.css) + '" style="background:' + m.css + '"><span>' + esc(m.name) + "</span></button>"; }).join("") + "</div>";
-    h += '<div class="mat-custom"><input class="mat-url" placeholder="Custom image URL (https://…)"><button class="mat-apply">Apply image</button></div>';
+    h += '<div class="mat-custom"><input class="mat-url" placeholder="Custom image URL (https://\u2026)"><button class="mat-apply">Apply image</button></div>';
     h += '<div class="mat-footr"><button class="mat-reset">Reset to default</button></div>';
     panel.innerHTML = h;
     panel.querySelector(".pv-x").onclick = function () { ov.remove(); };
@@ -1971,7 +1976,7 @@
       var total = atk.reduce(function (a, c) { return a + combatPower(c); }, 0);
       var firstOpp = mySeat; for (var i = 0; i < ps.length; i++) { if (i !== mySeat) { firstOpp = i; break; } }
       var h = '<div class="pv-head"><span>Combat</span><button class="pv-x">Close</button></div>';
-      if (!atk.length) { h += '<div class="cmb-empty">No attackers declared. Right-click a creature → <b>Declare attacker</b>. Power reads from Scryfall once card art has loaded.</div>'; }
+      if (!atk.length) { h += '<div class="cmb-empty">No attackers declared. Right-click a creature \u2192 <b>Declare attacker</b>. Power reads from Scryfall once card art has loaded.</div>'; }
       else {
         h += '<div class="cmb-list">' + atk.map(function (c) { return '<div class="cmb-row"><span>' + esc(c.name) + '</span><b>' + combatPower(c) + '</b></div>'; }).join("") + '</div>';
         h += '<div class="cmb-tot">Total power <b>' + total + '</b></div>';
@@ -1980,7 +1985,7 @@
       }
       panel.innerHTML = h;
       panel.querySelector(".pv-x").onclick = function () { ov.remove(); };
-      var go = panel.querySelector(".cmb-go"); if (go) go.onclick = function () { var sel = panel.querySelector(".cmb-sel"); var a2 = attackers(); var tot = a2.reduce(function (a, c) { return a + combatPower(c); }, 0); var tgt = sel ? +sel.value : firstOpp; dispatch({ t: "adjust_life", seat: tgt, delta: -tot }); clearAll(a2); log("<b>Combat</b> — " + tot + " to " + (tgt === mySeat ? "you" : "seat " + tgt) + "."); ov.remove(); };
+      var go = panel.querySelector(".cmb-go"); if (go) go.onclick = function () { var sel = panel.querySelector(".cmb-sel"); var a2 = attackers(); var tot = a2.reduce(function (a, c) { return a + combatPower(c); }, 0); var tgt = sel ? +sel.value : firstOpp; dispatch({ t: "adjust_life", seat: tgt, delta: -tot }); clearAll(a2); log("<b>Combat</b> \u2014 " + tot + " to " + (tgt === mySeat ? "you" : "seat " + tgt) + "."); ov.remove(); };
       var cl = panel.querySelector(".cmb-clear"); if (cl) cl.onclick = function () { clearAll(attackers()); ov.remove(); };
     }
     draw();
@@ -2013,8 +2018,8 @@
     var panel = document.createElement("div"); panel.className = "pv-panel cmx-panel";
     function draw() {
       var ps = state.players;
-      var h = '<div class="pv-head"><span>Commander damage — 21 from any single commander is lethal</span><button class="pv-x">Close</button></div>';
-      if (ps.length < 2) { h += '<div class="cmx-empty">You are playing solo. Use the <b>Pod</b> selector to add opponents, then track each commander’s damage here.</div>'; }
+      var h = '<div class="pv-head"><span>Commander damage \u2014 21 from any single commander is lethal</span><button class="pv-x">Close</button></div>';
+      if (ps.length < 2) { h += '<div class="cmx-empty">You are playing solo. Use the <b>Pod</b> selector to add opponents, then track each commander\u2019s damage here.</div>'; }
       else {
         h += '<div class="cmx-rows">';
         ps.forEach(function (rp, r) {
@@ -2026,7 +2031,7 @@
               var val = (rp.cmdDamage && rp.cmdDamage[a + ":" + cm.key]) || 0;
               var who = (a === mySeat ? "You" : (ap.name ? esc(ap.name) : "Seat " + a));
               var label = cmdrs.length > 1 ? esc(cm.name) : ("from " + who);
-              h += '<div class="cmx-cell' + (val >= 21 ? " lethal" : "") + '" title="' + esc(cm.name) + ' (' + who + ')"><div class="cmx-from">' + label + '</div><div class="cmx-val">' + val + '</div><div class="cmx-btns"><button data-r="' + r + '" data-a="' + a + '" data-k="' + cm.key + '" data-d="-1">−</button><button data-r="' + r + '" data-a="' + a + '" data-k="' + cm.key + '" data-d="1">+</button></div></div>';
+              h += '<div class="cmx-cell' + (val >= 21 ? " lethal" : "") + '" title="' + esc(cm.name) + ' (' + who + ')"><div class="cmx-from">' + label + '</div><div class="cmx-val">' + val + '</div><div class="cmx-btns"><button data-r="' + r + '" data-a="' + a + '" data-k="' + cm.key + '" data-d="-1">\u2212</button><button data-r="' + r + '" data-a="' + a + '" data-k="' + cm.key + '" data-d="1">+</button></div></div>';
             });
           });
           h += "</div></div>";
@@ -2041,7 +2046,7 @@
           var cur = (state.players[r] && state.players[r].cmdDamage && state.players[r].cmdDamage[a + ":" + k]) || 0;
           if (d < 0 && cur <= 0) return;
           // One atomic action per click so a single Undo reverts both counter and life.
-          // Damage realizes the life loss; corrections (−) are counter-only (removing damage isn't lifegain).
+          // Damage realizes the life loss; corrections (\u2212) are counter-only (removing damage isn't lifegain).
           var acts = [{ t: "commander_damage", seat: r, fromSeat: a, fromCmd: k, delta: d }];
           if (d > 0) acts.push({ t: "adjust_life", seat: r, delta: -d });
           dispatch(acts.length > 1 ? { t: "batch", actions: acts } : acts[0]);
@@ -2571,6 +2576,8 @@
     untapAll: function () { try { if (state) dispatch({ t: "untap_all", seat: mySeat }); } catch (e) {} },
     setEngineEnforce: function (on) { try { setEngineEnforce(!!on); } catch (e) {} },
     engineEnforceOn: function () { return !!engineEnforce; },
+    setShowPT: function (on) { showPT = !!on; try { localStorage.setItem("mtg_show_pt", showPT ? "1" : "0"); } catch (e) {} try { render(); } catch (e) {} },
+    showPTOn: function () { return !!showPT; },
     enforceSBAs: function () { try { enforceSBAs(); } catch (e) {} },
     createToken: function () { try { openCreateToken(mySeat); } catch (e) {} },
     openCommanderDamage: function () { try { openCmdMatrix(); } catch (e) {} },

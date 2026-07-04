@@ -1,0 +1,89 @@
+/* play-voice.css — voice dock (commander portraits + speaking rings), mixer, audio modal.
+   Self-contained; matches the Sigil glass HUD. Portraits light up when a player talks. */
+
+.vc-dock {
+  position: fixed; top: 66px; right: 14px; z-index: 60; width: 268px;
+  background: linear-gradient(180deg, rgba(16,22,38,.94), rgba(11,16,28,.96));
+  border: 1px solid rgba(120,160,230,.18); border-radius: 16px;
+  box-shadow: 0 14px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.05);
+  backdrop-filter: blur(14px) saturate(1.15); color: #eaf1fb;
+  font: 500 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden;
+}
+.vc-dock[hidden] { display: none; }
+
+.vc-head { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-bottom: 1px solid rgba(255,255,255,.07); }
+.vc-head > .mi { color: #8fb6ef; }
+.vc-h-title { font-size: 13px; font-weight: 700; letter-spacing: .2px; }
+.vc-dot { width: 8px; height: 8px; border-radius: 50%; background: #45d17f; box-shadow: 0 0 8px rgba(69,209,127,.8); flex: none; }
+.vc-count { font-size: 11px; font-weight: 700; color: #bcd0ee; background: rgba(120,160,230,.16); border-radius: 999px; padding: 1px 8px; }
+.vc-sp { flex: 1 1 auto; }
+.vc-mini { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 9px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.05); color: #cfe0f6; cursor: pointer; padding: 0; transition: background .13s, color .13s, border-color .13s; }
+.vc-mini:hover { background: rgba(120,160,230,.18); color: #fff; }
+.vc-mini[data-vc="leave"]:hover { background: rgba(229,72,77,.2); color: #ff8080; border-color: rgba(229,72,77,.4); }
+
+/* portrait cluster */
+.vc-circles { display: flex; flex-wrap: wrap; gap: 10px; padding: 12px 12px 13px; }
+.vc-av { position: relative; width: 46px; height: 46px; border-radius: 50%; flex: none; cursor: pointer; --lvl: 0; }
+.vc-av .vc-ring { position: absolute; inset: -3px; border-radius: 50%; border: 2px solid rgba(255,255,255,.12); transition: border-color .12s ease, box-shadow .12s ease; pointer-events: none; }
+.vc-av .vc-img { position: absolute; inset: 0; border-radius: 50%; background-size: cover; background-position: center top; box-shadow: inset 0 0 0 1px rgba(0,0,0,.4); }
+.vc-av .vc-ini { position: absolute; inset: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; letter-spacing: .5px; }
+.vc-av.me .vc-ring { border-color: rgba(120,160,230,.5); }
+.vc-av.speaking .vc-ring { border-color: #2bd4c0; box-shadow: 0 0 0 calc(2px + var(--lvl) * 7px) rgba(43,212,192,.30), 0 0 18px rgba(43,212,192,.55); }
+.vc-av.muted .vc-img, .vc-av.muted .vc-ini { filter: grayscale(.5) brightness(.75); }
+.vc-badge { position: absolute; right: -3px; bottom: -3px; width: 18px; height: 18px; border-radius: 50%; background: #0d1424; border: 1px solid rgba(255,255,255,.14); display: flex; align-items: center; justify-content: center; color: #cfe0f6; }
+.vc-av.muted .vc-badge { color: #ff8080; }
+.vc-av.me .vc-badge { color: #7ff0e2; }
+
+/* mixer (expanded) */
+.vc-mixer { display: none; border-top: 1px solid rgba(255,255,255,.07); padding: 6px 10px 10px; }
+.vc-dock.expanded .vc-mixer { display: block; }
+.vc-row { display: flex; align-items: center; gap: 10px; padding: 7px 2px; border-bottom: 1px solid rgba(255,255,255,.05); }
+.vc-row:last-child { border-bottom: 0; }
+.vc-row-av { width: 34px; height: 34px; cursor: default; }
+.vc-row-av .vc-ini { font-size: 12px; }
+.vc-row-name { flex: 1 1 auto; min-width: 0; }
+.vc-row-name b { display: block; font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vc-row-name i { display: block; font-style: normal; font-size: 10.5px; color: #8a99b2; margin-top: 1px; }
+.vc-you { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: #7ff0e2; background: rgba(43,212,192,.14); border-radius: 4px; padding: 0 4px; vertical-align: 1px; }
+.vc-vol-wrap { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.vc-vol { -webkit-appearance: none; appearance: none; width: 78px; height: 4px; border-radius: 999px; background: rgba(255,255,255,.16); outline: none; }
+.vc-vol::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #7fb4ff; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
+.vc-vol::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 50%; background: #7fb4ff; cursor: pointer; }
+.vc-vol-num { font-size: 10px; color: #93a3bd; width: 30px; text-align: right; font-variant-numeric: tabular-nums; }
+.vc-mute { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 9px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.05); color: #cfe0f6; cursor: pointer; padding: 0; flex: none; transition: background .13s, color .13s; }
+.vc-mute:hover { background: rgba(120,160,230,.18); color: #fff; }
+.vc-mute.on { background: rgba(229,72,77,.16); color: #ff8080; border-color: rgba(229,72,77,.35); }
+.vc-empty { color: #8a99b2; font-size: 12px; text-align: center; padding: 12px 6px; }
+.vc-foot { display: flex; gap: 8px; margin-top: 9px; }
+.vc-foot-btn { flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); color: #dCE7f7; font: 600 12px system-ui, sans-serif; cursor: pointer; transition: background .13s, color .13s, border-color .13s; }
+.vc-foot-btn:hover { background: rgba(120,160,230,.2); color: #fff; }
+.vc-foot-btn.vc-leave:hover { background: rgba(229,72,77,.2); color: #ff8080; border-color: rgba(229,72,77,.4); }
+.vc-foot-btn.vc-primary { background: linear-gradient(180deg, #3f7bd8, #2f61b8); border-color: rgba(120,160,230,.5); color: #fff; }
+.vc-foot-btn.vc-primary:hover { filter: brightness(1.08); }
+
+/* audio settings modal */
+.vc-modal { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; background: rgba(6,10,20,.62); backdrop-filter: blur(3px); padding: 18px; }
+.vc-sheet { width: min(420px, 96vw); background: linear-gradient(180deg, rgba(18,24,42,.98), rgba(12,17,30,.99)); border: 1px solid rgba(120,160,230,.2); border-radius: 18px; box-shadow: 0 24px 70px rgba(0,0,0,.6); color: #eaf1fb; padding: 16px 18px 18px; font: 500 14px/1.45 system-ui, sans-serif; }
+.vc-sheet-head { display: flex; align-items: center; gap: 9px; margin-bottom: 6px; }
+.vc-sheet-head .mi { color: #8fb6ef; }
+.vc-sheet-head h2 { font-size: 17px; font-weight: 800; margin: 0; flex: 1 1 auto; }
+.vc-sheet-x { width: 32px; height: 32px; border-radius: 9px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05); color: #cfe0f6; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.vc-sheet-x:hover { background: rgba(229,72,77,.18); color: #ff8080; }
+.vc-field { margin-top: 14px; }
+.vc-field > label { display: block; font-size: 11.5px; text-transform: uppercase; letter-spacing: .6px; color: #93a6c4; margin-bottom: 6px; font-weight: 700; }
+.vc-selwrap { position: relative; }
+.vc-selwrap select { width: 100%; appearance: none; -webkit-appearance: none; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14); color: #eaf1fb; border-radius: 10px; padding: 10px 34px 10px 12px; font: 500 13.5px system-ui, sans-serif; cursor: pointer; }
+.vc-selwrap::after { content: ""; position: absolute; right: 14px; top: 50%; width: 8px; height: 8px; border-right: 2px solid #9fb2cf; border-bottom: 2px solid #9fb2cf; transform: translateY(-70%) rotate(45deg); pointer-events: none; }
+.vc-selwrap select:disabled { opacity: .5; cursor: not-allowed; }
+.vc-hint { font-size: 11px; color: #8a99b2; margin: 6px 2px 0; }
+.vc-meter { height: 12px; border-radius: 999px; background: rgba(255,255,255,.1); overflow: hidden; }
+.vc-meter-fill { display: block; height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg, #45d17f, #d7c53a 70%, #e5544d); transition: width .05s linear; }
+.vc-sheet-foot { display: flex; gap: 10px; margin-top: 20px; }
+
+/* mobile: dock becomes a bottom strip that doesn't fight the life hub */
+body.is-mobile .vc-dock, body.mobile .vc-dock { top: auto; bottom: 96px; right: 8px; left: 8px; width: auto; }
+body.is-mobile .vc-circles, body.mobile .vc-circles { justify-content: center; }
+@media (max-width: 720px) {
+  .vc-dock { top: auto; bottom: 92px; right: 8px; width: 220px; }
+}
+@media (prefers-reduced-motion: reduce) { .vc-av .vc-ring { transition: none; } }

@@ -131,10 +131,10 @@ body.play-fs { overflow: hidden; }
 /* ---- lobby (img 4) ---- */
 .ps-lobby { padding: 0; }
 .ps-lobby-head { display: flex; align-items: center; gap: 14px; padding: 18px 26px; max-width: 1040px; margin: 0 auto; width: 100%; }
-.ps-lobby-title { display: flex; align-items: center; gap: 11px; }
+.ps-lobby-title { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
 .ps-logo.sm { width: 34px; height: 34px; }
 .ps-lobby-title h2 { margin: 0; font-size: 22px; font-weight: 800; }
-.ps-lobby-title span { color: #8694ab; font-size: 12.5px; }
+.ps-lobby-title .ps-lobby-seal { display: flex; filter: drop-shadow(0 0 12px rgba(77,163,255,.4)); }
 .ps-lobby-actions { margin-left: auto; }
 .ps-seg { display: inline-flex; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); border-radius: 10px; padding: 3px; }
 .ps-seg button { border: 0; background: transparent; color: #aab6c8; font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 8px; cursor: pointer; }

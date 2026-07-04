@@ -30,7 +30,9 @@
     close: svg('<path d="M18 6L6 18M6 6l12 12"/>'),
     pass: svg('<path d="M13 17l5-5-5-5"/><path d="M6 17l5-5-5-5"/>'),
     pencil: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'),
-    engine: svg('<rect x="4" y="4" width="16" height="16" rx="2.5"/><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/>')
+    engine: svg('<rect x="4" y="4" width="16" height="16" rx="2.5"/><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/>'),
+    coinH: svg('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none"/>'),
+    coinT: svg('<circle cx="12" cy="12" r="9"/><path d="M8.4 12h7.2"/>')
   };
 
   // ---- clicking the existing (hidden) toolbar controls so we reuse their handlers ----
@@ -154,8 +156,8 @@
   function openDice() {
     var body =
       '<div class="hud-sec"><p class="hud-sec-h">Coin flip</p><div class="hud-row2">' +
-        '<button class="hud-big" data-roll="Coin" type="button">◯ Heads</button>' +
-        '<button class="hud-big" data-roll="Coin" type="button">◑ Tails</button></div></div>' +
+        '<button class="hud-big" data-roll="Coin" type="button">' + ICON.coinH + ' Heads</button>' +
+        '<button class="hud-big" data-roll="Coin" type="button">' + ICON.coinT + ' Tails</button></div></div>' +
       '<div class="hud-sec"><p class="hud-sec-h">Quick roll</p><div class="hud-dice">' +
         ["d4", "d6", "d8", "d10", "d12", "d20"].map(function (d) { return '<button class="hud-die" data-roll="' + d + '" type="button">' + d.toUpperCase() + '</button>'; }).join("") +
       '</div></div>' +
@@ -266,6 +268,34 @@
   }
 
   // ============================ SETTINGS ============================
+  function openEngineSettings() {
+    var T = window.MTGTable || {};
+    function tog(id, label, sub, on) {
+      return '<div class="hud-eng-row"><div class="hud-eng-tx"><b>' + esc(label) + '</b><i>' + esc(sub) + '</i></div>' +
+        '<button type="button" class="hud-eng-tog' + (on ? " on" : "") + '" data-eng="' + id + '" role="switch" aria-checked="' + (on ? "true" : "false") + '" aria-label="' + esc(label) + '"><span></span></button></div>';
+    }
+    var advOn = !!(window.MTGEngineAssistUI && MTGEngineAssistUI.isOn && MTGEngineAssistUI.isOn());
+    var enfOn = !!(T.engineEnforceOn && T.engineEnforceOn());
+    var ptOn = T.showPTOn ? !!T.showPTOn() : true;
+    var body =
+      tog("enforce", "Auto-enforce rules", "State-based actions: 0-toughness creatures die; 0-life, 10-poison and 21-commander losses flagged; +1/+1 and -1/-1 counters cancel; leftover tokens cleared.", enfOn) +
+      tog("pt", "Power & toughness on cards", "Show each creature's total power and effective P/T (base + counters) on the board.", ptOn) +
+      tog("adv", "Advisory analysis", "The engine watches the game and flags rules issues without changing anything (the E button on the bar).", advOn) +
+      '<p class="hud-eng-note">The full rules engine is still rolling out - these are the parts live today. Leave all three off to disable the engine entirely.</p>';
+    var ov = popup("engine", "Rules engine", "Engine settings", body, false);
+    if (!ov) return;
+    ov.addEventListener("click", function (e) {
+      var b = e.target && e.target.closest ? e.target.closest("[data-eng]") : null; if (!b) return;
+      var which = b.dataset.eng, on = !b.classList.contains("on");
+      try {
+        if (which === "enforce" && T.setEngineEnforce) T.setEngineEnforce(on);
+        else if (which === "pt" && T.setShowPT) T.setShowPT(on);
+        else if (which === "adv" && window.MTGEngineAssistUI) { if (on) MTGEngineAssistUI.enable(); else MTGEngineAssistUI.disable(); }
+      } catch (err) {}
+      b.classList.toggle("on", on); b.setAttribute("aria-checked", on ? "true" : "false");
+    });
+  }
+
   function openSettings() {
     var T = window.MTGTable || {};
     var seats = [];
@@ -276,7 +306,9 @@
           seats.map(function (s) { return '<option value="' + s.seat + '">' + esc(s.name || ("Seat " + s.seat)) + '</option>'; }).join("") +
         '</select><button id="hudWinGo" type="button">Declare winner</button></div>'
       : '';
-    var body = '<div class="hud-set"><button class="hud-set-row" id="hudSetMat" type="button">Change playmat</button>' +
+    var body = '<div class="hud-set"><button class="hud-set-row hud-set-eng" id="hudSetEng" type="button">Rules engine settings</button>' +
+      '<button class="hud-set-row hud-set-audio" id="hudSetAudio" type="button">Audio &amp; voice</button>' +
+      '<button class="hud-set-row" id="hudSetMat" type="button">Change playmat</button>' +
       '<button class="hud-set-row" id="hudSetShuf" type="button">Shuffle library</button>' +
       winRow +
       '<button class="hud-set-row" id="hudSetDraw" type="button">Declare draw (tie)</button>' +
@@ -285,6 +317,8 @@
     if (!ov) return;
     function done() { if (dlg.settings) { dlg.settings.remove(); dlg.settings = null; } }
     ov.querySelector("#hudSetMat").onclick = function () { if (T.openPlaymat) T.openPlaymat(); done(); };
+    ov.querySelector("#hudSetEng").onclick = function () { done(); openEngineSettings(); };
+    var hudAu = ov.querySelector("#hudSetAudio"); if (hudAu) hudAu.onclick = function () { done(); if (window.MTGVoiceUI) MTGVoiceUI.openAudioSettings(); };
     ov.querySelector("#hudSetShuf").onclick = function () { if (T.shuffle) T.shuffle(); done(); };
     var wg = ov.querySelector("#hudWinGo");
     if (wg) wg.onclick = function () { var sel = ov.querySelector("#hudWinSel"); if (T.declareWinner) T.declareWinner(Number(sel ? sel.value : 0)); done(); };

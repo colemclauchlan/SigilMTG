@@ -81,7 +81,7 @@
   var IC = {
     minus: "−",
     plus: "+",
-    poison: "☣",
+    poison: POISON_SVG,
     pass: svg('<path d="M5 12h14"/><path d="M13 5l7 7-7 7"/>'),
     untap: svg('<path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>'),
     close: svg('<path d="M18 6L6 18M6 6l12 12"/>'),

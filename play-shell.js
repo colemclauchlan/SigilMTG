@@ -200,7 +200,7 @@
     var ov = eln("div", "ps-prec-ov");
     ov.innerHTML =
       '<div class="ps-prec-panel"><div class="ps-prec-head"><h3>Open lobbies</h3><span id="psLobCount"></span>' +
-        '<button type="button" class="ps-prec-x" id="psLobX" aria-label="Close">✕</button></div>' +
+        '<button type="button" class="ps-prec-x" id="psLobX" aria-label="Close">' + (window.MTGIcons ? MTGIcons.get("close", "1em") : "") + '</button></div>' +
         '<div class="ps-prec-list" id="psLobList"><p class="ps-prec-note">Looking for open games…</p></div></div>';
     shell.appendChild(ov);
     ov.addEventListener("click", function (e) { if (e.target === ov) ov.remove(); });
@@ -290,7 +290,7 @@
     s.innerHTML =
       '<div class="ps-lobby-head">' +
         '<button class="ps-back" id="psLobbyBack" type="button">‹ Modes</button>' +
-        '<div class="ps-lobby-title"><div><h2>' + m.title + '</h2><span>Sigil</span></div></div>' +
+        '<div class="ps-lobby-title"><span class="ps-lobby-seal">' + sealSvg(40) + '</span><h2>' + m.title + '</h2></div>' +
       '</div>' +
       '<div class="ps-lobby-body">' +
         '<div class="ps-panel ps-deckselect">' +
@@ -499,7 +499,7 @@
     choice.deck = t.ref;
     choice.deckMeta = { name: t.name, commander: t.commander || "", bracket: t.bracket || null };
     choice.locked = true;
-    var lk = s.querySelector("#psLockIn"); if (lk) { lk.textContent = "Locked ✓"; lk.disabled = true; }
+    var lk = s.querySelector("#psLockIn"); if (lk) { lk.innerHTML = "Locked " + (window.MTGIcons ? MTGIcons.get("check", "1em") : ""); lk.disabled = true; }
     var st = s.querySelector("#psStartGo"); if (st) st.disabled = false;
     syncGridSelection(s);
     renderPlayers(s);
@@ -645,7 +645,7 @@
       '<div class="ps-prec-panel">' +
         '<div class="ps-prec-head"><h3>Commander precons</h3><span id="psPrecCount"></span>' +
           '<input id="psPrecSearch" type="text" placeholder="Search deck, commander, or set…" />' +
-          '<button type="button" class="ps-prec-x" id="psPrecX" aria-label="Close">✕</button></div>' +
+          '<button type="button" class="ps-prec-x" id="psPrecX" aria-label="Close">' + (window.MTGIcons ? MTGIcons.get("close", "1em") : "") + '</button></div>' +
         '<div class="ps-prec-list" id="psPrecList"><p class="ps-prec-note">Loading every WotC Commander precon…</p></div>' +
       '</div>';
     shell.appendChild(ov);
@@ -865,7 +865,7 @@
     var s = eln("div", "ps-screen ps-mat");
     s.innerHTML =
       '<div class="ps-mat-modal">' +
-        '<div class="ps-mat-head"><h2>Select your playmat</h2><button class="ps-mat-x" id="psMatX" type="button" aria-label="Back">✕</button></div>' +
+        '<div class="ps-mat-head"><h2>Select your playmat</h2><button class="ps-mat-x" id="psMatX" type="button" aria-label="Back">' + (window.MTGIcons ? MTGIcons.get("close", "1em") : "") + '</button></div>' +
         '<div class="ps-mat-tabs" id="psMatTabs"><button data-t="colors" class="on" type="button">Colors</button><button data-t="art" type="button">MTG art</button><button data-t="upload" type="button">Upload</button></div>' +
         '<div class="ps-mat-grid" id="psMatGrid"></div>' +
         '<div class="ps-mat-upload" id="psMatUpload" hidden><input id="psMatUrl" type="text" placeholder="Paste an image URL (https://…)" />' +
@@ -1080,8 +1080,8 @@
       '<div class="ps-oh-modal">' +
         '<p class="ps-oh-kicker">Mulligan</p><h2 class="ps-oh-title">Opening Hand</h2>' +
         '<div class="ps-oh-cards">' + (cards || '<p class="ps-oh-wait">Shuffling your deck…</p>') + '</div>' +
-        '<div class="ps-oh-actions"><button class="ps-oh-keep" id="psOhKeep" type="button">✓ Keep hand</button>' +
-          '<button class="ps-oh-mull" id="psOhMull" type="button">↻ Mulligan</button></div>' +
+        '<div class="ps-oh-actions"><button class="ps-oh-keep" id="psOhKeep" type="button">' + (window.MTGIcons ? MTGIcons.get("check", "1em") : "") + ' Keep hand</button>' +
+          '<button class="ps-oh-mull" id="psOhMull" type="button">' + (window.MTGIcons ? MTGIcons.get("refresh", "1em") : "") + ' Mulligan</button></div>' +
         '<p class="ps-oh-note">Mulligan shuffles your hand back and draws 7 new cards. The first mulligan is free.</p>' +
       '</div>';
     ohEl.querySelector("#psOhKeep").onclick = closeOpeningHand;
@@ -1144,7 +1144,7 @@
         '<button class="ps-track-step" data-k="' + escapeAttr(k) + '" data-d="1" aria-label="plus">+</button></div>';
     }).join("");
     trackPanel.innerHTML =
-      '<div class="ps-track-head"><b>Quick counters</b><button class="ps-track-x" id="psTrackX" type="button" aria-label="Close">✕</button></div>' +
+      '<div class="ps-track-head"><b>Quick counters</b><button class="ps-track-x" id="psTrackX" type="button" aria-label="Close">' + (window.MTGIcons ? MTGIcons.get("close", "1em") : "") + '</button></div>' +
       '<div class="ps-track-body">' + rows + '</div>' +
       '<div class="ps-track-add"><input id="psTrackNew" type="text" placeholder="Add a counter…" maxlength="18" /><button id="psTrackNewGo" type="button">Add +1</button></div>';
     page.appendChild(trackPanel);

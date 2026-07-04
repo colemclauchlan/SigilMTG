@@ -189,9 +189,13 @@
 .tbl-vitals .vit-opp { display: inline-flex; align-items: center; gap: 5px; color: var(--tbl-text); font-size: 13px; background: var(--tbl-panel2); border: 1px solid var(--tbl-border); border-radius: 8px; padding: 2px 8px; }
 .tbl-vitals .vit-opp button { min-width: 22px; padding: 1px 6px; font-size: 13px; }
 .tbl-vitals .vit-onum { min-width: 26px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 700; }
-.tbl-card .pt-badge { position: absolute; bottom: 3px; left: 3px; background: rgba(0,0,0,.82); color: #fff; font-size: 12px; font-weight: 800; border-radius: 6px; padding: 1px 6px; font-variant-numeric: tabular-nums; box-shadow: 0 1px 3px rgba(0,0,0,.6); }
+.tbl-card .pt-badge { position: absolute; bottom: 3px; right: 3px; background: rgba(0,0,0,.82); color: #fff; font-size: 12px; font-weight: 800; border-radius: 6px; padding: 1px 6px; font-variant-numeric: tabular-nums; box-shadow: 0 1px 3px rgba(0,0,0,.6); }
 .tbl-card .pt-badge.buffed { background: rgba(22,128,46,.92); }
 .tbl-card .pt-badge.debuffed { background: rgba(160,32,32,.92); }
+.tbl-card .pow-badge { position: absolute; bottom: 3px; left: 3px; display: inline-flex; align-items: center; gap: 3px; background: rgba(0,0,0,.82); color: #ffd66b; font-size: 12px; font-weight: 800; border-radius: 6px; padding: 1px 6px 1px 5px; font-variant-numeric: tabular-nums; box-shadow: 0 1px 3px rgba(0,0,0,.6); }
+.tbl-card .pow-badge .pow-ic { font-size: 11px; line-height: 1; opacity: .95; }
+.tbl-card .pow-badge.buffed { background: rgba(22,128,46,.92); color: #eaffef; }
+.tbl-card .pow-badge.debuffed { background: rgba(160,32,32,.92); color: #ffe9e9; }
 .tbl-card.attacking { box-shadow: 0 0 0 2px #ef4444, 0 0 16px rgba(239,68,68,.6); }
 .tbl-card .atk-mark { position: absolute; top: 3px; right: 3px; background: #ef4444; color: #fff; font-size: 11px; border-radius: 5px; padding: 0 4px; line-height: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.5); }
 .cmb-panel { width: 460px; max-width: 92vw; }

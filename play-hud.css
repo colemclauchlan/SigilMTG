@@ -18,6 +18,18 @@
 }
 .hud-ic:hover { background: rgba(255,255,255,.10); color: #fff; }
 .hud-ic-leave:hover { background: rgba(229,72,77,.20) !important; color: #ff6b6b !important; }
+.hud-set-eng { color: #7ff0e2; }
+.hud-set-audio { color: #8fb6ef; }
+.hud-eng-row { display: flex; align-items: center; gap: 14px; padding: 12px 4px; border-bottom: 1px solid rgba(255,255,255,.07); }
+.hud-eng-tx { flex: 1 1 auto; }
+.hud-eng-tx b { display: block; color: #eaf1fb; font-size: 14px; font-weight: 700; }
+.hud-eng-tx i { display: block; color: #97a6bd; font-size: 11.5px; font-style: normal; line-height: 1.45; margin-top: 3px; }
+.hud-eng-tog { position: relative; flex: 0 0 auto; width: 50px; height: 28px; border-radius: 999px; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.08); cursor: pointer; padding: 0; transition: background .15s ease, border-color .15s ease; }
+.hud-eng-tog > span { position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border-radius: 50%; background: #cfd8e6; transition: transform .16s ease, background .16s ease; }
+.hud-eng-tog.on { background: rgba(43,212,192,.35); border-color: rgba(43,212,192,.6); }
+.hud-eng-tog.on > span { transform: translateX(22px); background: #7ff0e2; }
+.hud-eng-note { color: #8a98ad; font-size: 11.5px; margin: 12px 2px 2px; line-height: 1.5; }
+@media (prefers-reduced-motion: reduce) { .hud-eng-tog, .hud-eng-tog > span { transition: none; } }
 .hud-leave-warn { font-size: 13.5px; line-height: 1.55; color: #e9eef6; margin: 2px 0 16px; }
 .hud-leave-warn b { color: #ff8a8a; }
 .hud-leave-row { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
