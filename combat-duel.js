@@ -115,7 +115,80 @@
     };
   }
 
-  var api = { resolveDuel: resolveDuel, _eff: eff, _has: has, _protectedFrom: protectedFrom };
+  // ---- multi-blocker combat: one attacker vs N blockers (CR 509/510) ----
+  // opts.order = array of blocker indices giving the attacker's damage-assignment order (default natural).
+  // Returns { attackerDies, blockers:[{dies,damage}], playerDamage (trample), lifegain:{attacker}, damageToAttacker, steps }.
+  function resolveCombat(attacker, blockers, opts) {
+    opts = opts || {};
+    var atk = flags(attacker), ea = eff(attacker);
+    var A = { p: ea.p, t: ea.t, ind: atk.ind, alive: true, dmg: 0, dtHit: false };
+    var Bs = (blockers || []).map(function (b) {
+      var e = eff(b), k = flags(b);
+      return { name: b.name || "blocker", p: e.p, t: e.t, ind: k.ind, fs: k.fs, ds: k.ds, dt: k.dt, ll: k.ll,
+        alive: true, dmg: 0, dtHit: false, protFromAtk: protectedFrom(b, attacker), atkProtFromB: protectedFrom(attacker, b) };
+    });
+    var life = { attacker: 0 }, playerDmg = 0, steps = [];
+    var order = (opts.order && opts.order.length === Bs.length) ? opts.order.slice() : Bs.map(function (_, i) { return i; });
+
+    function chk(S, who) {
+      if (!S.alive) return;
+      if (S.t <= 0) { S.alive = false; steps.push(who + " dies (0 toughness)"); return; }
+      if (S.ind) return;
+      if (S.dtHit && S.dmg > 0) { S.alive = false; steps.push(who + " dies (deathtouch)"); return; }
+      if (S.dmg > 0 && S.dmg >= S.t) { S.alive = false; steps.push(who + " dies (lethal)"); }
+    }
+    function sba() { chk(A, "Attacker"); Bs.forEach(function (B, i) { chk(B, B.name + " " + (i + 1)); }); }
+
+    // attacker assigns its power across living blockers in order (lethal each), trample remainder to player
+    function attackerStrike() {
+      if (!A.alive || A.p <= 0) return;
+      var remaining = A.p, dealt = 0, lastLiving = -1;
+      for (var oi = 0; oi < order.length; oi++) {
+        var i = order[oi], B = Bs[i]; if (!B || !B.alive) continue;
+        lastLiving = i;
+        if (remaining <= 0) continue;
+        var need = atk.dt ? 1 : Math.max(0, B.t - B.dmg);
+        var assign = Math.min(remaining, need);
+        remaining -= assign; dealt += assign;
+        if (!B.protFromAtk) { B.dmg += assign; if (atk.dt && assign > 0) B.dtHit = true; }
+      }
+      if (remaining > 0) {
+        if (atk.tr) { playerDmg += remaining; }
+        else if (lastLiving >= 0 && !Bs[lastLiving].protFromAtk) { Bs[lastLiving].dmg += remaining; dealt += remaining; }
+      }
+      if (atk.ll) life.attacker += A.p;
+      steps.push("Attacker assigns " + dealt + " to blockers" + (atk.tr && playerDmg ? (" +" + playerDmg + " trample") : ""));
+    }
+    function blockersStrike(phase) {
+      Bs.forEach(function (B, i) {
+        if (!B.alive || B.p <= 0) return;
+        var isFS = B.fs || B.ds;
+        if (phase === "fs" && !isFS) return;
+        if (phase === "reg" && B.fs && !B.ds) return;
+        if (B.atkProtFromB) return;
+        A.dmg += B.p; if (B.dt) A.dtHit = true;
+      });
+    }
+    var atkFS = atk.fs || atk.ds;
+
+    sba();
+    if (atkFS || Bs.some(function (B) { return B.fs || B.ds; })) {
+      if (atkFS) attackerStrike();
+      blockersStrike("fs");
+      sba();
+    }
+    if (A.alive && (!atk.fs || atk.ds)) attackerStrike();
+    blockersStrike("reg");
+    sba();
+
+    return {
+      attackerDies: !A.alive,
+      blockers: Bs.map(function (B) { return { dies: !B.alive, damage: B.dmg }; }),
+      playerDamage: playerDmg, lifegain: life, damageToAttacker: A.dmg, steps: steps
+    };
+  }
+
+  var api = { resolveDuel: resolveDuel, resolveCombat: resolveCombat, _eff: eff, _has: has, _protectedFrom: protectedFrom };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.MTGDuel = api;
 })(typeof window !== "undefined" ? window : (typeof globalThis !== "undefined" ? globalThis : this));
