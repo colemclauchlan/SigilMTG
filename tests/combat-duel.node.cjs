@@ -32,5 +32,5 @@ var r2 = D.resolveDuel(
 );
 ok(r2.bDies === false, "granted-deathtouch creature does not falsely kill a 5-toughness blocker");
 
-console.log("\n" + pass + " passed, " + fail + " failed");
-process.exit(fail ? 1 : 0);
+// ---- multi-blocker combat (resolveCombat): one attacker vs N blockers ----
+function 
