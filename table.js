@@ -486,6 +486,8 @@
     if (action && action.t === "card_move" && action.instanceId && action.toZone === "command") {
       var _cz = state.cards[action.instanceId];
       if (_cz && !_cz.isCommander) { setStatus("Only a commander can enter the command zone."); try { showToast("Only commanders go to the command zone."); } catch (e) {} return; }
+      // Commander RE-ENTERING the command zone from elsewhere raises its tax by 2 (first cast is free; CR 903.8).
+      if (_cz && _cz.isCommander && _cz.zone !== "command") { action = { t: "batch", actions: [{ t: "card_move", instanceId: action.instanceId, toZone: "command" }, { t: "card_counter", instanceId: action.instanceId, kind: "tax", delta: 2 }] }; }
     }
     // Untapping a seat clears its local blocker flags (blocks end when the combat step wraps up).
     if (action && action.t === "untap_all") {
@@ -997,6 +999,7 @@
     }
     node.addEventListener("pointerup", up); node.addEventListener("pointercancel", up);
   }
+
   // === G3.20 — hand overflow: scroll-wheel pans the fan; wheeling over a card walks the hover ===
   function handCards() { return el.hand ? el.hand.querySelectorAll(".tbl-card") : []; }
   function handOverflowPx() {
@@ -1025,13 +1028,16 @@
     el.hand.addEventListener("wheel", function (e) {
       var cards = handCards(); if (!cards.length || !state) return;
       var delta = e.deltaY || e.deltaX; if (!delta) return;
+      e.preventDefault(); e.stopPropagation();   // scroll THROUGH the hand — never zoom the board when the wheel is over the hand
       var dir = delta > 0 ? 1 : -1;
-      var overCard = e.target.closest && e.target.closest(".tbl-card");
       var cur = -1;
       for (var k = 0; k < cards.length; k++) if (cards[k].classList.contains("walked")) { cur = k; break; }
-      if (cur < 0 && overCard) { for (var k2 = 0; k2 < cards.length; k2++) if (cards[k2] === overCard) { cur = k2; break; } }
-      if (cur >= 0) { e.preventDefault(); setHandWalk(cur + dir); }               // hover-walk left/right
-      else if (handOverflowPx() > 0) { e.preventDefault(); handPan -= dir * 60; clampHandPan(); applyHandPan(); } // pan
+      if (cur < 0) {
+        var overCard = e.target.closest && e.target.closest(".tbl-card");
+        if (overCard) { for (var k2 = 0; k2 < cards.length; k2++) if (cards[k2] === overCard) { cur = k2; break; } }
+        if (cur < 0) cur = (dir > 0) ? -1 : cards.length;   // first step lands on an end card
+      }
+      setHandWalk(cur + dir);   // shrink the hovered card, enlarge the scrolled-to card, and keep it in view
     }, { passive: false });
   }
 
@@ -1098,9 +1104,9 @@
       var nx = panel.querySelector(".cmdv-next"); if (nx) nx.onclick = function () { idx = (idx + 1) % cards.length; draw(); };
       var go = panel.querySelector(".cmdv-cast");
       if (go) go.onclick = function () {
-        // Casting from the command zone raises the tax by 2 for the NEXT cast (CR 903.8); one atomic batch.
-        dispatch({ t: "batch", actions: [{ t: "card_move", instanceId: c.instanceId, toZone: "battlefield", x: 42, y: 55 }, { t: "card_counter", instanceId: c.instanceId, kind: "tax", delta: 2 }] });
-        setStatus("Commander sent to the battlefield" + (tax ? " — paid tax +" + tax : "") + " · next cast costs +" + (tax + 2) + ".");
+        // First cast is free; tax rises +2 only when the commander RETURNS to the command zone (CR 903.8).
+        dispatch({ t: "card_move", instanceId: c.instanceId, toZone: "battlefield", x: 42, y: 55 });
+        setStatus("Commander cast" + (tax ? " — paid tax +" + tax + "." : " (no tax)."));
         draw();
       };
     }
@@ -1233,9 +1239,9 @@
       item("Cast commander", function () {
         var t = topCard("command"); if (!t) return;
         var tax = (t.counters && t.counters.tax) || 0;
-        // Casting from the command zone raises the tax by 2 for the NEXT cast (CR 903.8). The tax counter rides on the card.
-        dispatch({ t: "batch", actions: [{ t: "card_move", instanceId: t.instanceId, toZone: "battlefield", x: 42, y: 55 }, { t: "card_counter", instanceId: t.instanceId, kind: "tax", delta: 2 }] });
-        setStatus("Commander cast" + (tax ? " — paid tax +" + tax : "") + " · next cast costs +" + (tax + 2) + ".");
+        // First cast is free; tax rises +2 only when the commander RETURNS to the command zone (CR 903.8).
+        dispatch({ t: "card_move", instanceId: t.instanceId, toZone: "battlefield", x: 42, y: 55 });
+        setStatus("Commander cast" + (tax ? " — paid tax +" + tax + "." : " (no tax)."));
       });
       item("Commander tax +2", function () { var t = topCard("command"); if (t) dispatch({ t: "card_counter", instanceId: t.instanceId, kind: "tax", delta: 2 }); });
       item("Commander tax −2", function () { var t = topCard("command"); if (t && t.counters && t.counters.tax) dispatch({ t: "card_counter", instanceId: t.instanceId, kind: "tax", delta: -2 }); });
@@ -1421,7 +1427,7 @@
     var byKey = {};
     for (var id in state.cards) {
       var c = state.cards[id]; if (c._placeholder) continue; var k = c.cardId;
-      if (!k || (imagesById[k] && imagesById[k].img) || imgFetching[k]) continue;
+      if (!k || (imagesById[k] && imagesById[k].img && imagesById[k].type != null) || imgFetching[k]) continue;
       imgFetching[k] = 1;
       byKey[k] = /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(k) ? { id: k } : { name: k };
     }
@@ -1587,9 +1593,11 @@
       { k: "artifact", label: "Artifacts" }, { k: "enchantment", label: "Enchantments" }, { k: "land", label: "Lands" }
     ];
     var filterBar = isLib ? ('<div class="pv-filters" id="pvFilters">' + FILTERS.map(function (f) { return '<button class="pv-chip' + (f.all ? " on" : "") + '" data-f="' + f.k + '">' + esc(f.label) + '</button>'; }).join("") + '</div>') : "";
-    panel.innerHTML = '<div class="pv-head"><span class="pv-title">' + (PILES[zone] ? PILES[zone].label : zone) + ' <span class="pv-count" id="pvCount">' + allCards.length + '</span></span>' + (isLib ? '<span class="pv-hint">Closing shuffles your library</span>' : "") + '<button class="pv-x pv-x-ic" title="Close" aria-label="Close"><span class="msym">close</span></button></div>' + filterBar;
+    var COLORS = [{ k: "W", label: "W" }, { k: "U", label: "U" }, { k: "B", label: "B" }, { k: "R", label: "R" }, { k: "G", label: "G" }, { k: "C", label: "C" }];
+    var colorBar = isLib ? ('<div class="pv-filters pv-colors" id="pvColors">' + COLORS.map(function (f) { return '<button class="pv-chip pv-cchip pv-c-' + f.k + '" data-c="' + f.k + '" title="' + f.k + (f.k === "C" ? " (colorless)" : "") + '">' + f.label + '</button>'; }).join("") + '</div>') : "";
+    panel.innerHTML = '<div class="pv-head"><span class="pv-title">' + (PILES[zone] ? PILES[zone].label : zone) + ' <span class="pv-count" id="pvCount">' + allCards.length + '</span></span>' + (isLib ? '<span class="pv-hint">Closing shuffles your library</span>' : "") + '<button class="pv-x pv-x-ic" title="Close" aria-label="Close"><span class="msym">close</span></button></div>' + filterBar + colorBar;
     var grid = document.createElement("div"); grid.className = "pv-grid";
-    var active = {};
+    var active = {}, activeColors = {};
     // G3.26 — icon buttons with tooltips instead of raw text-button rows.
     var ACTS = [
       { to: "hand", ic: "back_hand", tip: "To hand" },
@@ -1597,17 +1605,21 @@
       { to: "library", ic: "style", tip: "Top of library" },
       { to: "exile", ic: "block", tip: "Exile" }
     ];
-    function typeOf(c) { var m = imagesById[c.cardId] || imagesById[c.name] || {}; return { t: String(m.type || "").toLowerCase(), cre: !!m.isCreature }; }
+    function metaOf(c) { return imagesById[c.cardId] || imagesById[c.name] || {}; }
     function passes(c) {
-      var keys = Object.keys(active); if (!keys.length) return true;
-      var ti = typeOf(c);
-      return keys.some(function (k) {
-        if (k === "creature") return /creature/.test(ti.t) || ti.cre;
-        if (k === "legendary") return /legendary/.test(ti.t);
-        if (k === "land") return /\bland\b/.test(ti.t);
-        return ti.t.indexOf(k) >= 0;
-      });
+      var m = metaOf(c), t = String(m.type || "").toLowerCase(), cre = !!m.isCreature;
+      var cols = (m.colors || []).map(function (x) { return String(x).toUpperCase(); });
+      var tk = Object.keys(active), ck = Object.keys(activeColors);
+      if (tk.length && !tk.some(function (k) {
+        if (k === "creature") return /creature/.test(t) || cre;
+        if (k === "legendary") return /legendary/.test(t);
+        if (k === "land") return /\bland\b/.test(t);
+        return t.indexOf(k) >= 0;
+      })) return false;
+      if (ck.length && !ck.some(function (k) { return k === "C" ? cols.length === 0 : cols.indexOf(k) >= 0; })) return false;
+      return true;
     }
+    function typeRank(c) { var t = String(metaOf(c).type || "").toLowerCase(), order = ["creature", "planeswalker", "instant", "sorcery", "artifact", "enchantment", "land"]; for (var i = 0; i < order.length; i++) if (t.indexOf(order[i]) >= 0) return i; return 99; }
     function buildCard(c) {
       var card = document.createElement("div"); card.className = "pv-card";
       var src = imgFor(c);
@@ -1627,7 +1639,7 @@
       return card;
     }
     function paint() {
-      var cards = allCards.filter(passes);
+      var cards = allCards.filter(passes).slice().sort(function (a, b) { return typeRank(a) - typeRank(b) || String(a.name || "").localeCompare(String(b.name || "")); });
       grid.innerHTML = "";
       var cnt = document.getElementById("pvCount"); if (cnt) cnt.textContent = (cards.length !== allCards.length ? cards.length + " / " + allCards.length : allCards.length);
       cards.forEach(function (c) { grid.appendChild(buildCard(c)); });
@@ -1648,6 +1660,16 @@
         }
         paint();
       });
+      var cbEl = panel.querySelector("#pvColors");
+      if (cbEl) cbEl.addEventListener("click", function (e) {
+        var b = e.target.closest(".pv-chip"); if (!b) return;
+        var k = b.dataset.c;
+        if (activeColors[k]) { delete activeColors[k]; b.classList.remove("on"); } else { activeColors[k] = 1; b.classList.add("on"); }
+        paint();
+      });
+      // decklist-loaded library cards may not be enriched with type/colors yet — fetch, then re-paint as data arrives
+      try { scheduleImageFetch(); } catch (e) {}
+      [1, 2, 4].forEach(function (sN) { setTimeout(function () { if (document.body.contains(back)) paint(); }, sN * 700); });
     }
     _pileZone = zone; pileEl = back;
   }

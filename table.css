@@ -112,6 +112,15 @@
 .pv-chip { font: 600 12px Inter, system-ui, sans-serif; color: #b9c6da; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.14); border-radius: 999px; padding: 4px 11px; cursor: pointer; transition: background .12s ease, color .12s ease, border-color .12s ease; }
 .pv-chip:hover { background: rgba(120,160,230,.16); color: #fff; }
 .pv-chip.on { background: rgba(77,163,255,.24); color: #eaf3ff; border-color: rgba(77,163,255,.6); }
+.pv-colors { margin-top: -4px; }
+.pv-cchip { width: 27px; height: 27px; padding: 0; border-radius: 50%; font-weight: 800; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; }
+.pv-c-W { background: #efe9c8; color: #3a3413; border-color: #cabf86; }
+.pv-c-U { background: #3b7dd8; color: #eaf3ff; border-color: #6fa8e6; }
+.pv-c-B { background: #4a4a52; color: #e8e8ee; border-color: #7a7a86; }
+.pv-c-R { background: #d3492f; color: #fff2ee; border-color: #e8846f; }
+.pv-c-G { background: #2f9e5f; color: #eafff0; border-color: #6fce97; }
+.pv-c-C { background: #b8bcc4; color: #2a2e36; border-color: #d5d8de; }
+.pv-cchip.on { box-shadow: 0 0 0 2px #0d1424, 0 0 0 4px #fff; }
 .pv-hint { font-size: 11px; color: #8a98ad; margin-left: auto; margin-right: 10px; align-self: center; white-space: nowrap; }
 .vit-phases.off-turn { opacity: .5; }
 .vit-phases.off-turn button.on { background: none; color: inherit; box-shadow: none; }

@@ -4,6 +4,8 @@
 /* While the opening-hand / mulligan modal is up, hide the life hub so it can't overlap the
    Keep/Mulligan buttons (the modal lives in #playPage's stacking context; the hub is root-fixed). */
 body.oh-open .pl-cluster { display: none !important; }
+/* pinned/expanded action stack: keep the toggle highlighted so it's clear the buttons are anchored up */
+.pl-actwrap.acts-open .pl-acts-toggle { background: rgba(43,212,192,.92); color: #06231f; border-color: #2bd4c0; box-shadow: 0 0 10px rgba(43,212,192,.45); }
 .pl-cluster {
   position: fixed; left: 16px; bottom: 14px; z-index: 93;
   display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
