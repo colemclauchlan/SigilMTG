@@ -2,7 +2,7 @@
    Self-contained; matches the Sigil glass HUD. Portraits light up when a player talks. */
 
 .vc-dock {
-  position: fixed; top: 66px; right: 14px; z-index: 60; width: 268px;
+  position: fixed; right: 14px; bottom: 14px; z-index: 60; width: 268px;
   background: linear-gradient(180deg, rgba(16,22,38,.94), rgba(11,16,28,.96));
   border: 1px solid rgba(120,160,230,.18); border-radius: 16px;
   box-shadow: 0 14px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.05);

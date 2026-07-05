@@ -334,7 +334,7 @@
 @keyframes connPulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
 
 /* In-game text chat */
-.tbl-chat { position: absolute; bottom: 14px; right: 14px; width: 280px; max-width: 60vw; display: none; flex-direction: column; background: linear-gradient(180deg, rgba(20,28,40,.96), rgba(12,17,26,.96)); border: 1px solid rgba(255,255,255,.1); border-radius: 12px; box-shadow: 0 14px 40px rgba(0,0,0,.5); z-index: 54; overflow: hidden; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.tbl-chat { position: absolute; top: 66px; right: 14px; width: 280px; max-width: 60vw; display: none; flex-direction: column; background: linear-gradient(180deg, rgba(20,28,40,.96), rgba(12,17,26,.96)); border: 1px solid rgba(255,255,255,.1); border-radius: 12px; box-shadow: 0 14px 40px rgba(0,0,0,.5); z-index: 54; overflow: hidden; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .tbl-chat.show { display: flex; }
 .tbl-chat .chat-head { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--tbl-muted); border-bottom: 1px solid rgba(255,255,255,.07); }
 .tbl-chat .chat-min { background: none; border: none; color: var(--tbl-muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 4px; }
@@ -578,7 +578,7 @@ body.play-fs #playPage .tbl-rail { padding-top: 0 !important; }
   /* In-game text chat: dock full width at the bottom, above the safe
      area, instead of a floating 280px corner card. */
   .tbl-chat {
-    left: 8px; right: 8px; width: auto; max-width: none;
+    left: 8px; right: 8px; width: auto; max-width: none; top: auto;
     bottom: max(10px, env(safe-area-inset-bottom));
   }
 
