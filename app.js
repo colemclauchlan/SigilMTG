@@ -3459,7 +3459,7 @@ function openTableImportPicker(deck) {
   }
 
   setActivePage("life");
-  showModal(`Import ${deck.name || "deck"} to table`);
+  showModal(`Import ${deck.name || "deck"} to the paper tracker`);
   cardPreview.hidden = true;
   cardPreview.className = "card-preview";
   cardPreview.innerHTML = "";
@@ -3468,7 +3468,7 @@ function openTableImportPicker(deck) {
 
   const intro = document.createElement("p");
   intro.className = "modal-note table-import-note";
-  intro.textContent = "Choose which player card should receive this deck, commander art, and smart counters.";
+  intro.textContent = "Choose which seat receives this deck's commander art and smart counters.";
   modalGrid.appendChild(intro);
 
   state.players.forEach((player, index) => {
