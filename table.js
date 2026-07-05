@@ -1131,6 +1131,7 @@
     item(c.phased ? "Phase in" : "Phase out", function () { dispatch({ t: "card_phase", instanceId: c.instanceId }); });
     sep();
     item("Add +1/+1 counter", function () { dispatch({ t: "card_counter", instanceId: c.instanceId, kind: "+1/+1", delta: 1 }); }, "+");
+    if (c.counters && Object.keys(c.counters).some(function (k) { return c.counters[k]; })) item("Remove all counters", function () { var acts = []; for (var k in c.counters) { if (c.counters[k]) acts.push({ t: "card_counter", instanceId: c.instanceId, kind: k, delta: -c.counters[k] }); } if (acts.length) dispatch({ t: "batch", actions: acts }); });
     item("Counters & labels…", function () { openCounters(c); });
     item("Proliferate…", function () { openProliferate(); });
     submenu("Attach to", [{ label: "Select a card", fn: function () { startLink(c.instanceId, "select", "attach"); } }, { label: "Draw a line", fn: function () { startLink(c.instanceId, "draw", "attach"); } }, { label: "Clear attachment", fn: function () { dispatch({ t: "card_attach", instanceId: c.instanceId, attachedTo: null }); } }]);
