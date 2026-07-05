@@ -914,7 +914,11 @@
       node.innerHTML += '<span class="pow-badge' + (_e.buff > 0 ? " buffed" : (_e.buff < 0 ? " debuffed" : "")) + '" title="Total power (base power + counters)"><span class="pow-ic">' + (window.MTGIcons ? MTGIcons.get("sword", "1em") : "") + '</span>' + _e.p + "</span>";
       node.innerHTML += '<span class="pt-badge' + (_e.buff > 0 ? " buffed" : (_e.buff < 0 ? " debuffed" : "")) + '" title="Effective power/toughness \u2014 base ' + esc(_pti.pt[0] + "/" + _pti.pt[1]) + ' + counters">' + _e.p + "/" + _e.t + "</span>";
     }
-    if (showKW && !inHand && c.zone === "battlefield" && _pti && _pti.isCreature && _pti.keywords && _pti.keywords.length) node.innerHTML += kwChips(_pti.keywords);
+    if (showKW && !inHand && c.zone === "battlefield" && _pti && _pti.isCreature) {
+      var _kws = (_pti.keywords || []).slice();
+      try { if (window.MTGRulesStatic && MTGRulesStatic.grantedKeywords && state) MTGRulesStatic.grantedKeywords(state, c.instanceId, {}).forEach(function (k) { if (_kws.indexOf(k) < 0) _kws.push(k); }); } catch (e) {}
+      if (_kws.length) node.innerHTML += kwChips(_kws);
+    }
     node.addEventListener("mouseenter", function () { hoveredId = c.instanceId; showPreview(c); if (inHand) Array.prototype.forEach.call(handCards(), function (n) { if (n !== node) n.classList.remove("walked"); }); });
     node.addEventListener("mouseleave", function () { if (hoveredId === c.instanceId) { hoveredId = null; clearPreview(); } });
     node.addEventListener("contextmenu", function (e) { e.preventDefault(); if (c.zone === "hand" && c.ownerSeat === mySeat) openHandMenu(e.clientX, e.clientY, c); else openMenu(e.clientX, e.clientY, c); });

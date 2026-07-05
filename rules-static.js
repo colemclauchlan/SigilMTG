@@ -61,6 +61,31 @@
     return Layers.computeEffectiveState(base, effectsForCard(game, cardId, ctx));
   }
 
-  return { collectAnthems: collectAnthems, anthemAppliesTo: anthemAppliesTo, effectsForCard: effectsForCard, effectiveOnBoard: effectiveOnBoard };
+  // static "grant" abilities on the board (e.g. Goblin King: other Goblins have mountainwalk)
+  function collectGrants(game, Cards) {
+    var out = [];
+    for (var id in game.cards) {
+      var c = game.cards[id]; if (c.zone !== "battlefield") continue;
+      var def = Cards ? Cards.get(c.name) : null; if (!def || !def.static) continue;
+      def.static.forEach(function (st) {
+        if (st.kind === "grant" && st.keywords) out.push({ controllerSeat: c.controllerSeat, affects: st.affects || "creatures-you-control", subtype: st.subtype || null, keywords: st.keywords, sourceId: id });
+      });
+    }
+    return out;
+  }
+
+  // keywords granted to one creature by all static "grant" abilities on the board (deduped)
+  function grantedKeywords(game, cardId, ctx) {
+    var Cards = pick(ctx, "Cards", "MTGCards");
+    var card = game.cards[cardId]; if (!card) return [];
+    var def = Cards ? Cards.get(card.name) : null;
+    var out = [];
+    collectGrants(game, Cards).forEach(function (a) {
+      if (anthemAppliesTo(a, card, def)) a.keywords.forEach(function (k) { if (out.indexOf(k) < 0) out.push(k); });
+    });
+    return out;
+  }
+
+  return { collectAnthems: collectAnthems, anthemAppliesTo: anthemAppliesTo, effectsForCard: effectsForCard, effectiveOnBoard: effectiveOnBoard, collectGrants: collectGrants, grantedKeywords: grantedKeywords };
 })
 ;
