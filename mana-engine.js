@@ -69,7 +69,25 @@
     return p;
   }
 
-  var api = { parse: parse, cmc: cmc, canPay: canPay, pay: pay, emptyPool: emptyPool };
+  // Parse a permanent's oracle text for the mana it can produce (auto-tap backbone).
+  function produces(oracle) {
+    var o = String(oracle || ""), out = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, anyColor: false, any: false, choices: [], amount: 0 };
+    var wordN = { one: 1, two: 2, three: 3, four: 4, five: 5 };
+    var re = /add\s+([^.;\n)]+)/gi, m;
+    while ((m = re.exec(o))) {
+      var seg = m[1];
+      if (/any color/i.test(seg)) { var w1 = (seg.match(/\b(one|two|three|four|five|\d+)\b/i) || [])[1]; out.anyColor = true; out.amount += (w1 ? (wordN[String(w1).toLowerCase()] || parseInt(w1, 10) || 1) : 1); continue; }
+      if (/any (one )?type|any combination/i.test(seg)) { out.any = true; out.amount += 1; continue; }
+      var syms = seg.match(/\{[WUBRGC]\}/gi);
+      if (syms && syms.length) {
+        if (/\bor\b/i.test(seg) && syms.length >= 2) { out.choices.push(syms.map(function (s) { return s.slice(1, -1).toUpperCase(); })); out.amount += 1; }
+        else { syms.forEach(function (s) { var c = s.slice(1, -1).toUpperCase(); out[c] += 1; out.amount += 1; }); }
+      }
+    }
+    return out;
+  }
+
+  var api = { parse: parse, cmc: cmc, canPay: canPay, pay: pay, produces: produces, emptyPool: emptyPool };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.MTGMana = api;
   return api;
