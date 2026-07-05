@@ -137,20 +137,20 @@
     if (ctrls) {
       var pt = document.createElement("button"); pt.type = "button"; pt.id = "tblPass"; pt.innerHTML = '<span class="msym">skip_next</span>Pass turn'; pt.onclick = doPassTurn; ctrls.appendChild(pt);
       var mu = document.createElement("button"); mu.type = "button"; mu.innerHTML = '<span class="msym">cached</span>Mulligan'; mu.title = "London mulligan"; mu.onclick = doMulligan; ctrls.appendChild(mu);
-      // (standalone End-game button removed — End game now lives in the HUD Settings menu, G4.31)
+      // (standalone End-game button removed \u2014 End game now lives in the HUD Settings menu, G4.31)
       var pod = document.createElement("select"); pod.title = "Solo pod size (reshuffles & restarts)"; [[0, "Solo"], [1, "+1 opp"], [2, "+2 opp"], [3, "+3 opp"]].forEach(function (o) { var op = document.createElement("option"); op.value = o[0]; op.textContent = o[1]; pod.appendChild(op); }); pod.value = String(numOpponents); pod.onchange = function () { numOpponents = +pod.value; if (lastList) buildAndStart(lastList, lastImages, lastLabel); else setStatus("Load a deck first, then pick a pod size."); }; ctrls.appendChild(pod);
       function ctlBtn(label, fn, title, icon) { var b = document.createElement("button"); b.type = "button"; b.innerHTML = (icon ? '<span class="msym">' + icon + '</span>' : "") + label; if (title) b.title = title; b.onclick = fn; return b; }
       function barMenu(label, items) {
-        var ICON = ({ Table: "casino", Deck: "style", Online: "groups" })[label] || ""; var b = document.createElement("button"); b.type = "button"; b.className = "bar-menu-btn"; b.innerHTML = (ICON ? '<span class="msym">' + ICON + '</span>' : "") + label + " ▾";
+        var ICON = ({ Table: "casino", Deck: "style", Online: "groups" })[label] || ""; var b = document.createElement("button"); b.type = "button"; b.className = "bar-menu-btn"; b.innerHTML = (ICON ? '<span class="msym">' + ICON + '</span>' : "") + label + " \u25BE";
         b.onclick = function (e) { e.stopPropagation(); closeMenu(); var m = document.createElement("div"); m.className = "tbl-menu"; items.forEach(function (it) { if (it === "-") { var s = document.createElement("div"); s.className = "sep"; m.appendChild(s); return; } var ib = document.createElement("button"); ib.textContent = it[0]; ib.onclick = function () { closeMenu(); it[1](); }; m.appendChild(ib); }); document.body.appendChild(m); var r = b.getBoundingClientRect(), vw = document.documentElement.clientWidth; m.style.left = Math.min(r.left, vw - m.offsetWidth - 8) + "px"; m.style.top = (r.bottom + 4) + "px"; menuEl = m; };
         return b;
       }
       ctrls.appendChild(ctlBtn("Combat", openCombat, "Resolve declared attackers", "swords"));
       ctrls.appendChild(ctlBtn("Cmd dmg", openCmdMatrix, "Commander damage matrix", "skull"));
-      ctrls.appendChild(barMenu("Table", [["Recenter view", recenter], ["Restart game", function () { if (lastList) buildAndStart(lastList, lastImages, lastLabel); else { state = null; loadGame(); } }], ["Starting life…", function () { var v = parseInt(window.prompt("Starting life total", String(startingLife)), 10); if (v > 0) { startingLife = v; if (lastList) buildAndStart(lastList, lastImages, lastLabel); else setStatus("Starting life set to " + v + " — load a deck to apply."); } }], ["Playmat…", openPlaymat], "-", ["Roll d20", function () { rollDice("d20"); }], ["Roll d6", function () { rollDice("d6"); }], ["Flip coin", function () { rollDice("Coin"); }], "-", ["Planechase…", openPlanechase], ["Draft a pool…", openDraft], ["Deck insights…", openInsights]]));
-      ctrls.appendChild(barMenu("Deck", [["Paste decklist…", openPasteDeck], ["Sideboard…", openSideboard], "-", ["Save board", saveBoard], ["Load board", loadBoard], "-", ["Share playtest link", shareLink], ["Hotkeys (?)", showHotkeyHelp]]));
+      ctrls.appendChild(barMenu("Table", [["Recenter view", recenter], ["Restart game", function () { if (lastList) buildAndStart(lastList, lastImages, lastLabel); else { state = null; loadGame(); } }], ["Starting life\u2026", function () { var v = parseInt(window.prompt("Starting life total", String(startingLife)), 10); if (v > 0) { startingLife = v; if (lastList) buildAndStart(lastList, lastImages, lastLabel); else setStatus("Starting life set to " + v + " \u2014 load a deck to apply."); } }], ["Playmat\u2026", openPlaymat], "-", ["Roll d20", function () { rollDice("d20"); }], ["Roll d6", function () { rollDice("d6"); }], ["Flip coin", function () { rollDice("Coin"); }], "-", ["Planechase\u2026", openPlanechase], ["Draft a pool\u2026", openDraft], ["Deck insights\u2026", openInsights]]));
+      ctrls.appendChild(barMenu("Deck", [["Paste decklist\u2026", openPasteDeck], ["Sideboard\u2026", openSideboard], "-", ["Save board", saveBoard], ["Load board", loadBoard], "-", ["Share playtest link", shareLink], ["Hotkeys (?)", showHotkeyHelp]]));
       if (window.MTGTableSync) {
-        ctrls.appendChild(barMenu("Online", [["Find games…", openLobby], "-", ["Host public game", function () { doHost({ visibility: "public" }); }], ["Host private game", function () { doHost(); }], ["Join by ID…", function () { doJoin(); }], "-", ["Text chat (toggle)", toggleChat], ["Voice chat (toggle)", toggleVoice]]));
+        ctrls.appendChild(barMenu("Online", [["Find games\u2026", openLobby], "-", ["Host public game", function () { doHost({ visibility: "public" }); }], ["Host private game", function () { doHost(); }], ["Join by ID\u2026", function () { doJoin(); }], "-", ["Text chat (toggle)", toggleChat], ["Voice chat (toggle)", toggleVoice]]));
       }
     }
   }
@@ -295,7 +295,7 @@
   function deckListFromState() { var out = []; for (var id in state.cards) { var c = state.cards[id]; out.push({ cardId: c.cardId, name: c.name, isCommander: c.isCommander }); } return out; }
   function toggleVoice() {
     if (!window.MTGVoice) { setStatus("Voice module not loaded."); return; }
-    if (!MTGVoice.isEnabled()) { setStatus("Voice is off — set window.MTG_VOICE_CONFIG = { enabled: true, iceServers: [ …TURN… ] } before table.js to enable it."); return; }
+    if (!MTGVoice.isEnabled()) { setStatus("Voice is off \u2014 set window.MTG_VOICE_CONFIG = { enabled: true, iceServers: [ \u2026TURN\u2026 ] } before table.js to enable it."); return; }
     if (!online || !window.MTGTableSync) { setStatus("Host or join an online game first to use voice."); return; }
     if (MTGVoice.status().active) { MTGVoice.leave(); if (window.MTGVoiceUI) MTGVoiceUI.hide(); setStatus("Left voice chat."); return; }
     var vmeta = null;
@@ -313,6 +313,7 @@
       var pub = opts.visibility === "public";
       var gname = opts.name || "Commander table";
       if (opts.bracket && /^[1-5]$/.test(String(opts.bracket))) gname = "B" + opts.bracket + " · " + (opts.name || "Commander table"); // expected bracket shown in the lobby list
+      if (opts.lfp) gname = gname + " [LFP]"; // "looking for players" — host wants random players; surfaced in the lobby list
       var gid = await MTGTableSync.host(deckListFromState(), { displayName: "Host", visibility: pub ? "public" : "private", name: gname, scheduledAt: opts.scheduledAt || null });
       online = true; mySeat = MTGTableSync.info().mySeat;
       setStatus((pub ? "Hosting PUBLIC game " : "Hosting private game ") + gid); log("<b>Hosting</b> " + (pub ? "public " : "") + "game " + gid + (pub ? " — others can Find it." : " (share the id)")); render();
@@ -398,8 +399,8 @@
     function outp(p) { if (p.life <= 0) return true; var cd = p.cmdDamage || {}; for (var k in cd) if (cd[k] >= 21) return true; return false; }
     var defWin = 0, best = -Infinity; ps.forEach(function (p, i) { if (!outp(p) && p.life > best) { best = p.life; defWin = i; } });
     if (best === -Infinity) ps.forEach(function (p, i) { if (p.life > best) { best = p.life; defWin = i; } });
-    var h = '<div class="pv-head"><span>Game results — turn ' + (state.turn || 1) + '</span><button class="pv-x">Close</button></div>';
-    h += '<div class="end-rows">' + ps.map(function (p, i) { return '<label class="end-row"><input type="radio" name="winner" value="' + i + '"' + (i === defWin ? " checked" : "") + '><span class="end-name">' + (p.name ? esc(p.name) : (i === mySeat ? "You" : "Seat " + i)) + '</span><span class="end-stat">' + p.life + " life · " + cmdTaken(p) + " cmdr dmg · " + (outp(p) ? "out" : "alive") + "</span></label>"; }).join("") + "</div>";
+    var h = '<div class="pv-head"><span>Game results \u2014 turn ' + (state.turn || 1) + '</span><button class="pv-x">Close</button></div>';
+    h += '<div class="end-rows">' + ps.map(function (p, i) { return '<label class="end-row"><input type="radio" name="winner" value="' + i + '"' + (i === defWin ? " checked" : "") + '><span class="end-name">' + (p.name ? esc(p.name) : (i === mySeat ? "You" : "Seat " + i)) + '</span><span class="end-stat">' + p.life + " life \u00b7 " + cmdTaken(p) + " cmdr dmg \u00b7 " + (outp(p) ? "out" : "alive") + "</span></label>"; }).join("") + "</div>";
     h += '<div class="end-foot"><button class="primary end-record">' + (online ? "Record result" : "Declare winner") + '</button><button class="end-new">New game</button></div>';
     panel.innerHTML = h;
     panel.querySelector(".pv-x").onclick = close;
@@ -409,9 +410,9 @@
       var summary = { turns: state.turn, winnerSeat: win, finals: ps.map(function (p, i) { return { seat: i, life: p.life, cmdrTaken: cmdTaken(p) }; }) };
       var who = (win === mySeat ? "you" : "seat " + win);
       recordLocalMatch(win);
-      if (online && window.MTGTableSync && MTGTableSync.recordWinner) { MTGTableSync.recordWinner(win, summary).then(function () { setStatus("Recorded — winner " + who); }).catch(function (e) { setStatus("Record failed: " + ((e && e.message) || e)); }); }
+      if (online && window.MTGTableSync && MTGTableSync.recordWinner) { MTGTableSync.recordWinner(win, summary).then(function () { setStatus("Recorded \u2014 winner " + who); }).catch(function (e) { setStatus("Record failed: " + ((e && e.message) || e)); }); }
       else { setStatus("Winner: " + who); }
-      log("<b>Game over</b> — winner " + who + " on turn " + state.turn + ".");
+      log("<b>Game over</b> \u2014 winner " + who + " on turn " + state.turn + ".");
       close();
     };
     document.body.appendChild(ov);
@@ -756,7 +757,7 @@
       var ct = manaPool[m] || 0;
       var pop = (openMana === m) ? '<span class="mana-pop"><button class="mana-step" data-mana="' + m + '" data-d="-1" aria-label="minus ' + m + '">-</button><b>' + ct + '</b><button class="mana-step" data-mana="' + m + '" data-d="1" aria-label="plus ' + m + '">+</button></span>' : "";
       return '<span class="vit-m m-' + m + (openMana === m ? " open" : "") + '"><button class="mana-icon" data-manaopen="' + m + '" title="' + m + ' mana"><img src="https://svgs.scryfall.io/card-symbols/' + m + '.svg" alt="' + m + '" /><b class="mana-ct">' + ct + '</b></button>' + pop + '</span>';
-    }).join("") + '<button class="mana-clear" data-mana="_clear" title="Empty mana pool">✕</button></div>';
+    }).join("") + '<button class="mana-clear" data-mana="_clear" title="Empty mana pool">\u2715</button></div>';
     html += '<div class="vit-counters">';
     visibleCounters.forEach(function (k) {
       var v = (p.counters && p.counters[k]) || 0;
@@ -902,10 +903,10 @@
     if (!inHand && blockingIds[c.instanceId] && c.zone === "battlefield") node.innerHTML += '<span class="blk-mark" title="Blocking"><span class="msym">shield</span></span>';
     var _pti = imagesById[c.cardId];
     if (showPT && !inHand && c.zone === "battlefield" && _pti && _pti.isCreature && _pti.pt) {
-      // G3.22 — bottom-left effective P/T badge: base P/T + all counters/modifiers (rules-layer engine when present).
+      // G3.22 \u2014 bottom-left effective P/T badge: base P/T + all counters/modifiers (rules-layer engine when present).
       var _e = effPT(c, _pti);
       node.innerHTML += '<span class="pow-badge' + (_e.buff > 0 ? " buffed" : (_e.buff < 0 ? " debuffed" : "")) + '" title="Total power (base power + counters)"><span class="pow-ic">' + (window.MTGIcons ? MTGIcons.get("sword", "1em") : "") + '</span>' + _e.p + "</span>";
-      node.innerHTML += '<span class="pt-badge' + (_e.buff > 0 ? " buffed" : (_e.buff < 0 ? " debuffed" : "")) + '" title="Effective power/toughness — base ' + esc(_pti.pt[0] + "/" + _pti.pt[1]) + ' + counters">' + _e.p + "/" + _e.t + "</span>";
+      node.innerHTML += '<span class="pt-badge' + (_e.buff > 0 ? " buffed" : (_e.buff < 0 ? " debuffed" : "")) + '" title="Effective power/toughness \u2014 base ' + esc(_pti.pt[0] + "/" + _pti.pt[1]) + ' + counters">' + _e.p + "/" + _e.t + "</span>";
     }
     if (showKW && !inHand && c.zone === "battlefield" && _pti && _pti.isCreature && _pti.keywords && _pti.keywords.length) node.innerHTML += kwChips(_pti.keywords);
     node.addEventListener("mouseenter", function () { hoveredId = c.instanceId; showPreview(c); if (inHand) Array.prototype.forEach.call(handCards(), function (n) { if (n !== node) n.classList.remove("walked"); }); });
@@ -916,7 +917,7 @@
     return node;
   }
   function onCardClick(c) {
-    if (bottomNeeded > 0 && c.zone === "hand" && c.ownerSeat === mySeat) { dispatch({ t: "card_move", instanceId: c.instanceId, toZone: "library" }); bottomNeeded--; setStatus(bottomNeeded > 0 ? ("Put " + bottomNeeded + " more on the bottom.") : "Hand kept — good luck!"); if (bottomNeeded === 0) log("<b>Kept</b> at " + MTGCore.zoneCount(state, mySeat, "hand") + " cards."); return; }
+    if (bottomNeeded > 0 && c.zone === "hand" && c.ownerSeat === mySeat) { dispatch({ t: "card_move", instanceId: c.instanceId, toZone: "library" }); bottomNeeded--; setStatus(bottomNeeded > 0 ? ("Put " + bottomNeeded + " more on the bottom.") : "Hand kept \u2014 good luck!"); if (bottomNeeded === 0) log("<b>Kept</b> at " + MTGCore.zoneCount(state, mySeat, "hand") + " cards."); return; }
     if (linkSource && linkSource !== c.instanceId) { chooseLink(c.instanceId); return; }
     if (c.zone === "hand") playFromHand(c);
     else if (c.zone === "battlefield") dispatch({ t: "card_tap", instanceId: c.instanceId });
@@ -942,7 +943,7 @@
     dispatch({ t: "library_shuffle", seat: mySeat, seed: "mull-" + Date.now() + "-" + Math.floor(Math.random() * 1e9) });
     dispatch({ t: "draw", seat: mySeat, count: 7 });
     mulliganCount++; bottomNeeded = mulliganCount;
-    log("<b>Mulligan</b> #" + mulliganCount + " — bottom " + bottomNeeded + ".");
+    log("<b>Mulligan</b> #" + mulliganCount + " \u2014 bottom " + bottomNeeded + ".");
     setStatus(bottomNeeded > 0 ? ("Mulligan " + mulliganCount + ": click " + bottomNeeded + " card(s) in hand to put on the bottom.") : "Opening hand.");
   }
 
@@ -1121,7 +1122,7 @@
     function item(label, fn, key) { var b = document.createElement("button"); b.innerHTML = "<span>" + label + "</span>" + (key ? '<span class="mk">' + key + "</span>" : ""); b.onclick = function () { closeMenu(); fn(); }; m.appendChild(b); }
     function sep() { var s = document.createElement("div"); s.className = "sep"; m.appendChild(s); }
     function submenu(label, items) {
-      var b = document.createElement("button"); b.textContent = label + " ▸";
+      var b = document.createElement("button"); b.textContent = label + " \u25B8";
       b.onclick = function (e) { e.stopPropagation(); var ex = m.querySelector(".tbl-submenu"); if (ex) { ex.remove(); return; } var sub = document.createElement("div"); sub.className = "tbl-submenu"; items.forEach(function (it) { var ib = document.createElement("button"); ib.textContent = it.label; ib.onclick = function (ev) { ev.stopPropagation(); closeMenu(); it.fn(); }; sub.appendChild(ib); }); b.insertAdjacentElement("afterend", sub); };
       m.appendChild(b);
     }
@@ -1233,7 +1234,7 @@
       item("Mill X…", function () { var mn = parseInt(window.prompt("Mill how many?", "3"), 10); if (mn > 0) dispatch({ t: "mill", seat: mySeat, count: mn }); });
       item("Search library…", function () { openPile("library"); });
       item("Scry 1", function () { openScry(1, "scry"); });
-      item("Scry X…", function () { var sn = parseInt(window.prompt("Scry how many?", "3"), 10); if (sn > 0) openScry(sn, "scry"); });
+      item("Scry X\u2026", function () { var sn = parseInt(window.prompt("Scry how many?", "3"), 10); if (sn > 0) openScry(sn, "scry"); });
       item("Surveil 1", function () { openScry(1, "surveil"); });
       item("Shuffle", function () { gameSeed = "g" + Date.now(); dispatch({ t: "library_shuffle", seat: mySeat, seed: gameSeed }); });
     } else if (zone === "command") {
@@ -1383,7 +1384,7 @@
     function redraw() {
       panel.innerHTML = "";
       var head = document.createElement("div"); head.className = "pv-head";
-      var h = document.createElement("span"); h.textContent = (mode === "surveil" ? "Surveil " : "Scry ") + n + " — leftmost is top";
+      var h = document.createElement("span"); h.textContent = (mode === "surveil" ? "Surveil " : "Scry ") + n + " \u2014 leftmost is top";
       head.appendChild(h);
       var x = document.createElement("button"); x.className = "pv-x"; x.textContent = "Cancel"; x.onclick = close; head.appendChild(x); panel.appendChild(head);
       var grid = document.createElement("div"); grid.className = "scry-grid";
@@ -1393,8 +1394,8 @@
         cell.innerHTML = src ? ('<img src="' + src + '">') : ('<div class="scry-nm">' + esc(it.c.name) + "</div>");
         var ctrl = document.createElement("div"); ctrl.className = "scry-ctrl";
         var tg = document.createElement("button"); tg.textContent = it.dest === "top" ? "Top" : downLabel; tg.onclick = function () { it.dest = it.dest === "top" ? "down" : "top"; redraw(); };
-        var up = document.createElement("button"); up.textContent = "◀"; up.title = "toward top"; up.onclick = function () { if (i > 0) { var t = items[i - 1]; items[i - 1] = items[i]; items[i] = t; redraw(); } };
-        var dn = document.createElement("button"); dn.textContent = "▶"; dn.title = "toward bottom"; dn.onclick = function () { if (i < items.length - 1) { var t = items[i + 1]; items[i + 1] = items[i]; items[i] = t; redraw(); } };
+        var up = document.createElement("button"); up.textContent = "\u25C0"; up.title = "toward top"; up.onclick = function () { if (i > 0) { var t = items[i - 1]; items[i - 1] = items[i]; items[i] = t; redraw(); } };
+        var dn = document.createElement("button"); dn.textContent = "\u25B6"; dn.title = "toward bottom"; dn.onclick = function () { if (i < items.length - 1) { var t = items[i + 1]; items[i + 1] = items[i]; items[i] = t; redraw(); } };
         ctrl.appendChild(up); ctrl.appendChild(tg); ctrl.appendChild(dn); cell.appendChild(ctrl); grid.appendChild(cell);
       });
       panel.appendChild(grid);
@@ -1407,7 +1408,7 @@
       var keepIds = items.filter(function (it) { return it.dest === "top"; }).map(function (it) { return it.id; });
       downIds.forEach(function (id) { dispatch({ t: "card_move", instanceId: id, toZone: mode === "surveil" ? "graveyard" : "library" }); });
       if (keepIds.length) dispatch({ t: "library_scry", seat: mySeat, order: keepIds });
-      log("<b>" + (mode === "surveil" ? "Surveil" : "Scry") + " " + n + "</b> — kept " + keepIds.length + ", " + (mode === "surveil" ? "to grave " : "to bottom ") + downIds.length + ".");
+      log("<b>" + (mode === "surveil" ? "Surveil" : "Scry") + " " + n + "</b> \u2014 kept " + keepIds.length + ", " + (mode === "surveil" ? "to grave " : "to bottom ") + downIds.length + ".");
       setStatus((mode === "surveil" ? "Surveiled " : "Scryed ") + n + ".");
     }
     redraw();
@@ -1834,7 +1835,7 @@
   }
   // Expected-bracket encoded into the game name ("B3 · <name>") so it persists + shows in the lobby list (no schema change).
   var BRACKET_NAMES = { 1: "Exhibition", 2: "Core", 3: "Upgraded", 4: "Optimized", 5: "cEDH" };
-  function parseLobbyName(name) { var m = String(name || "").match(/^B([1-5])\s*·\s*(.*)$/); return m ? { bracket: +m[1], title: m[2] || "Commander table" } : { bracket: null, title: name || "Commander table" }; }
+  function parseLobbyName(name) { name = String(name || ""); var lfp = /\s*\[LFP\]\s*$/i.test(name); if (lfp) name = name.replace(/\s*\[LFP\]\s*$/i, ""); var m = name.match(/^B([1-5])\s*·\s*(.*)$/); var r = m ? { bracket: +m[1], title: m[2] || "Commander table" } : { bracket: null, title: name || "Commander table" }; r.lfp = lfp; return r; }
   function openLobby() {
     if (!window.MTGTableSync) { setStatus("Online sync is not loaded."); return; }
     var ov = document.createElement("div"); ov.className = "tbl-pileview"; ov.addEventListener("pointerdown", function (e) { if (e.target === ov) ov.remove(); });
@@ -1857,12 +1858,13 @@
         var when = panel.querySelector(".lob-when"); var schedIso = null;
         if (when && when.value) {
           var ts = new Date(when.value).getTime();
-          if (isNaN(ts)) { setStatus("That schedule time didn't parse — hosting now instead."); }
+          if (isNaN(ts)) { setStatus("That schedule time didn't parse \u2014 hosting now instead."); }
           else if (ts - Date.now() > 7.5 * 24 * 3600 * 1000) { setStatus("Pick a start time within the next 7 days."); return; }
           else schedIso = new Date(ts).toISOString();
         }
         ov.remove();
-        doHost({ visibility: pub ? "public" : "private", bracket: br, scheduledAt: schedIso });
+        var lfpCb = panel.querySelector(".lob-lfp-cb");
+        doHost({ visibility: pub ? "public" : "private", bracket: br, scheduledAt: schedIso, lfp: !!(lfpCb && lfpCb.checked) });
       };
       var vis2 = panel.querySelector(".lob-vis"), hb2 = panel.querySelector(".lob-host");
       if (vis2 && hb2) vis2.onchange = function () { hb2.textContent = vis2.value === "public" ? "Host a public game" : "Host private (invite code)"; };
@@ -1872,23 +1874,25 @@
     function draw(list, msg) {
       var h = '<div class="pv-head"><span>Find a game</span><button class="pv-x">Close</button></div>';
       h += '<div class="lob-actions"><select class="lob-bracket" title="Expected deck bracket for the game you host">' +
-        '<option value="">Any bracket</option><option value="1">Bracket 1 · Exhibition</option><option value="2">Bracket 2 · Core</option>' +
-        '<option value="3" selected>Bracket 3 · Upgraded</option><option value="4">Bracket 4 · Optimized</option><option value="5">Bracket 5 · cEDH</option></select>' +
+        '<option value="">Any bracket</option><option value="1">Bracket 1 \u00b7 Exhibition</option><option value="2">Bracket 2 \u00b7 Core</option>' +
+        '<option value="3" selected>Bracket 3 \u00b7 Upgraded</option><option value="4">Bracket 4 \u00b7 Optimized</option><option value="5">Bracket 5 \u00b7 cEDH</option></select>' +
         '<select class="lob-vis" title="Public games show in this list; private games are join-by-code only">' +
         '<option value="public" selected>Public</option><option value="private">Private</option></select>' +
-        '<input type="datetime-local" class="lob-when" title="Optional — schedule the game up to 7 days out; it lists with a Starts-in badge">' +
+        '<input type="datetime-local" class="lob-when" title="Optional \u2014 schedule the game up to 7 days out; it lists with a Starts-in badge">' +
+        '<label class="lob-lfp" title="Looking for players — flag your public game so random players can find and join it"><input type="checkbox" class="lob-lfp-cb"> Looking for players</label>' +
         '<button class="primary lob-host">Host a public game</button><button class="lob-refresh">Refresh</button></div>';
       if (msg) h += '<div class="lob-msg">' + esc(msg) + "</div>";
-      else if (!list || !list.length) h += '<div class="lob-msg">No public games right now — host one and your pod can Find it.</div>';
+      else if (!list || !list.length) h += '<div class="lob-msg">No public games right now \u2014 host one and your pod can Find it.</div>';
       else h += '<div class="lob-list">' + list.map(function (g) {
         var pn = parseLobbyName(g.name);
         var badge = pn.bracket ? '<span class="lob-brk lob-brk-' + pn.bracket + '">B' + pn.bracket + '</span>' : "";
-        return '<div class="lob-row"><div class="lob-info"><b>' + badge + esc(pn.title) + schedBadge(g) + '</b><span>' + (g.players || 1) + ' in · host ' + esc(g.host || "?") + ' · ' + (g.startingLife || 40) + ' life' + (pn.bracket ? ' · ' + BRACKET_NAMES[pn.bracket] : "") + '</span></div><button class="lob-join" data-id="' + g.id + '">Join</button></div>';
+        var lfpBadge = pn.lfp ? '<span class="lob-lfp-badge" title="Looking for players — the host wants random players to join">' + (window.MTGIcons ? MTGIcons.get("users", "0.95em") : "") + 'LFP</span>' : "";
+        return '<div class="lob-row"><div class="lob-info"><b>' + badge + esc(pn.title) + lfpBadge + schedBadge(g) + '</b><span>' + (g.players || 1) + ' in \u00b7 host ' + esc(g.host || "?") + ' \u00b7 ' + (g.startingLife || 40) + ' life' + (pn.bracket ? ' \u00b7 ' + BRACKET_NAMES[pn.bracket] : "") + '</span></div><button class="lob-join" data-id="' + g.id + '">Join</button></div>';
       }).join("") + "</div>";
       panel.innerHTML = h; wire();
     }
     async function load() {
-      draw(null, "Loading…");
+      draw(null, "Loading\u2026");
       try {
         if (!(window.mtgSync && window.mtgSync.enabled && window.mtgSync.session)) { draw(null, "Sign in (account button, top-right) to host or join online games."); return; }
         if (!state) { draw(null, "Load a deck first so you can join with it."); return; }
@@ -1924,14 +1928,14 @@
     var ov = document.createElement("div"); ov.className = "tbl-pileview"; ov.addEventListener("pointerdown", function (e) { if (e.target === ov) ov.remove(); });
     var panel = document.createElement("div"); panel.className = "pv-panel drf-panel"; ov.appendChild(panel);
     panel.innerHTML = '<div class="pv-head"><span>Draft a pool</span><button class="pv-x">Close</button></div>'
-      + '<div class="drf-set"><input class="drf-input" placeholder="Set code — e.g. mh3, fdn, blb, dsk"><button class="primary drf-start">Start</button></div>'
+      + '<div class="drf-set"><input class="drf-input" placeholder="Set code \u2014 e.g. mh3, fdn, blb, dsk"><button class="primary drf-start">Start</button></div>'
       + '<div class="drf-body"><div class="drf-msg">Enter a set code, then pick one card from each pack. Build up to ' + draft.target + ', then Play the pool.</div></div>';
     function body() { return panel.querySelector(".drf-body"); }
-    function start() { var set = (panel.querySelector(".drf-input").value || "").trim().toLowerCase(); if (!set) { setStatus("Enter a set code."); return; } draft.pool = []; draft.picks = 0; body().innerHTML = '<div class="drf-msg">Loading ' + esc(set) + "…</div>"; draftLoadSet(set).then(function () { if (!draft.cards.length) { body().innerHTML = '<div class="drf-msg">No draftable cards for "' + esc(set) + '". Try mh3, fdn, blb, dsk, otj…</div>'; return; } draftNewPack(); draw(); }); }
+    function start() { var set = (panel.querySelector(".drf-input").value || "").trim().toLowerCase(); if (!set) { setStatus("Enter a set code."); return; } draft.pool = []; draft.picks = 0; body().innerHTML = '<div class="drf-msg">Loading ' + esc(set) + "\u2026</div>"; draftLoadSet(set).then(function () { if (!draft.cards.length) { body().innerHTML = '<div class="drf-msg">No draftable cards for "' + esc(set) + '". Try mh3, fdn, blb, dsk, otj\u2026</div>'; return; } draftNewPack(); draw(); }); }
     function pick(c) { if (!c) return; draft.pool.push(c); draft.picks++; if (draft.picks >= draft.target) return finish(); draftNewPack(); draw(); }
     function finish() { var images = {}, list = []; draft.pool.forEach(function (c) { images[c.id] = { img: c.img, name: c.name }; list.push({ cardId: c.id, name: c.name }); }); ov.remove(); if (!list.length) { setStatus("Draft pool is empty."); return; } numOpponents = 0; buildAndStart(list, images, "Drafted pool (" + draft.set + ")"); }
     function draw() {
-      var b = '<div class="drf-bar">Pick ' + (draft.picks + 1) + ' · pool ' + draft.pool.length + '/' + draft.target + '<button class="drf-finish">Play pool (' + draft.pool.length + ')</button></div>';
+      var b = '<div class="drf-bar">Pick ' + (draft.picks + 1) + ' \u00b7 pool ' + draft.pool.length + '/' + draft.target + '<button class="drf-finish">Play pool (' + draft.pool.length + ')</button></div>';
       b += '<div class="drf-pack">' + draft.pack.map(function (c, i) { return '<div class="drf-card" data-i="' + i + '" title="' + esc(c.name) + '">' + (c.img ? ('<img src="' + c.img + '">') : ('<div class="nm">' + esc(c.name) + "</div>")) + "</div>"; }).join("") + "</div>";
       body().innerHTML = b;
       Array.prototype.forEach.call(panel.querySelectorAll(".drf-card"), function (el2) { el2.onclick = function () { pick(draft.pack[+el2.dataset.i]); }; });
@@ -1962,7 +1966,7 @@
     var panel = document.createElement("div"); panel.className = "pv-panel ins-panel"; ov.appendChild(panel);
     function bar(label, val, max, cls) { var pct = max ? Math.round(val / max * 100) : 0; return '<div class="ins-bar"><span class="ins-bl">' + label + '</span><span class="ins-track"><span class="ins-fill ' + (cls || "") + '" style="width:' + pct + '%"></span></span><span class="ins-bv">' + val + "</span></div>"; }
     var h = '<div class="pv-head"><span>Deck insights</span><button class="pv-x">Close</button></div>';
-    if (!known) { h += '<div class="ins-msg">Card data is still loading from Scryfall — reopen this in a moment.</div>'; }
+    if (!known) { h += '<div class="ins-msg">Card data is still loading from Scryfall \u2014 reopen this in a moment.</div>'; }
     else {
       var maxCurve = Math.max.apply(null, curve.concat([1]));
       h += '<div class="ins-sec">Mana value (nonland)</div>';
@@ -1973,7 +1977,7 @@
       h += '<div class="ins-sec">Card types</div>';
       var maxT = Math.max.apply(null, Object.keys(types).map(function (k) { return types[k]; }).concat([1]));
       Object.keys(types).forEach(function (k) { if (types[k]) h += bar(k, types[k], maxT, "t"); });
-      h += '<div class="ins-foot">Lands ' + lands + ' · Nonland ' + nonland + ' · ' + known + "/" + total + " cards identified</div>";
+      h += '<div class="ins-foot">Lands ' + lands + ' \u00b7 Nonland ' + nonland + ' \u00b7 ' + known + "/" + total + " cards identified</div>";
     }
     panel.innerHTML = h; panel.querySelector(".pv-x").onclick = function () { ov.remove(); };
     document.body.appendChild(ov);
@@ -1994,20 +1998,20 @@
     var panel = document.createElement("div"); panel.className = "pv-panel pc-panel"; ov.appendChild(panel);
     function wire() {
       panel.querySelector(".pv-x").onclick = function () { ov.remove(); };
-      var l = panel.querySelector(".pc-load"); if (l) l.onclick = function () { l.textContent = "Loading…"; l.disabled = true; loadPlanarDeck().then(draw); };
-      var rl = panel.querySelector(".pc-roll"); if (rl) rl.onclick = function () { var f = rollPlanarFace(); var res = panel.querySelector(".pc-result"); if (f === "planeswalk") { planeswalk(); log("<b>Planar die:</b> Planeswalk"); draw(); } else if (f === "chaos") { if (res) res.textContent = "CHAOS — trigger the active plane's chaos ability."; log("<b>Planar die:</b> Chaos"); } else { if (res) res.textContent = "Blank — nothing happens."; } };
+      var l = panel.querySelector(".pc-load"); if (l) l.onclick = function () { l.textContent = "Loading\u2026"; l.disabled = true; loadPlanarDeck().then(draw); };
+      var rl = panel.querySelector(".pc-roll"); if (rl) rl.onclick = function () { var f = rollPlanarFace(); var res = panel.querySelector(".pc-result"); if (f === "planeswalk") { planeswalk(); log("<b>Planar die:</b> Planeswalk"); draw(); } else if (f === "chaos") { if (res) res.textContent = "CHAOS \u2014 trigger the active plane's chaos ability."; log("<b>Planar die:</b> Chaos"); } else { if (res) res.textContent = "Blank \u2014 nothing happens."; } };
       var wk = panel.querySelector(".pc-walk"); if (wk) wk.onclick = function () { planeswalk(); log("<b>Planeswalk</b> to " + esc(planar.deck[planar.pos].name)); draw(); };
     }
     function draw() {
       var h = '<div class="pv-head"><span>Planechase</span><button class="pv-x">Close</button></div>';
       if (!planar.loaded) { h += '<div class="pc-msg">Load a planar deck (every plane + phenomenon from Scryfall, shuffled) to begin.</div><div class="pc-foot"><button class="primary pc-load">Load planar deck</button></div>'; }
-      else if (!planar.deck.length) { h += '<div class="pc-msg">Could not load planes — check your connection and retry.</div><div class="pc-foot"><button class="primary pc-load">Retry</button></div>'; }
+      else if (!planar.deck.length) { h += '<div class="pc-msg">Could not load planes \u2014 check your connection and retry.</div><div class="pc-foot"><button class="primary pc-load">Retry</button></div>'; }
       else {
         var plane = planar.deck[planar.pos];
         h += '<div class="pc-active">' + (plane.img ? ('<img src="' + plane.img + '">') : ('<div class="pc-nm">' + esc(plane.name) + "</div>")) + "</div>";
         h += '<div class="pc-name">' + esc(plane.name) + ' <span class="pc-count">plane ' + (planar.pos + 1) + " / " + planar.deck.length + "</span></div>";
         if (plane.text) h += '<div class="pc-text">' + esc(plane.text) + "</div>";
-        h += '<div class="pc-foot"><button class="primary pc-roll">Roll planar die</button><button class="pc-walk">Planeswalk →</button></div><div class="pc-result"></div>';
+        h += '<div class="pc-foot"><button class="primary pc-roll">Roll planar die</button><button class="pc-walk">Planeswalk \u2192</button></div><div class="pc-result"></div>';
       }
       panel.innerHTML = h; wire();
     }
@@ -2037,7 +2041,7 @@
     var panel = document.createElement("div"); panel.className = "pv-panel mat-panel"; ov.appendChild(panel);
     var h = '<div class="pv-head"><span>Playmat</span><button class="pv-x">Close</button></div>';
     h += '<div class="mat-grid">' + PLAYMATS.map(function (m) { return '<button class="mat-swatch" data-css="' + esc(m.css) + '" style="background:' + m.css + '"><span>' + esc(m.name) + "</span></button>"; }).join("") + "</div>";
-    h += '<div class="mat-custom"><input class="mat-url" placeholder="Custom image URL (https://…)"><button class="mat-apply">Apply image</button></div>';
+    h += '<div class="mat-custom"><input class="mat-url" placeholder="Custom image URL (https://\u2026)"><button class="mat-apply">Apply image</button></div>';
     h += '<div class="mat-footr"><button class="mat-reset">Reset to default</button></div>';
     panel.innerHTML = h;
     panel.querySelector(".pv-x").onclick = function () { ov.remove(); };
@@ -2065,12 +2069,12 @@
       var total = atk.reduce(function (a, c) { return a + combatPower(c); }, 0);
       var firstOpp = mySeat; for (var i = 0; i < ps.length; i++) { if (i !== mySeat) { firstOpp = i; break; } }
       var h = '<div class="pv-head"><span>Combat</span><button class="pv-x">Close</button></div>';
-      if (!atk.length) { h += '<div class="cmb-empty">No attackers declared. Right-click a creature → <b>Declare attacker</b>. To resolve blocks, right-click the defending creatures → <b>Declare blocker</b> first.</div>'; }
+      if (!atk.length) { h += '<div class="cmb-empty">No attackers declared. Right-click a creature \u2192 <b>Declare attacker</b>. To resolve blocks, right-click the defending creatures \u2192 <b>Declare blocker</b> first.</div>'; }
       else {
         h += '<div class="cmb-list">' + atk.map(function (c) { return '<div class="cmb-row"><span>' + esc(c.name) + '</span><b>' + combatPower(c) + '</b></div>'; }).join("") + '</div>';
         if (blk.length) {
           h += '<div class="cmb-block"><div class="cmb-bh">Assign blockers</div>' + blk.map(function (b) {
-            return '<div class="cmb-brow"><span>' + esc(b.name) + ' <i>' + combatPower(b) + '</i></span><select data-blk="' + b.instanceId + '"><option value="">— not blocking —</option>' +
+            return '<div class="cmb-brow"><span>' + esc(b.name) + ' <i>' + combatPower(b) + '</i></span><select data-blk="' + b.instanceId + '"><option value="">\u2014 not blocking \u2014</option>' +
               atk.map(function (a) { return '<option value="' + a.instanceId + '"' + (assign[b.instanceId] === a.instanceId ? " selected" : "") + '>blocks ' + esc(a.name) + '</option>'; }).join("") + '</select></div>';
           }).join("") + '</div>';
         }
@@ -2081,7 +2085,7 @@
       panel.innerHTML = h;
       panel.querySelector(".pv-x").onclick = function () { ov.remove(); };
       Array.prototype.forEach.call(panel.querySelectorAll("select[data-blk]"), function (s) { s.onchange = function () { assign[s.dataset.blk] = s.value; }; });
-      var go = panel.querySelector(".cmb-go"); if (go) go.onclick = function () { var sel = panel.querySelector(".cmb-sel"); var a2 = attackers(); var tot = a2.reduce(function (a, c) { return a + combatPower(c); }, 0); var tgt = sel ? +sel.value : firstOpp; dispatch({ t: "adjust_life", seat: tgt, delta: -tot }); clearAll(a2); log("<b>Combat</b> — " + tot + " to " + (tgt === mySeat ? "you" : "seat " + tgt) + "."); ov.remove(); };
+      var go = panel.querySelector(".cmb-go"); if (go) go.onclick = function () { var sel = panel.querySelector(".cmb-sel"); var a2 = attackers(); var tot = a2.reduce(function (a, c) { return a + combatPower(c); }, 0); var tgt = sel ? +sel.value : firstOpp; dispatch({ t: "adjust_life", seat: tgt, delta: -tot }); clearAll(a2); log("<b>Combat</b> \u2014 " + tot + " to " + (tgt === mySeat ? "you" : "seat " + tgt) + "."); ov.remove(); };
       var rz = panel.querySelector(".cmb-resolve"); if (rz) rz.onclick = function () {
         if (!window.MTGDuel || !MTGDuel.resolveFullCombat) { setStatus("Combat engine not loaded."); return; }
         var sel = panel.querySelector(".cmb-sel"); var tgt = sel ? +sel.value : firstOpp;
@@ -2097,7 +2101,7 @@
         if (res.lifegain && res.lifegain.attackers > 0) dispatch({ t: "adjust_life", seat: mySeat, delta: res.lifegain.attackers });
         a2.forEach(function (c) { dispatch({ t: "card_combat", instanceId: c.instanceId, attacking: false }); });
         b2.forEach(function (c) { delete blockingIds[c.instanceId]; });
-        log("<b>Combat resolved</b> — " + res.toPlayer + " to " + (tgt === mySeat ? "you" : "seat " + tgt) + (deaths ? (", " + deaths + " creature" + (deaths > 1 ? "s" : "") + " died") : "") + (res.lifegain && res.lifegain.attackers ? (", +" + res.lifegain.attackers + " life") : "") + ".");
+        log("<b>Combat resolved</b> \u2014 " + res.toPlayer + " to " + (tgt === mySeat ? "you" : "seat " + tgt) + (deaths ? (", " + deaths + " creature" + (deaths > 1 ? "s" : "") + " died") : "") + (res.lifegain && res.lifegain.attackers ? (", +" + res.lifegain.attackers + " life") : "") + ".");
         try { render(); } catch (e) {}
         ov.remove();
       };
@@ -2133,8 +2137,8 @@
     var panel = document.createElement("div"); panel.className = "pv-panel cmx-panel";
     function draw() {
       var ps = state.players;
-      var h = '<div class="pv-head"><span>Commander damage — 21 from any single commander is lethal</span><button class="pv-x">Close</button></div>';
-      if (ps.length < 2) { h += '<div class="cmx-empty">You are playing solo. Use the <b>Pod</b> selector to add opponents, then track each commander’s damage here.</div>'; }
+      var h = '<div class="pv-head"><span>Commander damage \u2014 21 from any single commander is lethal</span><button class="pv-x">Close</button></div>';
+      if (ps.length < 2) { h += '<div class="cmx-empty">You are playing solo. Use the <b>Pod</b> selector to add opponents, then track each commander\u2019s damage here.</div>'; }
       else {
         h += '<div class="cmx-rows">';
         ps.forEach(function (rp, r) {
@@ -2146,7 +2150,7 @@
               var val = (rp.cmdDamage && rp.cmdDamage[a + ":" + cm.key]) || 0;
               var who = (a === mySeat ? "You" : (ap.name ? esc(ap.name) : "Seat " + a));
               var label = cmdrs.length > 1 ? esc(cm.name) : ("from " + who);
-              h += '<div class="cmx-cell' + (val >= 21 ? " lethal" : "") + '" title="' + esc(cm.name) + ' (' + who + ')"><div class="cmx-from">' + label + '</div><div class="cmx-val">' + val + '</div><div class="cmx-btns"><button data-r="' + r + '" data-a="' + a + '" data-k="' + cm.key + '" data-d="-1">−</button><button data-r="' + r + '" data-a="' + a + '" data-k="' + cm.key + '" data-d="1">+</button></div></div>';
+              h += '<div class="cmx-cell' + (val >= 21 ? " lethal" : "") + '" title="' + esc(cm.name) + ' (' + who + ')"><div class="cmx-from">' + label + '</div><div class="cmx-val">' + val + '</div><div class="cmx-btns"><button data-r="' + r + '" data-a="' + a + '" data-k="' + cm.key + '" data-d="-1">\u2212</button><button data-r="' + r + '" data-a="' + a + '" data-k="' + cm.key + '" data-d="1">+</button></div></div>';
             });
           });
           h += "</div></div>";
@@ -2161,7 +2165,7 @@
           var cur = (state.players[r] && state.players[r].cmdDamage && state.players[r].cmdDamage[a + ":" + k]) || 0;
           if (d < 0 && cur <= 0) return;
           // One atomic action per click so a single Undo reverts both counter and life.
-          // Damage realizes the life loss; corrections (−) are counter-only (removing damage isn't lifegain).
+          // Damage realizes the life loss; corrections (\u2212) are counter-only (removing damage isn't lifegain).
           var acts = [{ t: "commander_damage", seat: r, fromSeat: a, fromCmd: k, delta: d }];
           if (d > 0) acts.push({ t: "adjust_life", seat: r, delta: -d });
           dispatch(acts.length > 1 ? { t: "batch", actions: acts } : acts[0]);

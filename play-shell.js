@@ -269,7 +269,7 @@
   function onPickMode(mode) { buildLobby(mode); show("lobby"); }
 
   // ============================== LOBBY ==============================
-  var lobbyCfg = { preconsOnly: false };
+  var lobbyCfg = { preconsOnly: false, lookingForPlayers: false };
   var lobbyState = { picks: {} };
   var lobbySync = { prev: null, active: false };
   var deckTiles = [];
@@ -282,7 +282,7 @@
     teardownLobbySync();
     if (screens.lobby) { shell.removeChild(screens.lobby); delete screens.lobby; }
     lobbyState.picks = {};
-    lobbyCfg.preconsOnly = false;
+    lobbyCfg.preconsOnly = false; lobbyCfg.lookingForPlayers = false;
     choice.locked = false; choice.deckMeta = null; choice.deck = null;
     choice.joinCode = null; choice.hostedCode = null; choice.online = false;
     selTileId = null;
@@ -311,6 +311,8 @@
         '<div class="ps-panel ps-host"><h3>Invite friends</h3>' +
           '<div class="ps-host-row">' +
             '<button type="button" id="psInviteBtn" class="ps-host-btn primary">Generate invite link</button>' +
+            '<button type="button" id="psViewLobbies" class="ps-host-btn">View all lobbies</button>' +
+            '<label class="ps-preconly" id="psLfpWrap" title="Host only — when on, your game is listed publicly so random players can find and join it"><input type="checkbox" id="psLfp" /> Looking for players</label>' +
             '<label class="ps-preconly" id="psPreconOnlyWrap" title="Host only — when on, everyone must play a WotC precon">' +
               '<input type="checkbox" id="psPreconOnly" /> Precons only</label>' +
           '</div>' +
@@ -341,6 +343,8 @@
 
     // Invite friends (host) — creates the online room, then shares the link.
     var invBtn = s.querySelector("#psInviteBtn"), invOut = s.querySelector("#psInviteOut");
+    var vlb = s.querySelector("#psViewLobbies"); if (vlb) vlb.onclick = openLobbyBrowser;
+    var lfpCb0 = s.querySelector("#psLfp"); if (lfpCb0) lfpCb0.onclick = function () { lobbyCfg.lookingForPlayers = lfpCb0.checked; };
     invBtn.onclick = function () {
       var syncOn = !!(window.mtgSync && window.mtgSync.enabled);
       var signedIn = !!(window.mtgSync && window.mtgSync.session);
@@ -352,7 +356,8 @@
       }
       choice.online = true;
       invBtn.disabled = true; invBtn.textContent = "Creating room…";
-      Promise.resolve(MTGTable.hostRoom({ visibility: "private", name: choice.name })).then(function (code) {
+      var _lfp = !!lobbyCfg.lookingForPlayers, _nm = choice.name + (_lfp ? " [LFP]" : "");
+      Promise.resolve(MTGTable.hostRoom({ visibility: _lfp ? "public" : "private", name: _nm })).then(function (code) {
         invBtn.disabled = false; invBtn.textContent = "Generate invite link";
         if (!code) { invOut.hidden = false; invOut.textContent = "Couldn't create a game — try again."; return; }
         choice.hostedCode = code;
@@ -400,6 +405,9 @@
     var host = isHost();
     var cb = s.querySelector("#psPreconOnly"), wrap = s.querySelector("#psPreconOnlyWrap"), inv = s.querySelector("#psInviteBtn");
     if (cb) { cb.disabled = !host; cb.checked = !!lobbyCfg.preconsOnly; }
+    var lfpc = s.querySelector("#psLfp"), lfpw = s.querySelector("#psLfpWrap");
+    if (lfpc) { lfpc.disabled = !host; lfpc.checked = !!lobbyCfg.lookingForPlayers; }
+    if (lfpw) lfpw.classList.toggle("view", !host);
     if (wrap) wrap.classList.toggle("view", !host);
     if (inv) inv.disabled = !host;
   }
