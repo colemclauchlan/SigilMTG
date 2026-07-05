@@ -25,7 +25,7 @@
     ".auth-modal input{width:100%;box-sizing:border-box;background:#111827;border:1px solid #374151;color:#fff;border-radius:8px;padding:9px;font-size:14px}" +
     ".auth-modal .primary{width:100%;margin-top:12px;background:#14b8a6;color:#06302b;border:0;border-radius:8px;padding:10px;font-weight:700;cursor:pointer}" +
     ".auth-modal .ghost{width:100%;margin-top:8px;background:#111827;color:#fff;border:1px solid #374151;border-radius:8px;padding:9px;cursor:pointer}" +
-    ".auth-oauth{display:flex;gap:8px;margin-top:10px}.auth-oauth button{flex:1;background:#111827;color:#fff;border:1px solid #374151;border-radius:8px;padding:9px;cursor:pointer;font-size:13px}" +
+    ".auth-oauth{display:flex;gap:8px;margin-top:10px}.auth-oauth button{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:#111827;color:#fff;border:1px solid #374151;border-radius:8px;padding:10px;cursor:pointer;font-size:13px}.auth-oauth button:hover{border-color:#4b5563;background:#1a2333}.auth-oauth button svg{display:block;flex:none}" +
     ".auth-msg{margin-top:10px;font-size:12px;min-height:16px}.auth-msg.err{color:#f87171}.auth-msg.ok{color:#34d399}" +
     ".auth-x{float:right;background:none;border:0;color:#9ca3af;font-size:18px;cursor:pointer;line-height:1}" +
     ".auth-menu{position:absolute;right:0;top:110%;background:#1f2937;border:1px solid #4b5563;border-radius:10px;padding:6px;min-width:180px;z-index:5001;box-shadow:0 12px 40px rgba(0,0,0,.6)}" +
@@ -61,7 +61,10 @@
       '<div class="auth-msg"></div>' +
       '<button class="ghost" data-act="resend" style="display:none">Resend confirmation email</button>' +
       '<button class="ghost" data-act="guest">Continue as guest</button>' +
-      '<div class="auth-oauth"><button data-oauth="google">Google</button><button data-oauth="apple">Apple</button></div>';
+      '<div class="auth-oauth">' +
+      '<button data-oauth="google" title="Continue with Google" aria-label="Continue with Google"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.09a6.6 6.6 0 0 1 0-4.18V7.07H2.18a11 11 0 0 0 0 9.86l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"/></svg><span>Google</span></button>' +
+      '<button data-oauth="apple" title="Continue with Apple" aria-label="Continue with Apple"><svg viewBox="0 0 24 24" width="17" height="17" fill="#fff" aria-hidden="true"><path d="M16.36 12.9c.02 2.55 2.23 3.4 2.26 3.41-.02.06-.35 1.22-1.17 2.42-.7 1.03-1.44 2.06-2.6 2.08-1.13.02-1.5-.67-2.8-.67-1.3 0-1.71.65-2.78.69-1.12.04-1.97-1.11-2.68-2.14-1.44-2.1-2.55-5.94-1.06-8.53a4.1 4.1 0 0 1 3.5-2.12c1.1-.02 2.13.74 2.8.74.67 0 1.93-.91 3.25-.78.55.02 2.1.22 3.1 1.68-.08.05-1.85 1.08-1.83 3.22M14.2 4.6c.6-.73 1-1.74.9-2.75-.86.03-1.9.57-2.52 1.3-.55.64-1.04 1.67-.91 2.66.96.07 1.94-.49 2.53-1.21"/></svg><span>Apple</span></button>' +
+      '</div>';
     backdrop.appendChild(m); document.body.appendChild(backdrop);
     m.querySelector(".auth-x").onclick = closeModal;
     m.querySelectorAll(".auth-tabs button").forEach(function (b) { b.onclick = function () { mode = b.dataset.m; renderFields(m); }; });
