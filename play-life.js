@@ -126,6 +126,7 @@
         '</div>' +
         '<button type="button" class="pl-acts-toggle" data-act="actstoggle" aria-label="Show more actions" title="More actions">' + IC.chevUp + '</button>' +
       '</div>' +
+      '<div class="pl-mana" id="plMana" hidden></div>' +
       '<div class="pl-bottom">' +
         '<div class="pl-turncol">' +
           '<button type="button" class="pl-pass" data-act="pass">' + IC.pass + '<span>Pass Turn</span></button>' +
@@ -157,10 +158,19 @@
     wireHold(root.querySelector(".pl-plus"), 1);
     root.addEventListener("contextmenu", function (e) { // long-press on touch must not open a menu mid-hold
       if (e.target.closest && e.target.closest(".pl-step")) e.preventDefault();
+      var mpip = e.target.closest && e.target.closest(".pl-mp[data-mana]");
+      if (mpip) { e.preventDefault(); callT("adjustMana", mpip.dataset.mana, -1); refresh(); }
     });
   }
 
   function onClusterClick(e) {
+    var mb = e.target.closest ? e.target.closest("[data-mana],[data-manaclear],[data-manakeep]") : null;
+    if (mb && root.contains(mb)) {
+      if (mb.dataset.manaclear != null) callT("clearMana");
+      else if (mb.dataset.manakeep != null) callT("toggleKeepMana");
+      else if (mb.dataset.mana) callT("adjustMana", mb.dataset.mana, e.shiftKey ? -1 : 1);
+      refresh(); return;
+    }
     var b = e.target.closest ? e.target.closest("[data-act]") : null;
     if (!b || !root.contains(b)) return;
     var a = b.dataset.act;
@@ -430,6 +440,16 @@
     root.classList.toggle("pl-is-dead", isDead);
 
     // health-bar counter chips: poison + energy / experience / rad / monarch each get an icon when > 0
+    // mana pool + commander tax — mirrors the top vitals bar (same MTGTable state)
+    var manaEl = root.querySelector("#plMana");
+    if (manaEl) {
+      var mp = callT("manaPool") || {}, mtax = callT("commanderTax"), MCOLS = ["W", "U", "B", "R", "G", "C"];
+      var mhtml = MCOLS.map(function (col) { var v = mp[col] || 0; return '<button type="button" class="pl-mp pl-mp-' + col + (v > 0 ? " has" : "") + '" data-mana="' + col + '" title="' + col + ' mana — tap +1, shift or right-click -1"><img src="https://svgs.scryfall.io/card-symbols/' + col + '.svg" alt="' + col + '"><b>' + v + '</b></button>'; }).join("");
+      mhtml += '<button type="button" class="pl-mp-clear" data-manaclear="1" title="Empty mana pool">' + (window.MTGIcons ? MTGIcons.get("close", "0.85em") : "×") + '</button>';
+      mhtml += '<button type="button" class="pl-mp-keep' + (callT("keepManaOn") ? " on" : "") + '" data-manakeep="1" title="Keep mana between turns (Omnath/Kruphix)">keep</button>';
+      if (mtax != null) mhtml += '<span class="pl-mp-tax" title="Commander tax — casting your commander from the command zone costs this much extra">TAX +' + mtax + '</span>';
+      manaEl.innerHTML = mhtml; manaEl.hidden = false;
+    }
     var chipsEl = root.querySelector("#plCounters");
     if (chipsEl) {
       var cvals = callT("myCounters") || {};

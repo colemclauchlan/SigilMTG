@@ -6,6 +6,17 @@
 body.oh-open .pl-cluster { display: none !important; }
 /* pinned/expanded action stack: keep the toggle highlighted so it's clear the buttons are anchored up */
 .pl-actwrap.acts-open .pl-acts-toggle { background: rgba(43,212,192,.92); color: #06231f; border-color: #2bd4c0; box-shadow: 0 0 10px rgba(43,212,192,.45); }
+/* mana pool + commander tax mirrored onto the hub (same state as the top vitals bar) */
+.pl-mana { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 2px 2px 0; max-width: 340px; }
+.pl-mp { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px 2px 4px; border-radius: 999px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.05); color: #eaf1fb; cursor: pointer; font-variant-numeric: tabular-nums; }
+.pl-mp img { width: 15px; height: 15px; display: block; }
+.pl-mp b { font-size: 12px; font-weight: 800; }
+.pl-mp.has { border-color: rgba(43,212,192,.55); background: rgba(43,212,192,.10); }
+.pl-mp:hover { background: rgba(120,160,230,.18); }
+.pl-mp-clear, .pl-mp-keep { border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.05); color: #9fb0c6; border-radius: 999px; cursor: pointer; font-size: 10px; padding: 3px 8px; display: inline-flex; align-items: center; }
+.pl-mp-keep { text-transform: uppercase; font-weight: 700; letter-spacing: .04em; }
+.pl-mp-keep.on { background: rgba(43,212,192,.85); color: #06302b; border-color: #2bd4c0; }
+.pl-mp-tax { font-size: 11px; font-weight: 800; color: #9cc9ff; margin-left: 2px; white-space: nowrap; }
 .pl-cluster {
   position: fixed; left: 16px; bottom: 14px; z-index: 93;
   display: flex; flex-direction: column; align-items: flex-start; gap: 8px;

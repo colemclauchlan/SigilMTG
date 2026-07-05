@@ -252,6 +252,8 @@
 .lob-lfp input { accent-color: var(--tbl-accent, #46c2d8); }
 .lob-lfp-badge { display: inline-flex; align-items: center; gap: 3px; margin-left: 7px; padding: 0 6px; height: 18px; border-radius: 5px; font-size: 10.5px; font-weight: 800; letter-spacing: .03em; color: #06302b; background: var(--tbl-accent, #46c2d8); vertical-align: 1px; }
 .lob-lfp-badge .mi { width: .95em; height: .95em; }
+.lob-mine { display: inline-block; margin-left: 7px; padding: 0 6px; height: 18px; line-height: 18px; border-radius: 5px; font-size: 10.5px; font-weight: 800; color: #06302b; background: #7ff0e2; vertical-align: 1px; }
+.lob-priv { display: inline-block; margin-left: 6px; padding: 0 6px; height: 18px; line-height: 18px; border-radius: 5px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: #cbd5e6; background: rgba(255,255,255,.08); border: 1px solid var(--tbl-border); vertical-align: 1px; }
 .lob-msg { color: var(--tbl-muted); padding: 14px 4px; font-size: 13px; line-height: 1.5; }
 .lob-list { display: flex; flex-direction: column; gap: 8px; }
 .lob-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; background: var(--tbl-panel2); border: 1px solid var(--tbl-border); border-radius: 9px; }
