@@ -32,7 +32,8 @@
         var base = (Cards && Cards.printedBase)
           ? Cards.printedBase(def, { counters: c.counters, controller: c.controllerSeat })
           : { name: def.name, power: def.power, toughness: def.toughness, counters: c.counters || {}, types: def.types || [], subtypes: [], colors: [], abilities: def.abilities || [] };
-        var eff = Layers.computeEffectiveState(base, c._effects || []);
+        var seff = (root.MTGRulesStatic && root.MTGRulesStatic.effectsForCard) ? root.MTGRulesStatic.effectsForCard(game, id, { Cards: Cards, Layers: Layers }) : [];
+        var eff = Layers.computeEffectiveState(base, (c._effects || []).concat(seff));
         out.effective[id] = { power: eff.power, toughness: eff.toughness };
       }
     }

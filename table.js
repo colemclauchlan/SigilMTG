@@ -528,7 +528,8 @@
     var bp = parseInt(im.pt[0], 10), bt = parseInt(im.pt[1], 10); if (isNaN(bt)) return null;
     try {
       if (window.MTGRulesLayers && MTGRulesLayers.computeEffectiveState) {
-        var eff = MTGRulesLayers.computeEffectiveState({ power: isNaN(bp) ? 0 : bp, toughness: bt, counters: c.counters || {}, types: ["Creature"], subtypes: [], colors: [], abilities: [] }, c._effects || []);
+        var _seff = (window.MTGRulesStatic && MTGRulesStatic.effectsForCard && state) ? MTGRulesStatic.effectsForCard(state, c.instanceId, {}) : [];
+        var eff = MTGRulesLayers.computeEffectiveState({ power: isNaN(bp) ? 0 : bp, toughness: bt, counters: c.counters || {}, types: ["Creature"], subtypes: [], colors: [], abilities: [] }, (c._effects || []).concat(_seff));
         return eff.toughness;
       }
     } catch (e) {}
@@ -542,7 +543,8 @@
     var hasNum = !isNaN(bp) && !isNaN(bt);
     try {
       if (hasNum && window.MTGRulesLayers && MTGRulesLayers.computeEffectiveState) {
-        var eff = MTGRulesLayers.computeEffectiveState({ power: bp, toughness: bt, counters: c.counters || {}, types: ["Creature"], subtypes: [], colors: [], abilities: [] }, c._effects || []);
+        var _seff = (window.MTGRulesStatic && MTGRulesStatic.effectsForCard && state) ? MTGRulesStatic.effectsForCard(state, c.instanceId, {}) : [];
+        var eff = MTGRulesLayers.computeEffectiveState({ power: bp, toughness: bt, counters: c.counters || {}, types: ["Creature"], subtypes: [], colors: [], abilities: [] }, (c._effects || []).concat(_seff));
         if (eff && eff.power != null && eff.toughness != null) return { p: eff.power, t: eff.toughness, buff: (eff.power - bp) + (eff.toughness - bt) };
       }
     } catch (e) {}
