@@ -133,10 +133,13 @@ class MTGSyncAdapter {
   }
   async listOpenGames(limit = 50) {
     if (!this.enabled) return [];
-    const { data: games, error } = await this.client
-      .from("games").select("id,name,starting_life,created_at,owner_id,scheduled_at")
-      .eq("visibility", "public").is("completed_at", null)
-      .order("created_at", { ascending: false }).limit(limit);
+    const uid = this.uid();
+    let q = this.client
+      .from("games").select("id,name,starting_life,created_at,owner_id,scheduled_at,visibility")
+      .is("completed_at", null);
+    // Show every joinable game that isn't finished: all PUBLIC games, plus your OWN games (any visibility).
+    q = uid ? q.or(`visibility.eq.public,owner_id.eq.${uid}`) : q.eq("visibility", "public");
+    const { data: games, error } = await q.order("created_at", { ascending: false }).limit(limit);
     if (error) throw error;
     const ids = (games || []).map((g) => g.id);
     const counts = {};
@@ -147,7 +150,7 @@ class MTGSyncAdapter {
     return (games || []).map((g) => {
       const ps = counts[g.id] || [];
       const host = ps.find((p) => p.seat_index === 0);
-      return { id: g.id, name: g.name, startingLife: g.starting_life, createdAt: g.created_at, scheduledAt: g.scheduled_at || null, players: ps.length, host: host ? host.display_name : "Host" };
+      return { id: g.id, name: g.name, startingLife: g.starting_life, createdAt: g.created_at, scheduledAt: g.scheduled_at || null, players: ps.length, host: host ? host.display_name : "Host", mine: !!(uid && g.owner_id === uid), visibility: g.visibility };
     });
   }
 

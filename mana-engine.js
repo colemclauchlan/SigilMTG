@@ -87,7 +87,31 @@
     return out;
   }
 
-  var api = { parse: parse, cmc: cmc, canPay: canPay, pay: pay, produces: produces, emptyPool: emptyPool };
+  function canTapFor(sources, cost, opts) {
+    var pool = emptyPool(), flex = [];
+    (sources || []).forEach(function (s) {
+      if (!s) return;
+      if (s.anyColor || s.any) { for (var n = 0; n < (s.amount || 1); n++) flex.push(["W", "U", "B", "R", "G", "C"]); return; }
+      ["W", "U", "B", "R", "G", "C"].forEach(function (c) { pool[c] += (s[c] || 0); });
+      (s.choices || []).forEach(function (ch) { flex.push(ch.slice()); });
+    });
+    function take(col) {
+      if (pool[col] > 0) { pool[col]--; return true; }
+      for (var i = 0; i < flex.length; i++) { if (flex[i].indexOf(col) >= 0) { flex.splice(i, 1); return true; } }
+      return false;
+    }
+    var c = parse(cost), COLS = ["W", "U", "B", "R", "G", "C"], k, n;
+    for (k = 0; k < COLS.length; k++) { for (n = 0; n < c[COLS[k]]; n++) if (!take(COLS[k])) return false; }
+    for (k = 0; k < c.hybrid.length; k++) {
+      var opt = c.hybrid[k];
+      if (opt.length === 2 && /^\d+$/.test(opt[0])) { if (!take(opt[1])) c.generic += parseInt(opt[0], 10); }
+      else { var paid = false; for (var oi = 0; oi < opt.length && !paid; oi++) paid = take(opt[oi]); if (!paid) return false; }
+    }
+    for (k = 0; k < c.phy.length; k++) { if (!take(c.phy[k][0]) && opts && opts.noLife) return false; }
+    return (pool.W + pool.U + pool.B + pool.R + pool.G + pool.C + flex.length) >= c.generic;
+  }
+
+  var api = { parse: parse, cmc: cmc, canPay: canPay, pay: pay, produces: produces, canTapFor: canTapFor, emptyPool: emptyPool };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.MTGMana = api;
   return api;
