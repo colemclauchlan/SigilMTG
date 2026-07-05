@@ -48,7 +48,7 @@
   var _turnKey = null;  // "turn:activeSeat" fingerprint for turn-change flashes + online turn-start engine
   var gameOverShown = false; // guards the auto game-over overlay so it fires once per game
   var matchRecorded = false; // guards local match-history recording to once per game
-  var manaPool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
+  var manaPool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 }, keepMana = false;
   var openMana = null;
   var ctrPickOpen = false;
   var seatDecks = {};
@@ -110,6 +110,7 @@
       else if (b.dataset.ol != null) { floatDelta(b, Number(b.dataset.d)); dispatch({ t: "adjust_life", seat: Number(b.dataset.ol), delta: Number(b.dataset.d) }); }
       else if (b.dataset.manaopen) { openMana = (openMana === b.dataset.manaopen ? null : b.dataset.manaopen); renderVitals(); }
       else if (b.dataset.ctrpick != null) { ctrPickOpen = !ctrPickOpen; renderVitals(); }
+      else if (b.dataset.manakeep != null) { keepMana = !keepMana; setStatus(keepMana ? "Mana pool will carry between turns." : "Mana pool empties each turn."); renderVitals(); }
       else if (b.dataset.mana) { if (b.dataset.mana === "_clear") { manaPool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 }; openMana = null; } else { var md = b.dataset.d ? Number(b.dataset.d) : (e.shiftKey ? -1 : 1); manaPool[b.dataset.mana] = Math.max(0, (manaPool[b.dataset.mana] || 0) + md); } renderVitals(); }
     });
     v.addEventListener("change", function (e) {
@@ -363,7 +364,7 @@
   // turn (G4.32). Solo/hotseat runs it here; online, the receiving client runs it in checkTurnChange.
   function doPassTurn() {
     if (!state) return;
-    manaPool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
+    if (!keepMana) manaPool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };   // mana empties each turn unless "keep mana pool" is on (Omnath/Kruphix/etc.)
     dispatch({ t: "pass_turn" });
     if (!online) {
       var as = state.activeSeat;
@@ -757,7 +758,7 @@
       var ct = manaPool[m] || 0;
       var pop = (openMana === m) ? '<span class="mana-pop"><button class="mana-step" data-mana="' + m + '" data-d="-1" aria-label="minus ' + m + '">-</button><b>' + ct + '</b><button class="mana-step" data-mana="' + m + '" data-d="1" aria-label="plus ' + m + '">+</button></span>' : "";
       return '<span class="vit-m m-' + m + (openMana === m ? " open" : "") + '"><button class="mana-icon" data-manaopen="' + m + '" title="' + m + ' mana"><img src="https://svgs.scryfall.io/card-symbols/' + m + '.svg" alt="' + m + '" /><b class="mana-ct">' + ct + '</b></button>' + pop + '</span>';
-    }).join("") + '<button class="mana-clear" data-mana="_clear" title="Empty mana pool">\u2715</button></div>';
+    }).join("") + '<button class="mana-clear" data-mana="_clear" title="Empty mana pool">\u2715</button><button class="mana-keep' + (keepMana ? " on" : "") + '" data-manakeep="1" title="Keep your mana pool between turns (for cards like Omnath or Kruphix). Off = mana empties each turn.">keep</button></div>';
     html += '<div class="vit-counters">';
     visibleCounters.forEach(function (k) {
       var v = (p.counters && p.counters[k]) || 0;
@@ -765,6 +766,9 @@
     });
     html += '<span class="vit-ctr-pick' + (ctrPickOpen ? " open" : "") + '"><button class="ctr-pick-btn" data-ctrpick="1" title="Choose counters">Counters ' + (window.MTGIcons ? MTGIcons.get("chevronDown", "0.8em") : "") + '</button>' + (ctrPickOpen ? ('<div class="vit-ctr-menu">' + ALL_COUNTERS.map(function (k) { return '<label><input type="checkbox" data-ctrtoggle="' + k + '"' + (visibleCounters.indexOf(k) >= 0 ? " checked" : "") + ">" + k + "</label>"; }).join("") + '</div>') : "") + '</span>';
     html += "</div>";
+    var cmdTax = 0, hasCmd = false;
+    try { for (var _cid in state.cards) { var _cc = state.cards[_cid]; if (_cc && _cc.isCommander && (_cc.controllerSeat != null ? _cc.controllerSeat : _cc.ownerSeat) === mySeat) { hasCmd = true; cmdTax += (_cc.counters && _cc.counters.tax) || 0; } } } catch (e) {}
+    if (hasCmd) html += '<div class="vit-tax" title="Live commander tax — casting your commander from the command zone costs +this; it rises +2 each time the commander returns to the command zone">Cmdr tax <b>+' + cmdTax + '</b></div>';
     var cd = p.cmdDamage || {}, keys = Object.keys(cd).filter(function (k) { return cd[k] > 0; });
     if (keys.length) html += '<div class="vit-cmd">Cmdr dmg: ' + keys.map(function (k) { return cd[k] + " (" + k + ")"; }).join(" · ") + "</div>";
     if (state.players.length > 1) { html += '<div class="vit-opps">'; state.players.forEach(function (pl, i) { if (i === mySeat || !pl) return; var hc = MTGCore.zoneCount(state, i, "hand"); html += '<span class="vit-opp">' + (pl.name ? esc(pl.name) : ("Seat " + i)) + ' <button data-ol="' + i + '" data-d="-1">-</button><b class="vit-onum">' + pl.life + '</b><button data-ol="' + i + '" data-d="1">+</button> &hearts;</span>'; }); html += "</div>"; }
