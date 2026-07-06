@@ -301,6 +301,10 @@
   function changedIdsOf(a) {
     if (a.t === "batch") { var u = {}; (a.actions || []).forEach(function (sub) { changedIdsOf(sub).forEach(function (id) { u[id] = 1; }); }); return Object.keys(u); }
     if (a.t === "__add") return (a.cards || []).map(function (c) { return c.instanceId; }).filter(Boolean);
+    // __set carries {cards:[{id,fields}]} — without this branch NOTHING using __set ever synced:
+    // declared blockers (setCardBlocking) and every UNDO of tap/untap-all/attach/combat (invert()
+    // returns __set) were local-only while the other players' boards kept the old state.
+    if (a.t === "__set") return (a.cards || []).map(function (c) { return c.id; }).filter(Boolean);
     if (a.t === "__remove") return (a.ids || []).slice();
     if (a.instanceIds) return a.instanceIds;
     if (a.fromId) return [a.fromId, a.instanceId].filter(Boolean);
@@ -1659,11 +1663,16 @@
     }
     var keys = Object.keys(byKey); if (!keys.length) return;
     for (var i = 0; i < keys.length; i += 70) {
-      var batch = keys.slice(i, i + 70).map(function (k) { return byKey[k]; });
+      var batchKeys = keys.slice(i, i + 70);
+      var batch = batchKeys.map(function (k) { return byKey[k]; });
       try {
         var res = await fetch("https://api.scryfall.com/cards/collection", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identifiers: batch }) }).then(function (x) { return x.json(); });
         (res.data || []).forEach(function (card) { var im = entryImages(card), pti = cardPT(card), f0 = (card.card_faces && card.card_faces[0]) || {}; var meta = { img: im.img, back: im.back, name: card.name, pt: pti.pt, isCreature: pti.isCreature, cmc: (card.cmc != null ? card.cmc : (f0.cmc || 0)), colors: card.colors || f0.colors || [], type: card.type_line || f0.type_line || "", keywords: card.keywords || [] }; if (card.id) imagesById[card.id] = meta; if (card.name) imagesById[card.name] = meta; });
-      } catch (e) {}
+      } catch (e) {
+        // Failed batch (network/429): release the latch so a later render RETRIES — otherwise
+        // these cards permanently lose art/P-T/keyword meta for the whole session.
+        batchKeys.forEach(function (k) { delete imgFetching[k]; });
+      }
     }
     render();
   }
