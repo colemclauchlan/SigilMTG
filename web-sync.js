@@ -37,6 +37,13 @@ class MTGSyncAdapter {
   }
   async signUpWithEmail(email, password, displayName) {
     if (!this.enabled) throw new Error("Sync is not configured.");
+    // Converting a guest? Upgrade the anonymous account in place — keeps the same user id + game history.
+    if (this.session && this.session.user && this.session.user.is_anonymous) {
+      const { data, error } = await this.client.auth.updateUser({ email, password, data: { display_name: displayName || "Planeswalker" } });
+      if (error) throw error;
+      try { this.session = (await this.client.auth.getSession()).data.session; } catch (e) {}
+      return data;
+    }
     const { data, error } = await this.client.auth.signUp({ email, password, options: { data: { display_name: displayName || "Planeswalker" }, emailRedirectTo: MTG_AUTH_REDIRECT } });
     if (error) throw error; this.session = data.session; return data;
   }
@@ -46,6 +53,13 @@ class MTGSyncAdapter {
     if (error) throw error;
   }
   async signOut() { if (!this.enabled) return; await this.client.auth.signOut(); this.session = null; }
+  // Guest sign-in: a temporary anonymous account (real auth.uid, so RLS/join works) with no email/password.
+  async signInAnonymously() {
+    if (!this.enabled) throw new Error("Sync is not configured.");
+    const { data, error } = await this.client.auth.signInAnonymously();
+    if (error) throw error; this.session = data.session; return data;
+  }
+  isAnonymous() { return !!(this.session && this.session.user && this.session.user.is_anonymous); }
 
   // ---- durable action log (object args + caller-supplied client_action_id) [H2] ----
   async appendAction(action) {

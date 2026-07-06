@@ -463,10 +463,14 @@
         '<span class="gameover-name">' + whoName(o.seat) + "</span>" +
         '<span class="gameover-stat">' + (o.p ? o.p.life : 0) + " life · " + (o.out ? "out" : "alive") + "</span></div>";
     }).join("") + "</div>";
-    h += '<div class="end-foot"><button class="primary gameover-new">New game</button>' +
+    var _anon = false; try { _anon = !!(window.mtgSync && mtgSync.session && mtgSync.session.user && mtgSync.session.user.is_anonymous); } catch (e) {}
+    h += '<div class="end-foot">' + (_anon ? '<button class="primary gameover-signup">Create a free account</button>' : "") +
+      '<button class="' + (_anon ? "" : "primary ") + 'gameover-new">New game</button>' +
       (online ? '<button class="gameover-record">Record result</button>' : "") +
       '<button class="gameover-dismiss">Dismiss</button></div>';
+    if (_anon) h += '<div class="gameover-guestnote">You played as a guest — create a free account to keep your stats and decks.</div>';
     panel.innerHTML = h;
+    var _su = panel.querySelector(".gameover-signup"); if (_su) _su.onclick = function () { try { var ab = document.querySelector(".auth-btn"); if (ab) ab.click(); } catch (e) {} };
     panel.querySelector(".gameover-new").onclick = function () { ov.remove(); setStatus("New game."); state = null; loadGame(); };
     panel.querySelector(".gameover-dismiss").onclick = function () { ov.remove(); };
     var rec = panel.querySelector(".gameover-record");

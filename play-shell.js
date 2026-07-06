@@ -266,6 +266,15 @@
     var ci = s.querySelector("#psJoinCode"); if (ci) ci.value = code;
     applyHostUi(s);
     renderPlayers(s);
+    // Allow guests: if not signed in, quietly create a guest (anonymous) session so they can join.
+    try {
+      if (window.mtgSync && window.mtgSync.enabled && !window.mtgSync.session && window.mtgSync.signInAnonymously) {
+        window.mtgSync.signInAnonymously().then(function () {
+          try { refreshAccount(); } catch (e) {}
+          logLine(s, 'Joined as <b>guest</b> — pick a deck and Start Game to play. You can make a free account after.');
+        }).catch(function () { logLine(s, 'To join, sign in (top-right) — guest play may be disabled.'); });
+      }
+    } catch (e) {}
     logLine(s, 'Invite code <b>' + escapeHtml(code) + '</b> loaded — lock in a deck, then Start Game to join.');
   }
 
