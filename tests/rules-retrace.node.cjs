@@ -41,7 +41,10 @@ ok(RT.canRetrace(build(), "rr", 0, {}).ok === true, "can retrace with a land in 
   let g = build(); g = Core.reduce(g, { t: "card_move", instanceId: "rr", toZone: "hand" });
   ok(/from your graveyard/.test(RT.canRetrace(g, "rr", 0, {}).reason), "not in graveyard -> rejected");
 })();
-ok(/no retrace/.test(RT.canRetrace(build(), "be", 0, {}).reason || "no retrace"), "card without retrace -> rejected");
+(function () {
+  let g = build(); g = Core.reduce(g, { t: "card_move", instanceId: "be", toZone: "graveyard" });
+  ok(/no retrace/.test(RT.canRetrace(g, "be", 0, {}).reason), "card without retrace (in graveyard) -> rejected");
+})();
 
 // 4) retraceEvents: discard the land, move the card graveyard -> stack
 (function () {
