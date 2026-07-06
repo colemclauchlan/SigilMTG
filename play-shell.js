@@ -817,13 +817,14 @@
     teardownLobbySync(); // idempotent: never capture our own wrapper as prev (avoids stacked handlers)
     lobbySync.active = true;
     lobbySync.prev = MTGTableSync.onEphemeral || null;
-    MTGTableSync.onEphemeral = function (pl) {
+    lobbySync.wrapper = function (pl) {
       try { handleLobbyEphemeral(s, pl); } catch (e) {}
       if (lobbySync.prev) { try { lobbySync.prev(pl); } catch (e) {} }
     };
+    MTGTableSync.onEphemeral = lobbySync.wrapper;
     // Re-announce whenever the realtime channel (re)connects — early pings can beat SUBSCRIBED.
     lobbySync.prevConn = MTGTableSync.onConn || null;
-    MTGTableSync.onConn = function (kind) {
+    lobbySync.connWrapper = function (kind) {
       try {
         if (kind === "connected" || kind === "reconnected") {
           broadcastPresence(true); if (choice.locked) broadcastDeckPick(); if (isHost()) broadcastLobbyCfg();
@@ -831,6 +832,7 @@
       } catch (e) {}
       if (lobbySync.prevConn) { try { lobbySync.prevConn(kind); } catch (e) {} }
     };
+    MTGTableSync.onConn = lobbySync.connWrapper;
     // Gentle heartbeat: presence (+host config) every 5s while the lobby is connected — heals any
     // missed message (e.g. a reply that raced a client's channel join) within one beat. Also
     // prunes peers who stopped heartbeating (left the lobby / closed the tab).
@@ -862,9 +864,13 @@
   function teardownLobbySync() {
     clearInterval(lobbySync.beat); lobbySync.beat = null;
     if (!lobbySync.active) return;
-    try { if (window.MTGTableSync) MTGTableSync.onEphemeral = lobbySync.prev; } catch (e) {}
-    try { if (window.MTGTableSync) MTGTableSync.onConn = lobbySync.prevConn; } catch (e) {}
-    lobbySync.active = false; lobbySync.prev = null; lobbySync.prevConn = null;
+    // Only restore prev if the CURRENT handler is still our wrapper. doHostRoom/doHost/doJoin
+    // install the in-game handler by direct assignment; blindly restoring our (possibly stale)
+    // prev over it left the HOST with onEphemeral = null for the whole game — no chat, pings,
+    // dice, cursors or tablecfg ever reached the host after Start (G7.61).
+    try { if (window.MTGTableSync && MTGTableSync.onEphemeral === lobbySync.wrapper) MTGTableSync.onEphemeral = lobbySync.prev; } catch (e) {}
+    try { if (window.MTGTableSync && MTGTableSync.onConn === lobbySync.connWrapper) MTGTableSync.onConn = lobbySync.prevConn; } catch (e) {}
+    lobbySync.active = false; lobbySync.prev = null; lobbySync.prevConn = null; lobbySync.wrapper = null; lobbySync.connWrapper = null;
   }
   function handleLobbyEphemeral(s, pl) {
     if (!pl || !s) return;
@@ -1329,16 +1335,18 @@
     teardownOppoSync(); // idempotent: never capture our own wrapper as prevHandler (avoids stacked handlers)
     oppoState.active = true; oppoState.picks = {};
     oppoState.prevHandler = MTGTableSync.onEphemeral || null;
-    MTGTableSync.onEphemeral = function (pl) {
+    oppoState.wrapper = function (pl) {
       try { if (pl && pl.type === "bracket") { oppoState.picks[pl.name || Math.random()] = pl; renderOppo(s); } } catch (e) {}
       if (oppoState.prevHandler) { try { oppoState.prevHandler(pl); } catch (e) {} }
     };
+    MTGTableSync.onEphemeral = oppoState.wrapper;
     broadcastPick();
   }
   function teardownOppoSync() {
     if (!oppoState.active) return;
-    try { if (window.MTGTableSync) MTGTableSync.onEphemeral = oppoState.prevHandler; } catch (e) {}
-    oppoState.active = false; oppoState.prevHandler = null;
+    // Same identity-check as teardownLobbySync: never clobber a handler someone else installed.
+    try { if (window.MTGTableSync && MTGTableSync.onEphemeral === oppoState.wrapper) MTGTableSync.onEphemeral = oppoState.prevHandler; } catch (e) {}
+    oppoState.active = false; oppoState.prevHandler = null; oppoState.wrapper = null;
   }
 
   function launchGame() {
