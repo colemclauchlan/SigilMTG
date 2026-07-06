@@ -211,7 +211,9 @@
     var choice = el.deckSelect ? el.deckSelect.value : "__sample";
     setStatus("Loading deck…");
     if (choice && choice !== "__sample") {
-      var deck = readSavedDecks()[Number(choice)]; var images = {}, list = [], sbCollected = [];
+      var deck = readSavedDecks()[Number(choice)];
+      if (!deck) { log("<b>Deck not found</b> — that saved deck is gone; loading the sample deck."); sideboardCards = []; sideboardDeckKey = null; return loadSample(); }
+      var images = {}, list = [], sbCollected = [];
       (deck.cards || []).forEach(function (entry) {
         var nm = (entry.card && entry.card.name) || entry.name; if (!nm) return;
         var id = (entry.card && entry.card.id) || nm;
@@ -315,7 +317,7 @@
       var gname = opts.name || "Commander table";
       if (opts.bracket && /^[1-5]$/.test(String(opts.bracket))) gname = "B" + opts.bracket + " · " + (opts.name || "Commander table"); // expected bracket shown in the lobby list
       if (opts.lfp) gname = gname + " [LFP]"; // "looking for players" — host wants random players; surfaced in the lobby list
-      var gid = await MTGTableSync.host(deckListFromState(), { displayName: "Host", visibility: pub ? "public" : "private", name: gname, scheduledAt: opts.scheduledAt || null });
+      var gid = await MTGTableSync.host(deckListFromState(), { displayName: opts.displayName || "Host", visibility: pub ? "public" : "private", name: gname, scheduledAt: opts.scheduledAt || null, hand: 7 });
       online = true; mySeat = MTGTableSync.info().mySeat;
       setStatus((pub ? "Hosting PUBLIC game " : "Hosting private game ") + gid); log("<b>Hosting</b> " + (pub ? "public " : "") + "game " + gid + (pub ? " — others can Find it." : " (share the id)")); render();
     } catch (e) { setStatus("Host failed: " + (e && e.message ? e.message : e)); }
@@ -328,7 +330,7 @@
       MTGTableSync.onRemote = function (rs) { state = rs; render(); };
       MTGTableSync.onEphemeral = handleEphemeral;
       var pub = opts.visibility === "public";
-      var gid = await MTGTableSync.host([], { displayName: "Host", visibility: pub ? "public" : "private", name: opts.name });
+      var gid = await MTGTableSync.host([], { displayName: opts.displayName || "Host", visibility: pub ? "public" : "private", name: opts.name });
       online = true; mySeat = MTGTableSync.info().mySeat;
       setStatus("Online room created — share your invite link."); log("<b>Room created</b> " + gid + " — pick your deck to take your seat.");
       return gid;
@@ -338,9 +340,10 @@
   async function persistMyDeck() {
     if (!state) { setStatus("Load a deck first."); return null; }
     if (!online || !window.MTGTableSync || !MTGTableSync.persistDeck) return null;
-    try { return await MTGTableSync.persistDeck(deckListFromState()); } catch (e) { setStatus("Sync deck failed: " + (e && e.message ? e.message : e)); return null; }
+    try { return await MTGTableSync.persistDeck(deckListFromState(), { hand: MTGCore.zoneCount(state, mySeat, "hand") || 7 }); } catch (e) { setStatus("Sync deck failed: " + (e && e.message ? e.message : e)); return null; }
   }
-  async function doJoin(gameId) {
+  async function doJoin(gameId, opts) {
+    opts = opts || {};
     if (!state) { setStatus("Load your deck first."); showToast("Load a deck first."); return false; }
     if (!window.MTGTableSync) { setStatus("Sync not loaded."); showToast("Online sync isn't available."); return false; }
     var gid = gameId || window.prompt("Game id to join:"); if (!gid) return false; gid = String(gid).trim();
@@ -348,7 +351,7 @@
     try {
       MTGTableSync.onRemote = function (rs) { state = rs; render(); };
       MTGTableSync.onEphemeral = handleEphemeral;
-      await MTGTableSync.join(gid, deckListFromState(), { displayName: "Player" });
+      await MTGTableSync.join(gid, deckListFromState(), { displayName: opts.displayName || "Player", hand: MTGCore.zoneCount(state, mySeat, "hand") || 7 });
       online = true; mySeat = MTGTableSync.info().mySeat;
       setStatus("Joined " + gid + " as seat " + mySeat); log("<b>Joined</b> " + gid); showToast("Joined the game."); render();
       return true;
@@ -2697,7 +2700,7 @@
     host: function (opts) { return Promise.resolve(doHost(opts || { visibility: "private" })).then(function () { try { return (window.MTGTableSync && MTGTableSync.info && MTGTableSync.info().gameId) || null; } catch (e) { return null; } }); },
     hostRoom: function (opts) { return Promise.resolve(doHostRoom(opts || { visibility: "private" })); },
     persistMyDeck: function () { return Promise.resolve(persistMyDeck()); },
-    join: function (gid) { return Promise.resolve(doJoin(gid)); },
+    join: function (gid, opts) { return Promise.resolve(doJoin(gid, opts)); },
     online: function () { return !!online; },
     roll: function (kind) { try { return rollDice(kind); } catch (e) { return null; } },
     myCounters: function () { try { return (state && state.players && state.players[mySeat] && state.players[mySeat].counters) || {}; } catch (e) { return {}; } },

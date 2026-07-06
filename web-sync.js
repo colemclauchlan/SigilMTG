@@ -78,7 +78,9 @@ class MTGSyncAdapter {
   // ---- live card-instance state ----
   async upsertCardInstances(rows) {
     if (!this.enabled || !rows || !rows.length) return { data: null, error: null };
-    return await this.client.from("game_card_instances").upsert(rows).select();
+    // No .select(): INSERT..RETURNING would require SELECT-policy visibility of every returned row
+    // (it 42501s for rows the writer can't read back) and bloats the response for 100-card upserts.
+    return await this.client.from("game_card_instances").upsert(rows);
   }
   async deleteCardInstances(ids) {
     if (!this.enabled || !ids || !ids.length) return { error: null };

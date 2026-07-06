@@ -574,3 +574,17 @@ body.play-fs.hud-log-off #playPage .tbl-log-head { display: none; }
   .ps-track-step,
   .ps-invite-copy { min-height: 40px; -webkit-tap-highlight-color: transparent; }
 }
+
+/* ---- host-set bracket cap (lobby) ---- */
+.ps-deck-tile.overcap { filter: grayscale(.9) brightness(.55); pointer-events: none; }
+.ps-bracket-btn:disabled { opacity: .8; cursor: default; }
+.ps-brc-panel { width: min(560px, 96vw); }
+.ps-brc-hint { margin: 10px 16px 2px; color: #9fb1c9; font-size: 13px; }
+.ps-brc-list { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px 16px; overflow: auto; }
+.ps-brc-row { display: flex; align-items: center; gap: 12px; text-align: left; cursor: pointer; color: #fff; border: 1px solid rgba(255,255,255,.14); border-radius: 12px; padding: 11px 13px; background: linear-gradient(135deg, var(--c1), var(--c2)); }
+.ps-brc-row:hover { filter: brightness(1.14); border-color: rgba(255,255,255,.4); }
+.ps-brc-badge { flex: 0 0 auto; min-width: 46px; text-align: center; font-weight: 800; font-size: 14px; background: rgba(7,13,26,.4); border-radius: 9px; padding: 6px 8px; }
+.ps-brc-nm { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ps-brc-nm b { font-size: 14px; }
+.ps-brc-nm i { font-style: normal; font-size: 12px; opacity: .85; }
+.ps-brc-on { margin-left: auto; flex: 0 0 auto; font-size: 11px; font-weight: 700; background: rgba(7,13,26,.45); padding: 4px 9px; border-radius: 999px; }

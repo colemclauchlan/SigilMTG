@@ -196,7 +196,8 @@
 
   // View all lobbies → the table's lobby browser if exported, else a lightweight built-in list.
   function openLobbyBrowser() {
-    if (window.MTGTable && typeof MTGTable.openLobby === "function") { try { MTGTable.openLobby(); return; } catch (e) {} }
+    // Always use the shell's own browser: MTGTable.openLobby is the in-game finder — it demands an
+    // already-loaded deck and joins the raw table directly, skipping the lobby/presence flow.
     var ov = eln("div", "ps-prec-ov");
     ov.innerHTML =
       '<div class="ps-prec-panel"><div class="ps-prec-head"><h3>Open lobbies</h3><span id="psLobCount"></span>' +
@@ -267,29 +268,44 @@
     applyHostUi(s);
     renderPlayers(s);
     // Connect to the host's realtime lobby channel so both sides see each other before Start Game.
-    var connectLobby = function () {
-      try {
-        if (window.MTGTableSync && MTGTableSync.joinLobby && MTGTableSync.joinLobby(code)) {
-          setupLobbySync(s);
-          var ping = function () { broadcastPresence(); if (choice.locked) broadcastDeckPick(); };
-          ping(); setTimeout(ping, 700); setTimeout(ping, 1800);
-        }
-      } catch (e) {}
-    };
-    try {
-      if (window.mtgSync && window.mtgSync.session) connectLobby();
-      else if (window.mtgSync && window.mtgSync.enabled && window.mtgSync.signInAnonymously) {
-        window.mtgSync.signInAnonymously().then(function () {
-          try { refreshAccount(); } catch (e) {}
-          logLine(s, 'Joined as <b>guest</b> — pick a deck and Start Game to play. You can make a free account after.');
-          connectLobby();
-        }).catch(function () { logLine(s, 'To join, sign in (top-right) — guest play may be disabled.'); });
-      }
-    } catch (e) {}
+    connectLobby(s, code);
     logLine(s, 'Invite code <b>' + escapeHtml(code) + '</b> loaded — lock in a deck, then Start Game to join.');
   }
 
   function onPickMode(mode) { buildLobby(mode); show("lobby"); }
+
+  // Stable per-player identity for lobby presence: the auth uid when signed in, else a per-tab id.
+  // Peers are keyed by uid (not display name) so two "Guest 1234"s stay distinct and self-filtering is exact.
+  var pageUid = "tab-" + Math.random().toString(16).slice(2) + "-" + Date.now().toString(36);
+  function myUid() {
+    try { var u = window.mtgSync && mtgSync.uid && mtgSync.uid(); if (u) return u; } catch (e) {}
+    return pageUid;
+  }
+
+  // Ensure a session (guests get an anonymous one), join the room's realtime channel for lobby
+  // presence, and announce ourselves. Shared by the ?join=CODE route, the paste-a-code
+  // "Join game" button, and the lobby browser.
+  function connectLobby(s, code) {
+    var doConnect = function () {
+      try {
+        if (window.MTGTableSync && MTGTableSync.joinLobby && MTGTableSync.joinLobby(code)) {
+          setupLobbySync(s);
+          var ping = function () { broadcastPresence(); if (choice.locked) broadcastDeckPick(); };
+          ping(); setTimeout(ping, 700); setTimeout(ping, 1800); setTimeout(ping, 4000);
+        }
+      } catch (e) {}
+    };
+    try {
+      if (window.mtgSync && window.mtgSync.session) doConnect();
+      else if (window.mtgSync && window.mtgSync.enabled && window.mtgSync.signInAnonymously) {
+        window.mtgSync.signInAnonymously().then(function () {
+          try { refreshAccount(); } catch (e) {}
+          logLine(s, 'Joined as <b>guest</b> — pick a deck and Start Game to play. You can make a free account after.');
+          doConnect();
+        }).catch(function () { logLine(s, 'To join, sign in (top-right) — guest play may be disabled.'); });
+      }
+    } catch (e) {}
+  }
 
   // ============================== LOBBY ==============================
   var lobbyCfg = { preconsOnly: false, lookingForPlayers: false };
@@ -309,6 +325,7 @@
     choice.locked = false; choice.deckMeta = null; choice.deck = null;
     if (choice.bracket == null) choice.bracket = 2;
     if (choice.bracketHalf == null) choice.bracketHalf = "L";
+    lobbyCfg.maxBracket = 0; // host-set cap: highest bracket allowed at this table (0 = Any)
     choice.joinCode = null; choice.hostedCode = null; choice.online = false;
     selTileId = null;
     var s = eln("div", "ps-screen ps-lobby");
@@ -327,7 +344,7 @@
           '<div class="ps-lockbar">' +
             '<div class="ps-locksel" id="psLockSel">Pick a deck, then lock it in.</div>' +
             '<button type="button" id="psLockIn" class="ps-lock-btn" disabled>Lock In</button>' +
-            '<button type="button" id="psBracketBtn" class="ps-host-btn ps-bracket-btn" title="Declare your Commander bracket — tap to change">Bracket 2</button>' +
+            '<button type="button" id="psBracketBtn" class="ps-host-btn ps-bracket-btn" title="Host: set the highest Commander bracket allowed at this table">Bracket cap: Any</button>' +
             '<button type="button" id="psStartGo" class="ps-start-btn" disabled>Start Game ›</button></div>' +
         '</div>' +
         '<div class="ps-lobby-cols">' +
@@ -366,22 +383,9 @@
       teardownLobbySync();
       chooseDeck(choice.deck);
     };
+    // Host-only bracket cap: a popup picks the highest bracket allowed at this table (broadcast to all).
     var brBtn = s.querySelector("#psBracketBtn");
-    if (brBtn) {
-      var paintBr = function () {
-        brBtn.textContent = "Bracket " + (choice.bracket || 2);
-        var bb = BRACKETS[(choice.bracket || 2) - 1];
-        if (bb) brBtn.style.background = "linear-gradient(135deg," + bb.c1 + "," + bb.c2 + ")";
-      };
-      paintBr();
-      brBtn.onclick = function () {
-        choice.bracket = ((choice.bracket || 2) % 5) + 1;
-        if (choice.deckMeta) choice.deckMeta.bracket = choice.bracket;
-        paintBr(); renderPlayers(s);
-        try { broadcastPick(); } catch (e) {}
-        logLine(s, "Bracket set to <b>" + choice.bracket + "</b>.");
-      };
-    }
+    if (brBtn) { brBtn.onclick = function () { openBracketCapPopup(s); }; }
 
     // Invite friends (host) — creates the online room, then shares the link.
     var invBtn = s.querySelector("#psInviteBtn"), invOut = s.querySelector("#psInviteOut");
@@ -399,7 +403,7 @@
       choice.online = true;
       invBtn.disabled = true; invBtn.textContent = "Creating room…";
       var _lfp = !!lobbyCfg.lookingForPlayers, _nm = choice.name + (_lfp ? " [LFP]" : "");
-      Promise.resolve(MTGTable.hostRoom({ visibility: _lfp ? "public" : "private", name: _nm })).then(function (code) {
+      Promise.resolve(MTGTable.hostRoom({ visibility: _lfp ? "public" : "private", name: _nm, displayName: choice.name })).then(function (code) {
         invBtn.disabled = false; invBtn.textContent = "Generate invite link";
         if (!code) { invOut.hidden = false; invOut.textContent = "Couldn't create a game — try again."; return; }
         choice.hostedCode = code;
@@ -427,6 +431,7 @@
       choice.joinCode = code; choice.online = true;
       applyHostUi(s);
       renderPlayers(s);
+      connectLobby(s, code);
       logLine(s, 'Joining room <b>' + escapeHtml(code) + '</b> — lock in a deck, then Start Game to take your seat.');
     };
 
@@ -454,6 +459,7 @@
     if (lfpw) lfpw.classList.toggle("view", !host);
     if (wrap) wrap.classList.toggle("view", !host);
     if (inv) inv.disabled = !host;
+    paintBracketBtn(s);
   }
 
   function logLine(s, html) {
@@ -522,14 +528,24 @@
     });
     syncGridSelection(s);
     applyPreconsOnly(s);
+    applyBracketCap(s);
   }
 
   function tileById(id) { for (var i = 0; i < deckTiles.length; i++) if (deckTiles[i].id === id) return deckTiles[i]; return null; }
-  function tileAllowed(t) { return !lobbyCfg.preconsOnly || (t && t.kind === "precon"); }
+  function tileAllowed(t) {
+    if (!t) return false;
+    if (lobbyCfg.preconsOnly && t.kind !== "precon") return false;
+    if (lobbyCfg.maxBracket && t.bracket && Number(t.bracket) > lobbyCfg.maxBracket) return false;
+    return true;
+  }
+  function tileBlockedMsg(t) {
+    if (lobbyCfg.preconsOnly && t && t.kind !== "precon") return "Precons only is on — pick a precon instead.";
+    return "That deck is above the host's bracket cap (" + capLabel(lobbyCfg.maxBracket) + ") — pick a lower-bracket deck.";
+  }
 
   function selectTile(s, id) {
     var t = tileById(id); if (!t) return;
-    if (!tileAllowed(t)) { logLine(s, "Precons only is on — pick a precon instead."); return; }
+    if (!tileAllowed(t)) { logLine(s, tileBlockedMsg(t)); return; }
     selTileId = id; choice.locked = false;
     syncGridSelection(s);
     var sel = s.querySelector("#psLockSel");
@@ -547,12 +563,10 @@
 
   function lockInDeck(s) {
     var t = tileById(selTileId); if (!t) return;
-    if (!tileAllowed(t)) { logLine(s, "Precons only is on — pick a precon instead."); return; }
+    if (!tileAllowed(t)) { logLine(s, tileBlockedMsg(t)); return; }
     choice.deck = t.ref;
     if (t.bracket) choice.bracket = Math.min(5, Math.max(1, Number(t.bracket)));
     choice.deckMeta = { name: t.name, commander: t.commander || "", bracket: choice.bracket || (t.bracket || null) };
-    var _brb = s.querySelector("#psBracketBtn");
-    if (_brb) { _brb.textContent = "Bracket " + (choice.bracket || 2); var _bb = BRACKETS[(choice.bracket || 2) - 1]; if (_bb) _brb.style.background = "linear-gradient(135deg," + _bb.c1 + "," + _bb.c2 + ")"; }
     choice.locked = true;
     var lk = s.querySelector("#psLockIn"); if (lk) { lk.innerHTML = "Locked " + (window.MTGIcons ? MTGIcons.get("check", "1em") : ""); lk.disabled = true; }
     var st = s.querySelector("#psStartGo"); if (st) st.disabled = false;
@@ -582,6 +596,78 @@
         logLine(s, "Precons only turned on — your custom deck was unlocked.");
       }
     }
+  }
+
+  // ---- host-set bracket cap (0 = Any): decks above the cap grey out, like "Precons only" ----
+  function capLabel(n) { n = Number(n) || 0; return (n < 1 || n > 5) ? "Any" : "B" + n + " · " + BRACKETS[n - 1].name; }
+  function paintBracketBtn(s) {
+    var b = s.querySelector("#psBracketBtn"); if (!b) return;
+    var cap = lobbyCfg.maxBracket || 0;
+    b.textContent = "Bracket cap: " + (cap ? "B" + cap : "Any");
+    var bb = cap ? BRACKETS[cap - 1] : null;
+    b.style.background = bb ? "linear-gradient(135deg," + bb.c1 + "," + bb.c2 + ")" : "";
+    b.disabled = !isHost();
+    b.title = isHost() ? "Host: set the highest Commander bracket allowed at this table" : "Set by the host — the highest bracket allowed at this table";
+  }
+  function applyBracketCap(s) {
+    var cap = lobbyCfg.maxBracket || 0;
+    Array.prototype.forEach.call(s.querySelectorAll(".ps-deck-tile"), function (btn) {
+      var t = tileById(btn.dataset.tile);
+      var over = !!(cap && t && t.bracket && Number(t.bracket) > cap);
+      btn.classList.toggle("overcap", over);
+      if (over) btn.title = "Above the host's bracket cap (" + capLabel(cap) + ")";
+      else if (btn.title) btn.removeAttribute("title");
+    });
+    paintBracketBtn(s);
+    // A selected/locked deck above the new cap gets deselected (mirrors the precons-only rule).
+    if (cap && selTileId) {
+      var t2 = tileById(selTileId);
+      if (t2 && t2.bracket && Number(t2.bracket) > cap) {
+        var wasLocked = choice.locked;
+        choice.locked = false; selTileId = null;
+        var st = s.querySelector("#psStartGo"); if (st) st.disabled = true;
+        var lk = s.querySelector("#psLockIn"); if (lk) { lk.textContent = "Lock In"; lk.disabled = true; }
+        var sel = s.querySelector("#psLockSel"); if (sel) sel.textContent = "Pick a deck, then lock it in.";
+        syncGridSelection(s);
+        renderPlayers(s);
+        if (wasLocked) logLine(s, "Your locked deck is above the host's bracket cap — pick another deck.");
+      }
+    }
+  }
+  // Host-only popup (styled like the old pre-game bracket picker) choosing the table's cap.
+  function openBracketCapPopup(s) {
+    if (!isHost()) { logLine(s, "Only the host can set the table's bracket cap."); return; }
+    var cap = lobbyCfg.maxBracket || 0;
+    var ov = eln("div", "ps-prec-ov");
+    var rows = '<button type="button" class="ps-brc-row" data-cap="0" style="--c1:#3a4a63;--c2:#1d2636">' +
+      '<span class="ps-brc-badge">Any</span><span class="ps-brc-nm"><b>No cap</b><i>All brackets welcome, up to cEDH</i></span>' +
+      (!cap ? '<span class="ps-brc-on">Current</span>' : '') + '</button>';
+    BRACKETS.forEach(function (b) {
+      rows += '<button type="button" class="ps-brc-row" data-cap="' + b.n + '" style="--c1:' + b.c1 + ';--c2:' + b.c2 + '">' +
+        '<span class="ps-brc-badge">B' + b.n + '</span><span class="ps-brc-nm"><b>' + b.name + '</b><i>' + b.desc + '</i></span>' +
+        (cap === b.n ? '<span class="ps-brc-on">Current cap</span>' : '') + '</button>';
+    });
+    ov.innerHTML =
+      '<div class="ps-prec-panel ps-brc-panel">' +
+        '<div class="ps-prec-head"><h3>Table bracket cap</h3><span></span>' +
+          '<button type="button" class="ps-prec-x" id="psBrcX" aria-label="Close">' + (window.MTGIcons ? MTGIcons.get("close", "1em") : "") + '</button></div>' +
+        '<p class="ps-brc-hint">Highest Commander bracket allowed at this table. Decks above the cap are greyed out in everyone&rsquo;s deck list.</p>' +
+        '<div class="ps-brc-list">' + rows + '</div>' +
+      '</div>';
+    shell.appendChild(ov);
+    ov.addEventListener("click", function (e) { if (e.target === ov) ov.remove(); });
+    ov.querySelector("#psBrcX").onclick = function () { ov.remove(); };
+    Array.prototype.forEach.call(ov.querySelectorAll(".ps-brc-row"), function (row) {
+      row.onclick = function () {
+        var next = Math.max(0, Math.min(5, parseInt(row.dataset.cap, 10) || 0));
+        ov.remove();
+        if (next === (lobbyCfg.maxBracket || 0)) return;
+        lobbyCfg.maxBracket = next;
+        applyBracketCap(s);
+        broadcastLobbyCfg();
+        logLine(s, "Bracket cap set to <b>" + capLabel(next) + "</b>" + (next ? " — higher-bracket decks are greyed out for the whole lobby." : " — all decks allowed."));
+      };
+    });
   }
 
   // ---- players list (with deck picks) ----
@@ -618,7 +704,7 @@
     try {
       if (!window.MTGTableSync || !MTGTableSync.broadcastEphemeral || !choice.locked || !choice.deckMeta) return;
       MTGTableSync.broadcastEphemeral({
-        type: "deckpick", name: choice.name || "Player", color: choice.color,
+        type: "deckpick", uid: myUid(), name: choice.name || "Player", color: choice.color,
         deck: { name: choice.deckMeta.name, commander: choice.deckMeta.commander, bracket: choice.deckMeta.bracket }
       });
     } catch (e) {}
@@ -626,16 +712,22 @@
   function broadcastLobbyCfg() {
     try {
       if (!isHost() || !window.MTGTableSync || !MTGTableSync.broadcastEphemeral) return;
-      MTGTableSync.broadcastEphemeral({ type: "lobbycfg", preconsOnly: !!lobbyCfg.preconsOnly });
+      MTGTableSync.broadcastEphemeral({ type: "lobbycfg", uid: myUid(), preconsOnly: !!lobbyCfg.preconsOnly, maxBracket: lobbyCfg.maxBracket || 0 });
     } catch (e) {}
   }
   // "I'm here" ping so players appear in each other's lobby before anyone locks a deck.
   function broadcastPresence() {
     try {
       if (!choice.online || !window.MTGTableSync || !MTGTableSync.broadcastEphemeral) return;
-      MTGTableSync.broadcastEphemeral({ type: "presence", name: choice.name || "Player", color: choice.color });
+      MTGTableSync.broadcastEphemeral({ type: "presence", uid: myUid(), name: choice.name || "Player", color: choice.color });
     } catch (e) {}
   }
+  function isSelfMsg(pl) {
+    if (!pl) return true;
+    if (pl.uid) return pl.uid === myUid();
+    return !pl.name || pl.name === choice.name; // legacy clients without a uid field
+  }
+  function peerKey(pl) { return String(pl.uid || pl.name).slice(0, 48); }
   function setupLobbySync(s) {
     if (!window.MTGTableSync) return;
     teardownLobbySync(); // idempotent: never capture our own wrapper as prev (avoids stacked handlers)
@@ -645,37 +737,55 @@
       try { handleLobbyEphemeral(s, pl); } catch (e) {}
       if (lobbySync.prev) { try { lobbySync.prev(pl); } catch (e) {} }
     };
+    // Re-announce whenever the realtime channel (re)connects — early pings can beat SUBSCRIBED.
+    lobbySync.prevConn = MTGTableSync.onConn || null;
+    MTGTableSync.onConn = function (kind) {
+      try {
+        if (kind === "connected" || kind === "reconnected") {
+          broadcastPresence(); if (choice.locked) broadcastDeckPick(); if (isHost()) broadcastLobbyCfg();
+        }
+      } catch (e) {}
+      if (lobbySync.prevConn) { try { lobbySync.prevConn(kind); } catch (e) {} }
+    };
   }
   function teardownLobbySync() {
     if (!lobbySync.active) return;
     try { if (window.MTGTableSync) MTGTableSync.onEphemeral = lobbySync.prev; } catch (e) {}
-    lobbySync.active = false; lobbySync.prev = null;
+    try { if (window.MTGTableSync) MTGTableSync.onConn = lobbySync.prevConn; } catch (e) {}
+    lobbySync.active = false; lobbySync.prev = null; lobbySync.prevConn = null;
   }
   function handleLobbyEphemeral(s, pl) {
     if (!pl || !s) return;
-    if (pl.type === "presence" && pl.name && pl.name !== choice.name) {
-      var ppk = String(pl.name).slice(0, 24);
+    if (pl.type === "presence" && !isSelfMsg(pl)) {
+      var ppk = peerKey(pl);
       var isNewPeer = !lobbyState.picks[ppk];
-      if (isNewPeer) lobbyState.picks[ppk] = { name: ppk, color: typeof pl.color === "string" ? pl.color : "#4f7bf0", deck: null };
+      var prevPeer = lobbyState.picks[ppk];
+      lobbyState.picks[ppk] = { name: String(pl.name || "Player").slice(0, 24), color: typeof pl.color === "string" ? pl.color : "#4f7bf0", deck: prevPeer ? prevPeer.deck : null };
       renderPlayers(s);
-      if (isNewPeer) { logLine(s, escapeHtml(ppk) + " joined the lobby."); broadcastPresence(); if (choice.locked) broadcastDeckPick(); if (isHost()) broadcastLobbyCfg(); }
+      if (isNewPeer) { logLine(s, escapeHtml(lobbyState.picks[ppk].name) + " joined the lobby."); broadcastPresence(); if (choice.locked) broadcastDeckPick(); if (isHost()) broadcastLobbyCfg(); }
       return;
     }
-    if (pl.type === "deckpick" && pl.name && pl.name !== choice.name) {
-      var key = String(pl.name).slice(0, 24);
+    if (pl.type === "deckpick" && !isSelfMsg(pl)) {
+      var key = peerKey(pl);
       var first = !lobbyState.picks[key];
       var prevDeck = !first && lobbyState.picks[key].deck ? lobbyState.picks[key].deck.name : null;
-      lobbyState.picks[key] = { name: key, color: typeof pl.color === "string" ? pl.color : "#4f7bf0", deck: pl.deck || null };
+      lobbyState.picks[key] = { name: String(pl.name || "Player").slice(0, 24), color: typeof pl.color === "string" ? pl.color : "#4f7bf0", deck: pl.deck || null };
       renderPlayers(s);
       var dn = (pl.deck && pl.deck.name) || "a deck";
-      if (first || prevDeck !== dn) logLine(s, escapeHtml(key) + " locked in <b>" + escapeHtml(dn) + "</b>.");
+      if (first || prevDeck !== dn) logLine(s, escapeHtml(lobbyState.picks[key].name) + " locked in <b>" + escapeHtml(dn) + "</b>.");
       if (first) { broadcastDeckPick(); if (isHost()) broadcastLobbyCfg(); } // one echo so newcomers see existing picks
-    } else if (pl.type === "lobbycfg" && !isHost()) {
+    } else if (pl.type === "lobbycfg" && !isHost() && !isSelfMsg(pl)) {
       var on = !!pl.preconsOnly;
       if (on !== lobbyCfg.preconsOnly) {
         lobbyCfg.preconsOnly = on;
         applyPreconsOnly(s);
         logLine(s, "Host turned Precons only <b>" + (on ? "on" : "off") + "</b>.");
+      }
+      var cap = Math.max(0, Math.min(5, Number(pl.maxBracket) || 0));
+      if (cap !== (lobbyCfg.maxBracket || 0)) {
+        lobbyCfg.maxBracket = cap;
+        applyBracketCap(s);
+        logLine(s, "Host set the table bracket cap to <b>" + capLabel(cap) + "</b>.");
       }
     }
   }
@@ -1111,7 +1221,7 @@
     try { if (window.MTGTable && MTGTable.setName && choice.name) MTGTable.setName(choice.name); } catch (e) {}
     try { if (window.MTGTable && MTGTable.setBracket) MTGTable.setBracket((choice.bracketHalf || "L") + (choice.bracket || 2)); } catch (e) {}
     if (choice.online && window.MTGTable) {
-      if (choice.joinCode && MTGTable.join) { try { MTGTable.join(choice.joinCode); } catch (e) {} }
+      if (choice.joinCode && MTGTable.join) { try { MTGTable.join(choice.joinCode, { displayName: choice.name }); } catch (e) {} }
       else if (choice.hostedCode && MTGTable.persistMyDeck) { try { MTGTable.persistMyDeck().then(function () { showInvite(choice.hostedCode); }, function () { showInvite(choice.hostedCode); }); } catch (e) {} }
       else if (MTGTable.host) { try { MTGTable.host({ visibility: "private", name: choice.name }).then(function (code) { if (code) showInvite(code); }, function () {}); } catch (e) {} }
     }

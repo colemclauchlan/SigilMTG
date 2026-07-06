@@ -62,7 +62,7 @@ window.MTGTableSync = (function () {
   }
 
   // deck list ({cardId,name,isCommander}) -> my-seat card objects (library shuffled, commander in command)
-  function buildDeckCards(deckList, seed) {
+  function buildDeckCards(deckList, seed, handSize) {
     var cards = [], idx = 0;
     var ids = deckList.map(function () { return uuid(); });
     var order = MTGCore.shuffle(ids.map(function (_, i) { return i; }), seed || ("seed-" + S.gameId));
@@ -75,13 +75,24 @@ window.MTGTableSync = (function () {
         tapped: false, faceDown: false, flipped: 0, counters: {}, isCommander: commander, isToken: false
       });
     });
+    // Deal the opening hand into the persisted rows too — otherwise the first pull() rebuilds the
+    // board from DB rows with an empty hand and the local "drew 7" evaporates.
+    var hand = Math.max(0, Math.min(Number(handSize) || 0, cards.length));
+    if (hand) {
+      var libs = cards.filter(function (c) { return c.zone === "library"; }).sort(function (a, b) { return a.pos - b.pos; });
+      libs.slice(0, hand).forEach(function (c, i) { c.zone = "hand"; c.pos = i; });
+    }
     return cards;
   }
   // persist my deck: blank-identity instance rows for the shared board + true identity to the owner-only hidden table
   async function persistMyCards(cards) {
-    await sync.upsertCardInstances(cards.map(toRow));
+    var res = await sync.upsertCardInstances(cards.map(toRow));
+    if (res && res.error) throw res.error; // surface RLS/constraint failures — swallowing them wiped decks
     var hid = cards.filter(isHidden).map(hiddenRow);
-    if (hid.length && sync.upsertHidden) await sync.upsertHidden(hid);
+    if (hid.length && sync.upsertHidden) {
+      var hres = await sync.upsertHidden(hid);
+      if (hres && hres.error) throw hres.error;
+    }
   }
 
   function setMaps(participants) {
@@ -178,7 +189,7 @@ window.MTGTableSync = (function () {
     var pr = await sync.client.from("game_participants").insert({ game_id: S.gameId, profile_id: sync.uid(), seat_index: 0, display_name: opts.displayName || "Host", life_total: opts.startingLife || 40 }).select().single();
     if (pr.error) throw pr.error;
     S.myPart = pr.data.id; setMaps([pr.data]);
-    await persistMyCards(buildDeckCards(deckList));
+    if (deckList && deckList.length) await persistMyCards(buildDeckCards(deckList, null, opts.hand != null ? opts.hand : 7));
     subscribe(); await pull();
     return S.gameId;
   }
@@ -186,17 +197,38 @@ window.MTGTableSync = (function () {
     if (!ready()) throw new Error("Sign in to join an online game.");
     opts = opts || {};
     S.gameId = gameId; S.online = true; S.lobbyOnly = false;
-    var ps = await sync.client.from("game_participants").select("*").eq("game_id", gameId).order("seat_index");
-    if (ps.error) throw ps.error;
-    var existing = ps.data || [];
-    var mine = existing.find(function (p) { return p.profile_id === sync.uid(); });
-    if (mine) { S.mySeat = mine.seat_index; S.myPart = mine.id; setMaps(existing); }
-    else {
-      S.mySeat = existing.length;
-      var pr = await sync.client.from("game_participants").insert({ game_id: gameId, profile_id: sync.uid(), seat_index: S.mySeat, display_name: opts.displayName || ("Player " + (S.mySeat + 1)), life_total: opts.startingLife || 40 }).select().single();
-      if (pr.error) throw pr.error;
-      S.myPart = pr.data.id; setMaps(existing.concat([pr.data]));
-      await persistMyCards(buildDeckCards(deckList));
+    // Primary path: the join_game RPC (SECURITY DEFINER) assigns the seat atomically. A client-side
+    // seat computation can't work for PRIVATE games — RLS hides the existing participants from a
+    // not-yet-member, so SELECT returns [] and INSERT..RETURNING can't see its own new row either.
+    var parts = null, rpcErr = null;
+    try {
+      var rj = await sync.client.rpc("join_game", { p_game: gameId, p_display_name: opts.displayName || "Player", p_life: opts.startingLife || 40 });
+      if (rj.error) throw rj.error;
+      var jd = rj.data || {};
+      S.mySeat = jd.seat_index; S.myPart = jd.participant_id;
+      parts = jd.participants || [];
+    } catch (e) { rpcErr = e; }
+    if (rpcErr) {
+      // Legacy fallback (pre-RPC schema): only viable where the caller can already read the participants.
+      var ps = await sync.client.from("game_participants").select("*").eq("game_id", gameId).order("seat_index");
+      if (ps.error) throw ps.error;
+      var existing = ps.data || [];
+      var mine = existing.find(function (p) { return p.profile_id === sync.uid(); });
+      if (mine) { S.mySeat = mine.seat_index; S.myPart = mine.id; parts = existing; }
+      else {
+        if (!existing.length) throw rpcErr; // can't see into the game — surface the real join error
+        S.mySeat = existing.length;
+        var pr = await sync.client.from("game_participants").insert({ game_id: gameId, profile_id: sync.uid(), seat_index: S.mySeat, display_name: opts.displayName || ("Player " + (S.mySeat + 1)), life_total: opts.startingLife || 40 }).select().single();
+        if (pr.error) throw pr.error;
+        S.myPart = pr.data.id; parts = existing.concat([pr.data]);
+      }
+    }
+    setMaps(parts);
+    // Persist my deck if I have no cards in this game yet (fresh join, or rejoin after a failed persist).
+    if (deckList && deckList.length) {
+      var have = null;
+      try { have = await sync.client.from("game_card_instances").select("id", { count: "exact", head: true }).eq("game_id", gameId).eq("owner_participant_id", S.myPart); } catch (e) {}
+      if (!have || !have.count) await persistMyCards(buildDeckCards(deckList, null, opts.hand != null ? opts.hand : 7));
     }
     subscribe(); await pull();
     return S.gameId;
@@ -269,9 +301,10 @@ window.MTGTableSync = (function () {
   }
   function leave() { S.online = false; S.gameId = null; }
   // persist (or re-persist) my deck into an already-created room — used by "create room first, bring deck after" (lobby invite button)
-  async function persistDeck(deckList) {
+  async function persistDeck(deckList, opts) {
     if (!S.online) return null;
-    await persistMyCards(buildDeckCards(deckList || []));
+    opts = opts || {};
+    if (deckList && deckList.length) await persistMyCards(buildDeckCards(deckList, null, opts.hand != null ? opts.hand : 7));
     await pull();
     return S.gameId;
   }
