@@ -65,6 +65,10 @@
   var draft = { cards: [], pool: [], pack: [], picks: 0, target: 45, set: "" };
 
   function $(id) { return document.getElementById(id); }
+  // Instance ids must be REAL UUIDs online: game_card_instances.id is a uuid column, so a
+  // "tok3"-style id made the whole multiplayer upsert batch fail (22P02, silently) and the
+  // token/copy vanished from every board on the next pull. Solo-safe fallback for old browsers.
+  function newId() { return (globalThis.crypto && crypto.randomUUID) ? crypto.randomUUID() : "id-" + Date.now() + "-" + Math.random().toString(16).slice(2); }
   function boot() {
     if (booted) return; booted = true;
     el = {
@@ -79,6 +83,13 @@
     if (el.preview) { el.preview.style.cursor = "zoom-in"; el.preview.addEventListener("click", function () { if (previewCard) openInspect(previewCard); }); }
     try { if (document.fonts && document.fonts.load) { document.fonts.load('20px "Material Symbols Rounded"').catch(function () {}); setTimeout(function () { try { if (document.fonts.check && !document.fonts.check('20px "Material Symbols Rounded"')) document.body.classList.add("no-msym"); } catch (e) {} }, 2500); } } catch (e) {}
     if (window.MTGTableSync) MTGTableSync.onConn = showConnStatus;
+    // Surface sync write/pull failures (RLS drops, constraint errors) — previously invisible,
+    // which is how "my change never reached the others" bugs hid for whole sessions.
+    if (window.MTGTableSync) MTGTableSync.onError = function (e) {
+      var m = (e && e.message) ? String(e.message) : String(e || "sync error");
+      setStatus("Sync error: " + m.slice(0, 120));
+      try { console.warn("[table sync]", e); } catch (x) {}
+    };
     populateDeckSelect(); bindControls(); bindBoard(); bindHandWheel(); bindHotkeys(); bindLogCardLinks(); applyCamera(); loadPlaymat(); maybeAutoPlay();
   }
   function activatePlay() {
@@ -1291,7 +1302,7 @@
     if (c.zone === "battlefield") item("Target (draw a line)", function () { startLink(c.instanceId, "draw", "target"); });
     // Copying an opponent's card is an explicit exception (like targeting): allowed regardless of the
     // interact gate, and it announces to the action log (card_clone always logs \u2014 see logAction()).
-    if (c.zone === "battlefield") item("Create token copy", function () { dispatch({ t: "card_clone", fromId: c.instanceId, instanceId: "tok" + (tokenSeq++), x: 45, y: 60 }); });
+    if (c.zone === "battlefield") item("Create token copy", function () { dispatch({ t: "card_clone", fromId: c.instanceId, instanceId: newId(), x: 45, y: 60 }); });
     item("Inspect card", function () { openInspect(c); });
     var note = document.createElement("div"); note.className = "menu-note";
     note.textContent = "Opponent's card \u2014 the host hasn't enabled touching other players' cards.";
@@ -1365,7 +1376,7 @@
     ]);
     sep();
     item("Create token…", function () { openCreateToken(mySeat); });
-    item("Create token copy", function () { dispatch({ t: "card_clone", fromId: c.instanceId, instanceId: "tok" + (tokenSeq++), x: 45, y: 60 }); }, "X");
+    item("Create token copy", function () { dispatch({ t: "card_clone", fromId: c.instanceId, instanceId: newId(), x: 45, y: 60 }); }, "X");
     item("Change print…", function () { openPrintPicker(c); });
     sep();
     item("Inspect card", function () { openInspect(c); }, "I");
@@ -1466,15 +1477,19 @@
     menuEl = m;
   }
   function createToken(name) {
-    var id = "tok" + (tokenSeq++);
-    dispatch({ t: "token_create", instanceId: id, cardId: id, ownerSeat: mySeat, name: name, x: 34 + Math.random() * 16, y: 52 });
-    fetchTokenImage(name, id);
+    // uuid instanceId (sync-safe); cardId = the token NAME so art keys by name and the shared
+    // row carries no fake scryfall_id (toRow only maps uuid-shaped cardIds into scryfall_id).
+    var id = newId();
+    dispatch({ t: "token_create", instanceId: id, cardId: name, ownerSeat: mySeat, name: name, x: 34 + Math.random() * 16, y: 52 });
+    fetchTokenImage(name, name);
   }
   function spawnPicked(card, qty, seat) {
     for (var i = 0; i < qty; i++) {
-      var id = "tok" + (tokenSeq++); var im = entryImages(card), pti = cardPT(card);
-      imagesById[id] = { img: im.img, back: im.back, name: card.name, pt: pti.pt, isCreature: pti.isCreature };
-      dispatch({ t: "token_create", instanceId: id, cardId: id, ownerSeat: seat, name: card.name, x: 32 + Math.random() * 18 + (i % 5) * 2, y: 50 + Math.random() * 10 });
+      // cardId = the REAL Scryfall id → syncs via scryfall_id, so opponents' clients fetch the
+      // same token art (previously the "tok<n>" cardId meant remote boards drew a text box).
+      var id = newId(), cid = card.id || card.name; var im = entryImages(card), pti = cardPT(card);
+      imagesById[cid] = { img: im.img, back: im.back, name: card.name, pt: pti.pt, isCreature: pti.isCreature };
+      dispatch({ t: "token_create", instanceId: id, cardId: cid, ownerSeat: seat, name: card.name, x: 32 + Math.random() * 18 + (i % 5) * 2, y: 50 + Math.random() * 10 });
     }
     render();
   }
@@ -2436,7 +2451,7 @@
         case "h": if (c) dispatch({ t: "card_move", instanceId: c.instanceId, toZone: "hand" }); break;
         case "l": if (c) dispatch({ t: "card_move", instanceId: c.instanceId, toZone: "library", pos: minPos("library") - 1 }); break;
         case "b": if (c) dispatch({ t: "card_move", instanceId: c.instanceId, toZone: "library" }); break;
-        case "x": if (c) dispatch({ t: "card_clone", fromId: c.instanceId, instanceId: "tok" + (tokenSeq++), x: 45, y: 60 }); break;
+        case "x": if (c) dispatch({ t: "card_clone", fromId: c.instanceId, instanceId: newId(), x: 45, y: 60 }); break;
         case "p": if (c && c.zone === "hand") playFromHand(c); break;
         case "d": dispatch({ t: "draw", seat: mySeat, count: 1 }); break;
         case "u": dispatch({ t: "untap_all", seat: mySeat }); break;
@@ -2817,7 +2832,7 @@
       var sc = sideboardCards[idx]; if (!sc) return;
       var lib = null; try { lib = MTGCore.cardsOf(state, mySeat, "library"); } catch (e) { lib = []; }
       var pos = lib.length ? (lib[lib.length - 1].pos + 1) : 0;
-      var inst = "sb" + Date.now() + Math.floor(Math.random() * 1000);
+      var inst = newId(); // uuid — a non-uuid id would fail the online upsert (see newId)
       var card = { instanceId: inst, cardId: sc.cardId, name: sc.name, ownerSeat: mySeat, controllerSeat: mySeat, zone: "library", pos: pos, isCommander: false };
       dispatch({ t: "__add", cards: [card] });
       dispatch({ t: "library_shuffle", seat: mySeat, seed: "sb" + Date.now() });

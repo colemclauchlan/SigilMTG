@@ -285,10 +285,12 @@ window.MTGTableSync = (function () {
         upserts.push(toRow(c));
       } else if (!c && S.lastRows[id]) { removed.push(id); hidDel.push(id); delete S.lastRows[id]; }
     });
-    if (upserts.length) await sync.upsertCardInstances(upserts);
-    if (hidUp.length && sync.upsertHidden) await sync.upsertHidden(hidUp);
-    if (hidDel.length && sync.deleteHidden) await sync.deleteHidden(hidDel);
-    if (removed.length) await sync.deleteCardInstances(removed);
+    // Surface write failures (RLS filters, uuid/constraint errors) through onError — supabase
+    // returns {error} rather than throwing, so an unchecked result here silently desyncs boards.
+    if (upserts.length) { var _ru = await sync.upsertCardInstances(upserts); if (_ru && _ru.error && api.onError) api.onError(_ru.error); }
+    if (hidUp.length && sync.upsertHidden) { var _rh = await sync.upsertHidden(hidUp); if (_rh && _rh.error && api.onError) api.onError(_rh.error); }
+    if (hidDel.length && sync.deleteHidden) { var _rhd = await sync.deleteHidden(hidDel); if (_rhd && _rhd.error && api.onError) api.onError(_rhd.error); }
+    if (removed.length) { var _rd = await sync.deleteCardInstances(removed); if (_rd && _rd.error && api.onError) api.onError(_rd.error); }
     // non-card game state (life / turn / player counters / commander damage) — persist the authoritative post-state
     await syncPlayerState(action, stateAfter);
     // minimal, identity-free action for history/ordering (state syncs via instances, not this payload)
