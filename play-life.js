@@ -501,7 +501,7 @@
         '<button type="button" class="pl-sheet-x" data-mact="close" aria-label="Close">' + IC.close + '</button>' +
         '<div class="pl-sheet-hd"><div class="pl-sheet-tt"><p class="pl-kick">Damage taken by you · 21 is lethal</p><h3>Commander Damage</h3></div></div>' +
         '<div class="pl-cd-grid" id="plCdGrid"></div>' +
-        '<p class="pl-cd-hint">+ takes 1 damage from that commander (drops your life too, as one undoable action). − fixes a miscount (removes the counter only).</p>' +
+        '<p class="pl-cd-hint">+ takes 1 damage from that commander (drops your life too). − fixes a miscount (removes the counter and restores the life it cost).</p>' +
       '</div>';
     (document.getElementById("playPage") || document.body).appendChild(modal);
     modal.addEventListener("click", function (e) {
