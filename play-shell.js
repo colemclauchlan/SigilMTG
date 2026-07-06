@@ -342,20 +342,24 @@
   function reserveLobbySeat(s, isRetry) {
     try {
       if (!choice.online || !choice.joinCode || choice.seatReserved || choice.seatReserveFailed) return;
+      if (choice.seatReserving) return; // single-flight: lock-in + heartbeat + gamestart may overlap
       if (!window.MTGTableSync || !MTGTableSync.reserveSeat) return;
+      choice.seatReserving = true;
       Promise.resolve(MTGTableSync.reserveSeat(choice.joinCode, { displayName: choice.name })).then(function (d) {
+        choice.seatReserving = false;
         if (!d) { if (!isRetry) setTimeout(function () { reserveLobbySeat(s, true); }, 1600); return; } // session not ready yet — one retry
         if (d.spectate) { choice.seatReserveFailed = true; logLine(s, "This game already started — opening the spectator view."); setTimeout(function () { spectateGame(choice.joinCode, d.visibility); }, 900); return; }
         choice.seatReserved = true;
         if (d.seat_index != null) logLine(s, "Seat <b>" + (Number(d.seat_index) + 1) + "</b> is yours — press Start Game when you're ready.");
       }, function (e) {
+        choice.seatReserving = false;
         var m = (e && e.message) || String(e || "");
         choice.seatReserveFailed = true; // hard failure — don't retry/spam (full, bad code, finished)
         if (/full/i.test(m)) logLine(s, "This game is <b>full</b> (8 players max).");
         else if (/not found/i.test(m)) logLine(s, "That room code doesn't exist — check for a typo.");
         else if (/finished/i.test(m)) logLine(s, "That game has already finished.");
       });
-    } catch (e) {}
+    } catch (e) { choice.seatReserving = false; }
   }
 
   // Host pressed Start: one-shot broadcast so lobby guests reserve their seats BEFORE the host's
@@ -396,7 +400,7 @@
     if (choice.bracketHalf == null) choice.bracketHalf = "L";
     lobbyCfg.maxBracket = 0; // host-set cap: highest bracket allowed at this table (0 = Any)
     choice.joinCode = null; choice.hostedCode = null; choice.online = false;
-    choice.seatReserved = false; choice.seatReserveFailed = false; choice.gameStarted = false;
+    choice.seatReserved = false; choice.seatReserveFailed = false; choice.seatReserving = false; choice.gameStarted = false;
     selTileId = null;
     var s = eln("div", "ps-screen ps-lobby");
     s.innerHTML =
