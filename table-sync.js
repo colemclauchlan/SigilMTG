@@ -269,7 +269,19 @@ window.MTGTableSync = (function () {
   }
 
   // ---- push a committed local action: upsert my changed rows + delete removed + log ----
-  async function pushAction(action, stateAfter, changedIds) {
+  // Serialized per client: rapid consecutive actions on the SAME card (tap+declare-attack,
+  // move+attach) used to race — every dispatch fired an independent async push and HTTP
+  // completion order isn't guaranteed, so an OLDER row-image could commit last and clobber the
+  // newer one (lost attack flags / lost attachments under fast play). A promise chain keeps this
+  // client's writes in dispatch order; each queued job gets its own stable stateAfter snapshot.
+  var _pushChain = Promise.resolve();
+  function pushAction(action, stateAfter, changedIds) {
+    if (!S.online) return;
+    var run = function () { return doPushAction(action, stateAfter, changedIds); };
+    _pushChain = _pushChain.then(run, run);
+    return _pushChain;
+  }
+  async function doPushAction(action, stateAfter, changedIds) {
     if (!S.online) return;
     var upserts = [], removed = [], hidUp = [], hidDel = [];
     (changedIds || []).forEach(function (id) {
