@@ -312,8 +312,18 @@
       : '';
     var autoOn = T.autoTurnOn ? !!T.autoTurnOn() : true;
     var cursorsOn = T.liveCursorsOn ? !!T.liveCursorsOn() : true;
+    // Host-only (seat 0) multiplayer toggle: players may touch each other's cards. Was previously
+    // built in table.js but never exposed anywhere — this row is its only entry point.
+    var isHostSeat = false;
+    try { var meSeat = seats.filter(function (s) { return s && s.isMe; })[0]; isHostSeat = !!(meSeat && meSeat.seat === 0); } catch (e) {}
+    var interRow = "";
+    if (T.online && T.online() && isHostSeat) {
+      var interOn = T.interactionAllowed ? !!T.interactionAllowed() : false;
+      interRow = '<div class="hud-eng-row"><div class="hud-eng-tx"><b>Touch each other&rsquo;s cards</b><i>Host only: let every player tap, move and edit other players&rsquo; cards (useful for resolving effects on someone else&rsquo;s board).</i></div><button type="button" class="hud-eng-tog' + (interOn ? " on" : "") + '" id="hudInteract" role="switch" aria-checked="' + (interOn ? "true" : "false") + '" aria-label="Touch each other\'s cards"><span></span></button></div>';
+    }
     var body = '<div class="hud-set"><div class="hud-eng-row"><div class="hud-eng-tx"><b>Auto untap &amp; draw</b><i>Untap your permanents and draw for the turn automatically at the start of each of your turns.</i></div><button type="button" class="hud-eng-tog' + (autoOn ? " on" : "") + '" id="hudAutoTurn" role="switch" aria-checked="' + (autoOn ? "true" : "false") + '" aria-label="Auto untap and draw"><span></span></button></div>' +
       '<div class="hud-eng-row"><div class="hud-eng-tx"><b>Show live cursors</b><i>See every player’s pointer moving on the board, labeled with their name and seat color.</i></div><button type="button" class="hud-eng-tog' + (cursorsOn ? " on" : "") + '" id="hudLiveCursors" role="switch" aria-checked="' + (cursorsOn ? "true" : "false") + '" aria-label="Show live cursors"><span></span></button></div>' +
+      interRow +
       '<button class="hud-set-row hud-set-eng" id="hudSetEng" type="button">Rules engine settings</button>' +
       '<button class="hud-set-row hud-set-audio" id="hudSetAudio" type="button">Audio &amp; voice</button>' +
       '<button class="hud-set-row" id="hudSetMat" type="button">Change playmat</button>' +
@@ -329,6 +339,7 @@
     var hudAu = ov.querySelector("#hudSetAudio"); if (hudAu) hudAu.onclick = function () { done(); if (window.MTGVoiceUI) MTGVoiceUI.openAudioSettings(); };
     var hudAt = ov.querySelector("#hudAutoTurn"); if (hudAt) hudAt.onclick = function () { var on = !hudAt.classList.contains("on"); if (T.setAutoTurn) T.setAutoTurn(on); hudAt.classList.toggle("on", on); hudAt.setAttribute("aria-checked", on ? "true" : "false"); };
     var hudLc = ov.querySelector("#hudLiveCursors"); if (hudLc) hudLc.onclick = function () { var on = !hudLc.classList.contains("on"); if (T.setLiveCursors) T.setLiveCursors(on); hudLc.classList.toggle("on", on); hudLc.setAttribute("aria-checked", on ? "true" : "false"); };
+    var hudIt = ov.querySelector("#hudInteract"); if (hudIt) hudIt.onclick = function () { var on = !hudIt.classList.contains("on"); if (T.setInteractionAllowed) T.setInteractionAllowed(on); hudIt.classList.toggle("on", on); hudIt.setAttribute("aria-checked", on ? "true" : "false"); };
     ov.querySelector("#hudSetShuf").onclick = function () { if (T.shuffle) T.shuffle(); done(); };
     var wg = ov.querySelector("#hudWinGo");
     if (wg) wg.onclick = function () { var sel = ov.querySelector("#hudWinSel"); if (T.declareWinner) T.declareWinner(Number(sel ? sel.value : 0)); done(); };

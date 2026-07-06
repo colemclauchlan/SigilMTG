@@ -2589,6 +2589,7 @@
     else if (pl.type === "dice") { var _dn = pl.name ? esc(String(pl.name)) : ("Seat " + esc(String(pl.seat))); log(String(pl.kind) === "Coin" ? ("<b>" + _dn + "</b> flipped <b>" + esc(String(pl.result)) + "</b>") : ("<b>" + _dn + "</b> rolled a <b>" + esc(String(pl.result)) + "</b> on a " + esc(String(pl.kind)).toUpperCase())); } // escape remote fields (untrusted broadcast payload)
     else if (pl.type === "voice" && window.MTGVoice) MTGVoice.onSignal(pl);
     else if (pl.type === "chat") { var bubbled = cursorBubble(pl); addChatMessage(pl.name || ("Seat " + pl.seat), pl.text, false, bubbled); }
+    else if (pl.type === "tablecfg") { if (Number(pl.seat) === 0) applyTableSettings({ allowInteract: !!pl.allowInteract }); } // host-only table setting (host = seat 0); also persisted on games.settings
     else if (pl.type === "ping") showPing(pl); // gamewide attention ping — every client (sender included, via the local showPing() call in doPing) renders the pulse + logs it
   }
   // In-game text chat: a compact toggleable panel that rides the existing ephemeral broadcast channel.
@@ -3013,6 +3014,10 @@
     // G7.54 — shared live-cursor toggle (Settings menu). Default on; off stops broadcast + render both ways.
     setLiveCursors: function (on) { try { setCursorsEnabled(on); } catch (e) {} },
     liveCursorsOn: function () { try { return cursorsEnabled(); } catch (e) { return true; } },
+    // Host-only multiplayer setting: may players touch each other's cards? Guests receive it via
+    // games.settings (pull) + the "tablecfg" ephemeral; table.js itself rejects non-host callers.
+    setInteractionAllowed: function (on) { try { setInteractionAllowed(!!on); } catch (e) {} },
+    interactionAllowed: function () { return !!interactOthers; },
     // Mana pool + commander tax exposed so the bottom-left life hub mirrors the SAME state as the top vitals bar.
     manaPool: function () { return { W: manaPool.W || 0, U: manaPool.U || 0, B: manaPool.B || 0, R: manaPool.R || 0, G: manaPool.G || 0, C: manaPool.C || 0 }; },
     adjustMana: function (color, delta) { try { color = String(color).toUpperCase(); if (manaPool[color] == null) return; manaPool[color] = Math.max(0, (manaPool[color] || 0) + (Number(delta) || 0)); renderVitals(); } catch (e) {} },
