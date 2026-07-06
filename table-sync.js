@@ -222,7 +222,16 @@ window.MTGTableSync = (function () {
       parts = jd.participants || [];
     } catch (e) { if (e && e.spectate) throw e; rpcErr = e; }
     if (rpcErr) {
-      // Legacy fallback (pre-RPC schema): only viable where the caller can already read the participants.
+      // Legacy fallback (pre-RPC schema): ONLY when join_game isn't deployed at all (PostgREST
+      // can't find the function: PGRST202 / undefined_function / "schema cache"). A real REJECTION
+      // from the RPC (game is full / not found / already finished) must surface instead — on
+      // PUBLIC games the participants are readable to any signed-in user, so the old blanket
+      // fallback would compute seat 9+ and self-insert, silently bypassing the RPC's 8-seat cap
+      // and started-gate (G7.61). Reset the speculative online flags before surfacing: we never
+      // actually joined, and a stale S.online would let pushAction write into the foreign game.
+      var rpcMsg = String((rpcErr && rpcErr.message) || "");
+      var fnMissing = (rpcErr && (rpcErr.code === "PGRST202" || rpcErr.code === "42883")) || /could not find the function|schema cache/i.test(rpcMsg);
+      if (!fnMissing) { S.online = false; S.gameId = null; throw rpcErr; }
       var ps = await sync.client.from("game_participants").select("*").eq("game_id", gameId).order("seat_index");
       if (ps.error) throw ps.error;
       var existing = ps.data || [];

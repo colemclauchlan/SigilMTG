@@ -398,7 +398,8 @@
       }
       var msg = (e && e.message ? e.message : String(e || ""));
       setStatus("Join failed: " + msg);
-      showToast(/not found|no rows|does not exist|invalid|permission|policy/i.test(msg) ? "Couldn't join — invalid or expired game code." : ("Join failed: " + msg));
+      showToast(/full/i.test(msg) ? "This game is full (8 players max)."
+        : (/not found|no rows|does not exist|invalid|permission|policy/i.test(msg) ? "Couldn't join — invalid or expired game code." : ("Join failed: " + msg)));
       return false;
     }
   }

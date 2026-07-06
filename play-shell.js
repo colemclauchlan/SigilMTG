@@ -326,6 +326,7 @@
         }
         if (info.started) { logLine(s, "That game has already started — opening the spectator view."); setTimeout(function () { spectateGame(code, info.visibility); }, 900); return; }
         var n = Number(info.seats) || 0;
+        if (n >= 8) { logLine(s, "This game is <b>full</b> (8 players max) — once it starts you can watch it from the Spectate page."); return; }
         logLine(s, "Room found — <b>" + n + "</b> seated so far. Lock in a deck, then Start Game.");
       }, function (e) {
         var m = (e && e.message) || "";
@@ -355,11 +356,18 @@
         choice.seatReserving = false;
         var m = (e && e.message) || String(e || "");
         choice.seatReserveFailed = true; // hard failure — don't retry/spam (full, bad code, finished)
-        if (/full/i.test(m)) logLine(s, "This game is <b>full</b> (8 players max).");
+        if (/full/i.test(m)) { logLine(s, "This game is <b>full</b> (8 players max)."); lockStartButton(s, "Game full"); }
         else if (/not found/i.test(m)) logLine(s, "That room code doesn't exist — check for a typo.");
-        else if (/finished/i.test(m)) logLine(s, "That game has already finished.");
+        else if (/finished/i.test(m)) { logLine(s, "That game has already finished."); lockStartButton(s, "Game over"); }
       });
     } catch (e) { choice.seatReserving = false; }
+  }
+
+  // Hard-stop the lobby's Start button (game full / already finished): pressing Start with no seat
+  // would launch a broken half-local table and a doomed join. The reserve failure already latched
+  // choice.seatReserveFailed, so this state never un-sticks within this lobby visit.
+  function lockStartButton(s, label) {
+    try { var st = s.querySelector("#psStartGo"); if (st) { st.disabled = true; st.textContent = label || "Game full"; } } catch (e) {}
   }
 
   // Host pressed Start: one-shot broadcast so lobby guests reserve their seats BEFORE the host's
