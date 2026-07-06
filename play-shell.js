@@ -255,7 +255,10 @@
 
   // Opened via an invite link (?join=CODE): jump straight to the lobby with the code loaded.
   function openForJoin(code) {
-    open();
+    // Enter the Play view the way the Play tab does so #playPage becomes active — the shell lives
+    // inside #playPage, so calling open() while on Home leaves it mounted in a hidden parent.
+    var pb = document.getElementById("playTabButton");
+    if (pb) pb.click(); else open();
     buildLobby("commander");
     show("lobby");
     choice.online = true; choice.joinCode = code;
@@ -1181,7 +1184,12 @@
     document.querySelectorAll('[data-page-target]').forEach(function (b) { b.addEventListener("click", close); });
 
     var jcode = (location.search.match(/[?&]join=([^&]+)/) || [])[1];
-    if (jcode) setTimeout(function () { try { openForJoin(decodeURIComponent(jcode)); } catch (e) {} }, 250);
+    if (jcode) {
+      var runJoin = function () { try { openForJoin(decodeURIComponent(jcode)); } catch (e) {} };
+      // Run AFTER the app's initial hash-routing (which would otherwise leave us on Home).
+      if (document.readyState === "complete") setTimeout(runJoin, 80);
+      else window.addEventListener("load", function () { setTimeout(runJoin, 80); });
+    }
 
     // Deck-builder's "Play this deck" jumps straight into a game — give it the same full-screen treatment.
     if (window.MTGTable && typeof window.MTGTable.playDeck === "function") {
