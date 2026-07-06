@@ -500,9 +500,13 @@
       // Commander RE-ENTERING the command zone from elsewhere raises its tax by 2 (first cast is free; CR 903.8).
       if (_cz && _cz.isCommander && _cz.zone !== "command") { action = { t: "batch", actions: [{ t: "card_move", instanceId: action.instanceId, toZone: "command" }, { t: "card_counter", instanceId: action.instanceId, kind: "tax", delta: 2 }] }; }
     }
-    // Untapping a seat clears its local blocker flags (blocks end when the combat step wraps up).
+    // Untapping a seat clears its declared-blocker flags too (blocks end when the combat step wraps up).
+    // table-core.js's untap_all already clears "attacking"; "blocking" isn't a field it knows about, so
+    // fold in a __set here rather than editing the pure reducer (mirrors the commander-tax rewrite above).
     if (action && action.t === "untap_all") {
-      for (var _bk in blockingIds) { var _bc = state.cards[_bk]; if (!_bc || (_bc.controllerSeat != null ? _bc.controllerSeat : _bc.ownerSeat) === action.seat) delete blockingIds[_bk]; }
+      var _bset = [];
+      for (var _bk in state.cards) { var _bc = state.cards[_bk]; if (_bc && _bc.blocking && _bc.zone === "battlefield" && (_bc.controllerSeat != null ? _bc.controllerSeat : _bc.ownerSeat) === action.seat) _bset.push({ id: _bk, fields: { blocking: false } }); }
+      if (_bset.length) action = { t: "batch", actions: [action, { t: "__set", cards: _bset }] };
     }
     var anim = preAnim(action);
     var inv = MTGCore.invert(action, state);
@@ -521,6 +525,10 @@
   try { showPT = localStorage.getItem("mtg_show_pt") !== "0"; showKW = localStorage.getItem("mtg_show_kw") !== "0"; autoTurn = localStorage.getItem("mtg_auto_turn") !== "0"; engineEnforce = localStorage.getItem("mtg_engine_enforce") === "1"; } catch (e) {}
   // advisory ability-keyword chips on creatures (Scryfall keywords; gated by showKW)
   var KW_ABBR = { Flying: "FL", "First strike": "FS", "Double strike": "DS", Deathtouch: "DT", Trample: "TR", Lifelink: "LL", Vigilance: "VG", Menace: "MN", Reach: "RE", Defender: "DF", Haste: "HA", Hexproof: "HX", Indestructible: "ID", Ward: "WD", Flash: "FH", Prowess: "PW", Shadow: "SD", Fear: "FE", Intimidate: "IT", Skulk: "SK", Toxic: "TX", Infect: "IF", Wither: "WI", Protection: "PT" };
+  // manually grantable keyword abilities offered on the "Add/remove keywords" right-click submenu (G3.25) — stored as
+  // "kw:<name>" counters (delta 1/-1) on the card so the state rides the already-synced counters jsonb; kwChips()
+  // picks these up alongside MTGRulesStatic.grantedKeywords() static-ability grants (see cardNode()).
+  var GRANTABLE_KEYWORDS = ["flying", "first strike", "double strike", "deathtouch", "lifelink", "trample", "vigilance", "menace", "reach", "hexproof", "indestructible", "haste", "defender", "flash", "ward"];
   function kwChips(kws) {
     if (!showKW || !kws || !kws.length) return "";
     var seen = {}, out = [];
@@ -911,11 +919,11 @@
     if (!inHand) { node.style.left = (c.x / 100 * BOARD_W) + "px"; node.style.top = (c.y / 100 * BOARD_H) + "px"; }
     var src = imgFor(c);
     node.innerHTML = (src && !c.faceDown) ? '<img src="' + src + '" alt="' + esc(c.name) + '">' : (c.faceDown ? '<img class="cardback" src="' + CARD_BACK + '" alt="card back">' : '<div class="nm">' + esc(c.name) + "</div>");
-    var ctr = Object.keys(c.counters || {});
+    var ctr = Object.keys(c.counters || {}).filter(function (k) { return k !== "_atk" && k !== "_blk" && k.slice(0, 3) !== "kw:"; }); // internal sync-only flags (combat state, manual keyword grants) never show as a plain counter badge
     if (ctr.length) node.innerHTML += '<span class="badge">' + ctr.map(function (k) { var v = c.counters[k]; return (k === "+1/+1") ? ("+" + v + "/+" + v) : (k === "-1/-1") ? ("-" + v + "/-" + v) : (v + " " + k); }).join(" · ") + "</span>";
     if (c.isToken) node.innerHTML += '<span class="tok-mark" title="Token">T</span>';
     if (!inHand && c.attacking && c.zone === "battlefield") node.innerHTML += '<span class="atk-mark" title="Attacking">' + (window.MTGIcons ? MTGIcons.get("sword", "1em") : "") + '</span>';
-    if (!inHand && blockingIds[c.instanceId] && c.zone === "battlefield") node.innerHTML += '<span class="blk-mark" title="Blocking"><span class="msym">shield</span></span>';
+    if (!inHand && c.blocking && c.zone === "battlefield") node.innerHTML += '<span class="blk-mark" title="Blocking"><span class="msym">shield</span></span>';
     var _pti = imagesById[c.cardId];
     if (showPT && !inHand && c.zone === "battlefield" && _pti && _pti.isCreature && _pti.pt) {
       // G3.22 \u2014 bottom-left effective P/T badge: base P/T + all counters/modifiers (rules-layer engine when present).
@@ -926,6 +934,8 @@
     if (showKW && !inHand && c.zone === "battlefield" && _pti && _pti.isCreature) {
       var _kws = (_pti.keywords || []).slice();
       try { if (window.MTGRulesStatic && MTGRulesStatic.grantedKeywords && state) MTGRulesStatic.grantedKeywords(state, c.instanceId, {}).forEach(function (k) { if (_kws.indexOf(k) < 0) _kws.push(k); }); } catch (e) {}
+      // manually toggled keyword grants (Add/remove keywords menu) — "kw:<name>" counters, synced via counters jsonb
+      if (c.counters) for (var _kk in c.counters) { if (c.counters[_kk] && _kk.slice(0, 3) === "kw:") { var _kn = _kk.slice(3); if (_kws.indexOf(_kn) < 0) _kws.push(_kn); } }
       if (_kws.length) node.innerHTML += kwChips(_kws);
     }
     node.addEventListener("mouseenter", function () { hoveredId = c.instanceId; showPreview(c); if (inHand) Array.prototype.forEach.call(handCards(), function (n) { if (n !== node) n.classList.remove("walked"); }); });
@@ -1184,13 +1194,10 @@
       if (gid && window.mtgSync && mtgSync.updateGameSettings) mtgSync.updateGameSettings(gid, { allowInteract: on });
     } catch (e) {}
   }
-  function isBlockingCard(c) { return !!(c && c.zone === "battlefield" && ((c.counters && c.counters._blk) || blockingIds[c.instanceId])); }
-  // Blocking rides an internal "_blk" counter so the shield marker syncs to every client.
-  function setCardBlocking(c, on) {
-    var cur = (c.counters && c.counters._blk) || 0;
-    if (on) { blockingIds[c.instanceId] = 1; if (!cur) dispatch({ t: "card_counter", instanceId: c.instanceId, kind: "_blk", delta: 1 }); else render(); }
-    else { delete blockingIds[c.instanceId]; if (cur) dispatch({ t: "card_counter", instanceId: c.instanceId, kind: "_blk", delta: -cur }); else render(); }
-  }
+  function isBlockingCard(c) { return !!(c && c.zone === "battlefield" && c.blocking); }
+  // Blocking rides the synced "combat" column (game_card_instances.combat = 'blocking') via a raw
+  // __set so every seated player's client sees the same shield marker on the defender (G3.24/G3.27).
+  function setCardBlocking(c, on) { dispatch({ t: "__set", cards: [{ id: c.instanceId, fields: { blocking: !!on } }] }); }
   // Detach an aura/equipment: clear attachedTo/attachOrder and give it back its own spot beside the host.
   function detachCard(c) {
     var host = c.attachedTo ? state.cards[c.attachedTo] : null;
@@ -1280,13 +1287,30 @@
     if (c.counters && Object.keys(c.counters).some(function (k) { return c.counters[k]; })) item("Remove all counters", function () { var acts = []; for (var k in c.counters) { if (c.counters[k]) acts.push({ t: "card_counter", instanceId: c.instanceId, kind: k, delta: -c.counters[k] }); } if (acts.length) dispatch({ t: "batch", actions: acts }); });
     item("Counters & labels…", function () { openCounters(c); });
     item("Proliferate…", function () { openProliferate(); });
-    submenu("Attach to", [{ label: "Select a card", fn: function () { startLink(c.instanceId, "select", "attach"); } }, { label: "Draw a line", fn: function () { startLink(c.instanceId, "draw", "attach"); } }, { label: "Clear attachment", fn: function () { dispatch({ t: "card_attach", instanceId: c.instanceId, attachedTo: null }); } }]);
+    var _pti0 = imagesById[c.cardId];
+    if (_pti0 && _pti0.isCreature) {
+      submenu("Add/remove keywords", GRANTABLE_KEYWORDS.map(function (kw) {
+        var on = !!(c.counters && c.counters["kw:" + kw]);
+        return { label: "[" + (on ? "on" : "off") + "] " + kw, fn: function () { dispatch({ t: "card_counter", instanceId: c.instanceId, kind: "kw:" + kw, delta: on ? -1 : 1 }); } };
+      }));
+    }
+    var attachItems = [{ label: "Select a card", fn: function () { startLink(c.instanceId, "select", "attach"); } }, { label: "Draw a line", fn: function () { startLink(c.instanceId, "draw", "attach"); } }];
+    if (c.attachedTo) attachItems.push({ label: "Detach", fn: function () { detachCard(c); } }); // only offered while actually attached (aura/equipment host)
+    submenu("Attach to", attachItems);
     submenu("Target", [{ label: "Select a card", fn: function () { startLink(c.instanceId, "select", "target"); } }, { label: "Draw a line", fn: function () { startLink(c.instanceId, "draw", "target"); } }]);
-    if (c.zone === "battlefield") item(c.attacking ? "Remove from combat" : "Declare attacker", function () { var willAttack = !c.attacking; dispatch({ t: "card_combat", instanceId: c.instanceId, attacking: willAttack }); if (willAttack && !c.tapped) dispatch({ t: "card_tap", instanceId: c.instanceId, tapped: true }); });
-    // G3.24 — Declare blocker: shield indicator + a BLUE arrow from this card to the attacker it blocks.
-    if (c.zone === "battlefield") item(blockingIds[c.instanceId] ? "Remove blocker" : "Declare blocker", function () {
-      if (blockingIds[c.instanceId]) { delete blockingIds[c.instanceId]; render(); return; }
-      blockingIds[c.instanceId] = 1; render();
+    if (c.zone === "battlefield") item(c.attacking ? "Remove from combat" : "Declare attacker", function () {
+      var willAttack = !c.attacking;
+      var acts = [{ t: "card_combat", instanceId: c.instanceId, attacking: willAttack }];
+      if (willAttack && c.blocking) acts.push({ t: "__set", cards: [{ id: c.instanceId, fields: { blocking: false } }] }); // a card can't attack and block at once
+      if (willAttack && !c.tapped) acts.push({ t: "card_tap", instanceId: c.instanceId, tapped: true });
+      dispatch({ t: "batch", actions: acts });
+    });
+    // G3.24/G3.27 — Declare blocker: synced shield indicator (game_card_instances.combat) + a BLUE arrow to the attacker it blocks.
+    if (c.zone === "battlefield") item(c.blocking ? "Remove blocker" : "Declare blocker", function () {
+      if (c.blocking) { setCardBlocking(c, false); return; }
+      var acts = [{ t: "__set", cards: [{ id: c.instanceId, fields: { blocking: true } }] }];
+      if (c.attacking) acts.push({ t: "card_combat", instanceId: c.instanceId, attacking: false }); // mutual exclusivity, mirrored
+      dispatch({ t: "batch", actions: acts });
       startLink(c.instanceId, "draw", "block");
     });
     item("Put on stack", function () { if (c.zone === "hand") playFromHand(c); if (!onStackIds[c.instanceId]) { onStackIds[c.instanceId] = true; stackOrder.push(c.instanceId); } render(); });
@@ -1356,6 +1380,9 @@
     closeMenu();
     var m = document.createElement("div"); m.className = "tbl-menu";
     function item(label, fn) { var b = document.createElement("button"); b.textContent = label; b.onclick = function () { closeMenu(); fn(); }; m.appendChild(b); }
+    // Ping this spot on the board (gamewide attention marker) — communication only, never gated by canTouch.
+    item("Ping", function () { var bp = screenToBoard(x, y); doPing(null, bp.bx, bp.by); });
+    var sepp = document.createElement("div"); sepp.className = "sep"; m.appendChild(sepp);
     if (state && state.seats > 1) { var _seat = (seat == null ? mySeat : seat); item("Load deck for " + (_seat === mySeat ? "your seat" : "seat " + _seat) + "…", function () { openPasteDeck(_seat); }); var sepd = document.createElement("div"); sepd.className = "sep"; m.appendChild(sepd); }
     item("Create label…", function () { var t = window.prompt("Label text:"); if (t) createAnnotation("label", 45, 45, t); });
     item("Create counter", function () { createAnnotation("counter", 48, 48, ""); });
@@ -2223,8 +2250,9 @@
     var ov = document.createElement("div"); ov.className = "tbl-pileview"; ov.addEventListener("pointerdown", function (e) { if (e.target === ov) ov.remove(); });
     var panel = document.createElement("div"); panel.className = "pv-panel cmb-panel"; ov.appendChild(panel);
     function attackers() { var out = []; for (var id in state.cards) { var c = state.cards[id]; var ctrl = c.controllerSeat != null ? c.controllerSeat : c.ownerSeat; if (c.attacking && c.zone === "battlefield" && ctrl === mySeat) out.push(c); } return out; }
-    function declaredBlockers() { var out = []; for (var id in blockingIds) { var c = state.cards[id]; if (c && c.zone === "battlefield") out.push(c); } return out; }
+    function declaredBlockers() { var out = []; for (var id in state.cards) { var c = state.cards[id]; if (c && c.blocking && c.zone === "battlefield") out.push(c); } return out; } // synced — visible to every player, not just whoever declared the block
     function clearAll(list) { list.forEach(function (c) { dispatch({ t: "card_combat", instanceId: c.instanceId, attacking: false }); }); }
+    function clearBlockers(list) { list.forEach(function (c) { setCardBlocking(c, false); }); }
     var assign = {};   // blockerInstanceId -> attackerInstanceId (block assignment)
     function draw() {
       var atk = attackers(), blk = declaredBlockers(), ps = state.players;
@@ -2262,12 +2290,12 @@
         if (res.toPlayer > 0) dispatch({ t: "adjust_life", seat: tgt, delta: -res.toPlayer });
         if (res.lifegain && res.lifegain.attackers > 0) dispatch({ t: "adjust_life", seat: mySeat, delta: res.lifegain.attackers });
         a2.forEach(function (c) { dispatch({ t: "card_combat", instanceId: c.instanceId, attacking: false }); });
-        b2.forEach(function (c) { delete blockingIds[c.instanceId]; });
+        clearBlockers(b2);
         log("<b>Combat resolved</b> — " + res.toPlayer + " to " + (tgt === mySeat ? "you" : "seat " + tgt) + (deaths ? (", " + deaths + " creature" + (deaths > 1 ? "s" : "") + " died") : "") + (res.lifegain && res.lifegain.attackers ? (", +" + res.lifegain.attackers + " life") : "") + ".");
         try { render(); } catch (e) {}
         ov.remove();
       };
-      var cl = panel.querySelector(".cmb-clear"); if (cl) cl.onclick = function () { clearAll(attackers()); blockingIds = {}; try { render(); } catch (e) {} ov.remove(); };
+      var cl = panel.querySelector(".cmb-clear"); if (cl) cl.onclick = function () { clearAll(attackers()); clearBlockers(declaredBlockers()); try { render(); } catch (e) {} ov.remove(); };
     }
     draw();
     document.body.appendChild(ov);
@@ -2498,6 +2526,7 @@
     else if (pl.type === "dice") { var _dn = pl.name ? esc(String(pl.name)) : ("Seat " + esc(String(pl.seat))); log(String(pl.kind) === "Coin" ? ("<b>" + _dn + "</b> flipped <b>" + esc(String(pl.result)) + "</b>") : ("<b>" + _dn + "</b> rolled a <b>" + esc(String(pl.result)) + "</b> on a " + esc(String(pl.kind)).toUpperCase())); } // escape remote fields (untrusted broadcast payload)
     else if (pl.type === "voice" && window.MTGVoice) MTGVoice.onSignal(pl);
     else if (pl.type === "chat") { var bubbled = cursorBubble(pl); addChatMessage(pl.name || ("Seat " + pl.seat), pl.text, false, bubbled); }
+    else if (pl.type === "ping") showPing(pl); // gamewide attention ping — every client (sender included, via the local showPing() call in doPing) renders the pulse + logs it
   }
   // In-game text chat: a compact toggleable panel that rides the existing ephemeral broadcast channel.
   function ensureChat() {

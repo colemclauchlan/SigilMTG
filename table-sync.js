@@ -35,6 +35,9 @@ window.MTGTableSync = (function () {
   // ---- mapping: table-core CardInstance <-> game_card_instances row ----
   function toRow(ci) {
     var hide = isHidden(ci);
+    // Combat state (attacking/blocking) rides the dedicated "combat" column (20260706_game_card_instances_combat_state
+    // migration) so every seated player's client renders the same attack/defend icon on a creature.
+    var combat = ci.attacking ? "attacking" : (ci.blocking ? "blocking" : null);
     return {
       id: ci.instanceId, game_id: S.gameId,
       owner_participant_id: S.seatToPart[ci.ownerSeat],
@@ -46,7 +49,7 @@ window.MTGTableSync = (function () {
       counters: ci.counters || {}, attached_to: ci.attachedTo || null, attach_order: ci.attachOrder,
       is_token: !!ci.isToken, is_commander: !!ci.isCommander, phased: !!ci.phased,
       is_foil: !!ci.isFoil, is_etched: !!ci.isEtched, set_code: ci.setCode || null, collector_number: ci.collectorNumber || null,
-      revealed_to: ci.revealedTo || []
+      revealed_to: ci.revealedTo || [], combat: combat
     };
   }
   function fromRow(r) {
@@ -55,6 +58,7 @@ window.MTGTableSync = (function () {
       ownerSeat: S.partToSeat[r.owner_participant_id], controllerSeat: S.partToSeat[r.controller_participant_id != null ? r.controller_participant_id : r.owner_participant_id],
       zone: r.zone, pos: Number(r.pos) || 0, x: r.x, y: r.y, z: r.z || 0,
       tapped: !!r.tapped, faceDown: !!r.face_down, flipped: r.flipped_face || 0, phased: !!r.phased,
+      attacking: r.combat === "attacking", blocking: r.combat === "blocking",
       counters: r.counters || {}, attachedTo: r.attached_to || null, attachOrder: r.attach_order,
       isToken: !!r.is_token, isCommander: !!r.is_commander, isFoil: !!r.is_foil, isEtched: !!r.is_etched,
       setCode: r.set_code || null, collectorNumber: r.collector_number || null, revealedTo: r.revealed_to || []
