@@ -363,9 +363,10 @@
         choice.hostedCode = code;
         var link = location.origin + location.pathname + "?join=" + encodeURIComponent(code);
         invOut.hidden = false;
-        invOut.innerHTML = '<input class="ps-invite-link" readonly value="' + escapeAttr(link) + '" /><button type="button" class="ps-invite-copy">Copy link</button><span class="ps-invite-code">Room <b>' + escapeHtml(code) + '</b> — lock in your deck, then Start Game to take your seat.</span>';
-        var cp = invOut.querySelector(".ps-invite-copy"), li = invOut.querySelector(".ps-invite-link");
+        invOut.innerHTML = '<input class="ps-invite-link" readonly value="' + escapeAttr(link) + '" /><div class="ps-invite-btns"><button type="button" class="ps-invite-copy">Copy link</button><button type="button" class="ps-invite-copycode">Copy code</button></div><span class="ps-invite-code">Room code <b>' + escapeHtml(code) + '</b> — share the link, or share this code to paste into &ldquo;Join game&rdquo;.</span>';
+        var cp = invOut.querySelector(".ps-invite-copy"), li = invOut.querySelector(".ps-invite-link"), cc = invOut.querySelector(".ps-invite-copycode");
         cp.onclick = function () { try { if (li) { li.focus(); li.select(); } if (navigator.clipboard) navigator.clipboard.writeText(link); } catch (e) {} cp.textContent = "Copied!"; setTimeout(function () { cp.textContent = "Copy link"; }, 1600); };
+        if (cc) cc.onclick = function () { try { if (navigator.clipboard) navigator.clipboard.writeText(code); } catch (e) {} cc.textContent = "Copied!"; setTimeout(function () { cc.textContent = "Copy code"; }, 1600); };
         if (li) li.onclick = function () { li.focus(); li.select(); };
         // Hosting rewired MTGTableSync.onEphemeral — re-arm the lobby listener, then re-share state.
         setupLobbySync(s);
