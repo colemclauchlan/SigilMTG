@@ -209,9 +209,18 @@ window.MTGTableSync = (function () {
       var rj = await sync.client.rpc("join_game", { p_game: gameId, p_display_name: opts.displayName || "Player", p_life: opts.startingLife || 40 });
       if (rj.error) throw rj.error;
       var jd = rj.data || {};
+      // G7.57 — join_game_spectator_gate migration: the game already started, so no seat was made.
+      // Reset the online flags we speculatively set above (never really joined) and surface a
+      // typed error the caller can branch on to route into the read-only spectate view instead.
+      if (jd.spectate) {
+        S.online = false; S.gameId = null;
+        var specErr = new Error("This game has already started — you can watch as a spectator.");
+        specErr.spectate = true; specErr.visibility = jd.visibility || "private";
+        throw specErr;
+      }
       S.mySeat = jd.seat_index; S.myPart = jd.participant_id;
       parts = jd.participants || [];
-    } catch (e) { rpcErr = e; }
+    } catch (e) { if (e && e.spectate) throw e; rpcErr = e; }
     if (rpcErr) {
       // Legacy fallback (pre-RPC schema): only viable where the caller can already read the participants.
       var ps = await sync.client.from("game_participants").select("*").eq("game_id", gameId).order("seat_index");

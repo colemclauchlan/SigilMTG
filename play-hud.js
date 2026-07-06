@@ -311,7 +311,9 @@
         '</select><button id="hudWinGo" type="button">Declare winner</button></div>'
       : '';
     var autoOn = T.autoTurnOn ? !!T.autoTurnOn() : true;
+    var cursorsOn = T.liveCursorsOn ? !!T.liveCursorsOn() : true;
     var body = '<div class="hud-set"><div class="hud-eng-row"><div class="hud-eng-tx"><b>Auto untap &amp; draw</b><i>Untap your permanents and draw for the turn automatically at the start of each of your turns.</i></div><button type="button" class="hud-eng-tog' + (autoOn ? " on" : "") + '" id="hudAutoTurn" role="switch" aria-checked="' + (autoOn ? "true" : "false") + '" aria-label="Auto untap and draw"><span></span></button></div>' +
+      '<div class="hud-eng-row"><div class="hud-eng-tx"><b>Show live cursors</b><i>See every player’s pointer moving on the board, labeled with their name and seat color.</i></div><button type="button" class="hud-eng-tog' + (cursorsOn ? " on" : "") + '" id="hudLiveCursors" role="switch" aria-checked="' + (cursorsOn ? "true" : "false") + '" aria-label="Show live cursors"><span></span></button></div>' +
       '<button class="hud-set-row hud-set-eng" id="hudSetEng" type="button">Rules engine settings</button>' +
       '<button class="hud-set-row hud-set-audio" id="hudSetAudio" type="button">Audio &amp; voice</button>' +
       '<button class="hud-set-row" id="hudSetMat" type="button">Change playmat</button>' +
@@ -326,6 +328,7 @@
     ov.querySelector("#hudSetEng").onclick = function () { done(); openEngineSettings(); };
     var hudAu = ov.querySelector("#hudSetAudio"); if (hudAu) hudAu.onclick = function () { done(); if (window.MTGVoiceUI) MTGVoiceUI.openAudioSettings(); };
     var hudAt = ov.querySelector("#hudAutoTurn"); if (hudAt) hudAt.onclick = function () { var on = !hudAt.classList.contains("on"); if (T.setAutoTurn) T.setAutoTurn(on); hudAt.classList.toggle("on", on); hudAt.setAttribute("aria-checked", on ? "true" : "false"); };
+    var hudLc = ov.querySelector("#hudLiveCursors"); if (hudLc) hudLc.onclick = function () { var on = !hudLc.classList.contains("on"); if (T.setLiveCursors) T.setLiveCursors(on); hudLc.classList.toggle("on", on); hudLc.setAttribute("aria-checked", on ? "true" : "false"); };
     ov.querySelector("#hudSetShuf").onclick = function () { if (T.shuffle) T.shuffle(); done(); };
     var wg = ov.querySelector("#hudWinGo");
     if (wg) wg.onclick = function () { var sel = ov.querySelector("#hudWinSel"); if (T.declareWinner) T.declareWinner(Number(sel ? sel.value : 0)); done(); };

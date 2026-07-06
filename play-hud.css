@@ -192,8 +192,11 @@ body.play-fs.hud-log-off #playPage .tbl-rail { padding-top: 0; }
 .hud-life-zones i { font-style: normal; }
 .hud-life-zones b { color: #eef3fb; font-weight: 700; }
 
-/* ---- pinned tracker chips (board overlay, right rail under the life panel) ---- */
-.hud-pins { position: fixed; left: 16px; bottom: 132px; z-index: 92; display: flex; flex-direction: column; gap: 6px; width: 232px; font-family: Inter, system-ui, sans-serif; }
+/* ---- pinned tracker chips (board overlay, top-left under the phase bar) ---- */
+/* G7.57 — moved from the bottom-left corner (where it sat under the life hub) to the empty
+   top-left area just below .hud-bar (fixed, top:12px, ~46px tall) so it never overlaps the
+   phase bar, the action log/stack (right rail), or opponents' zones. Scrolls if crowded. */
+.hud-pins { position: fixed; left: 16px; top: 66px; bottom: auto; z-index: 92; display: flex; flex-direction: column; gap: 6px; width: 232px; max-height: calc(100vh - 96px); overflow-y: auto; font-family: Inter, system-ui, sans-serif; }
 .hud-pin { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px 6px 11px; background: rgba(13,19,30,.92); border: 1px solid rgba(255,255,255,.14); border-radius: 11px; box-shadow: 0 10px 26px rgba(0,0,0,.42); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 .hud-pin-l { font-size: 12.5px; font-weight: 700; color: #dbe4f3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hud-pin-ctl { display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; }
@@ -235,7 +238,8 @@ body.play-fs.hud-log-off #playPage .tbl-rail { padding-top: 0; }
   }
   .hud-pins {
     left: max(8px, env(safe-area-inset-left)); right: auto;
-    bottom: max(118px, calc(env(safe-area-inset-bottom) + 110px));
+    top: max(58px, calc(env(safe-area-inset-top) + 50px)); bottom: auto;
+    max-height: calc(100vh - 78px);
     width: min(210px, calc(100vw - 20px));
   }
 

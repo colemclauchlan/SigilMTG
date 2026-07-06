@@ -1246,16 +1246,39 @@
     openingHand();
   }
 
-  var inviteEl = null;
+  // G7.57 — redesigned as a compact, unobtrusive corner pill (was a top-center banner that covered
+  // the phase bar / menu UI). Collapsed by default to "Live · code›"; click to expand the copy-link
+  // controls in place. Sits bottom-right, clear of the top HUD bar, the top-left pinned trackers, and
+  // the right-rail action log/stack.
+  var inviteEl = null, inviteOpen = false;
   function showInvite(code) {
     var page = document.getElementById("playPage"); if (!page) return;
-    if (!inviteEl) { inviteEl = eln("div", "ps-invite"); inviteEl.id = "psInvite"; page.appendChild(inviteEl); }
-    inviteEl.innerHTML = '<span>Online game live — share code <b>' + escapeHtml(code) + '</b></span><button id="psInviteCopy" type="button">Copy link</button>';
+    if (!inviteEl) {
+      inviteEl = eln("div", "ps-invite"); inviteEl.id = "psInvite"; page.appendChild(inviteEl);
+      inviteEl.addEventListener("click", function (e) { if (e.target.closest("button") && e.target.closest("button").id !== "psInviteToggle") return; inviteOpen = !inviteOpen; renderInvite(code); });
+    }
+    inviteEl.dataset.code = code;
+    inviteOpen = false;
+    renderInvite(code);
     inviteEl.style.display = "";
-    inviteEl.querySelector("#psInviteCopy").onclick = function () {
-      var link = location.origin + location.pathname + "?join=" + encodeURIComponent(code);
-      try { if (navigator.clipboard) navigator.clipboard.writeText(link); } catch (e) {}
-      this.textContent = "Copied!";
+  }
+  function renderInvite(code) {
+    if (!inviteEl) return;
+    inviteEl.classList.toggle("open", inviteOpen);
+    if (!inviteOpen) {
+      inviteEl.innerHTML = '<button type="button" id="psInviteToggle" class="ps-invite-pill" title="Online game live — share the invite">' +
+        (window.MTGIcons ? MTGIcons.get("users", "1em") : "") + '<span>Live</span></button>';
+      return;
+    }
+    var link = location.origin + location.pathname + "?join=" + encodeURIComponent(code);
+    inviteEl.innerHTML = '<div class="ps-invite-card">' +
+      '<div class="ps-invite-row"><span>Share code <b>' + escapeHtml(code) + '</b></span><button type="button" id="psInviteToggle" class="ps-invite-x" aria-label="Collapse">' + (window.MTGIcons ? MTGIcons.get("close", "1em") : "×") + '</button></div>' +
+      '<button type="button" id="psInviteCopy" class="ps-invite-copybtn">Copy link</button></div>';
+    var cp = inviteEl.querySelector("#psInviteCopy");
+    if (cp) cp.onclick = function (e) {
+      e.stopPropagation();
+      try { if (navigator.clipboard) navigator.clipboard.writeText(link); } catch (e2) {}
+      cp.textContent = "Copied!"; setTimeout(function () { cp.textContent = "Copy link"; }, 1600);
     };
   }
   function hideInvite() { if (inviteEl) inviteEl.style.display = "none"; }
@@ -1377,11 +1400,32 @@
     };
   }
 
+  // G7.57 — a join attempt (?join=CODE, paste-code, or the lobby browser) landed on a game that has
+  // already started: table.js's doJoin() hit the spectator gate (join_game RPC) instead of seating us.
+  // Leave the lobby/full-screen play shell entirely and drop into the existing read-only Watch-tab
+  // live mirror — no seat, no deck, no interaction, just the public board (private games show that
+  // mirror's own honest "not public / unavailable to spectate" message; nothing new is granted here).
+  function spectateGame(gameId, visibility) {
+    try { close(); } catch (e) {}
+    try {
+      if (window.setActivePage) window.setActivePage("watch", true);
+      else { var wb = document.querySelector('[data-page-target="watch"]'); if (wb) wb.click(); }
+    } catch (e) {}
+    setTimeout(function () {
+      try { if (window.MTGWatch && window.MTGWatch.openLive) window.MTGWatch.openLive(gameId, choice.name || ""); } catch (e) {}
+    }, 60);
+    if (visibility && visibility !== "public") {
+      setTimeout(function () { try { if (window.alert) window.alert("This game already started. Private games in progress can only be spectated once they're public — you can watch public games live from the Watch tab."); } catch (e) {} }, 120);
+    }
+  }
+
   // ---- wiring ----
   function wire() {
     var btn = document.getElementById("playTabButton");
     if (btn) btn.addEventListener("click", function () { open(); });
     document.querySelectorAll('[data-page-target]').forEach(function (b) { b.addEventListener("click", close); });
+
+    try { if (window.MTGTable && window.MTGTable.setOnSpectateRequired) window.MTGTable.setOnSpectateRequired(spectateGame); } catch (e) {}
 
     var jcode = (location.search.match(/[?&]join=([^&]+)/) || [])[1];
     if (jcode) {

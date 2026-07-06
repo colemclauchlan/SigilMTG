@@ -321,8 +321,15 @@
       if (opts.lfp) gname = gname + " [LFP]"; // "looking for players" — host wants random players; surfaced in the lobby list
       var gid = await MTGTableSync.host(deckListFromState(), { displayName: opts.displayName || "Host", visibility: pub ? "public" : "private", name: gname, scheduledAt: opts.scheduledAt || null, hand: 7 });
       online = true; mySeat = MTGTableSync.info().mySeat;
+      markGameStarted(gid);
       setStatus((pub ? "Hosting PUBLIC game " : "Hosting private game ") + gid); log("<b>Hosting</b> " + (pub ? "public " : "") + "game " + gid + (pub ? " — others can Find it." : " (share the id)")); render();
     } catch (e) { setStatus("Host failed: " + (e && e.message ? e.message : e)); }
+  }
+  // G7.57 — flip games.settings.started once the host's table is actually live (deck loaded, seated).
+  // join_game (Supabase RPC) checks this flag: a fresh join attempt after it's true returns a
+  // { spectate: true } marker instead of a seat, so a share-link opened post-start can only spectate.
+  function markGameStarted(gid) {
+    try { if (gid && window.mtgSync && mtgSync.updateGameSettings) mtgSync.updateGameSettings(gid, { started: true }); } catch (e) {}
   }
   // Create an EMPTY online room instantly (no deck yet) so the lobby can hand out an invite link before the host picks a deck.
   async function doHostRoom(opts) {
@@ -334,6 +341,8 @@
       var pub = opts.visibility === "public";
       var gid = await MTGTableSync.host([], { displayName: opts.displayName || "Host", visibility: pub ? "public" : "private", name: opts.name });
       online = true; mySeat = MTGTableSync.info().mySeat;
+      // Not marked started here — this is the INSTANT-ROOM path (invite link handed out before the
+      // host has even picked a deck); persistMyDeck() below marks it started once the host is seated.
       setStatus("Online room created — share your invite link."); log("<b>Room created</b> " + gid + " — pick your deck to take your seat.");
       return gid;
     } catch (e) { setStatus("Couldn't create room: " + (e && e.message ? e.message : e)); throw e; }
@@ -342,7 +351,11 @@
   async function persistMyDeck() {
     if (!state) { setStatus("Load a deck first."); return null; }
     if (!online || !window.MTGTableSync || !MTGTableSync.persistDeck) return null;
-    try { return await MTGTableSync.persistDeck(deckListFromState(), { hand: MTGCore.zoneCount(state, mySeat, "hand") || 7 }); } catch (e) { setStatus("Sync deck failed: " + (e && e.message ? e.message : e)); return null; }
+    try {
+      var r = await MTGTableSync.persistDeck(deckListFromState(), { hand: MTGCore.zoneCount(state, mySeat, "hand") || 7 });
+      markGameStarted(r); // persistDeck resolves the gameId once my deck (and seat) are actually live
+      return r;
+    } catch (e) { setStatus("Sync deck failed: " + (e && e.message ? e.message : e)); return null; }
   }
   async function doJoin(gameId, opts) {
     opts = opts || {};
@@ -358,12 +371,22 @@
       setStatus("Joined " + gid + " as seat " + mySeat); log("<b>Joined</b> " + gid); showToast("Joined the game."); render();
       return true;
     } catch (e) {
+      // G7.57 — the game already started: no seat, no deck, no interaction — spectator-only.
+      // Hand off to whoever wired onSpectateRequired (play-shell.js routes this into the read-only
+      // Watch-tab live mirror) instead of showing a generic "join failed" error.
+      if (e && e.spectate) {
+        setStatus("Game already in progress — spectating.");
+        if (typeof onSpectateRequired === "function") { try { onSpectateRequired(gid, e.visibility || "private"); } catch (e2) {} }
+        else showToast("This game already started — spectator view isn't available here.");
+        return false;
+      }
       var msg = (e && e.message ? e.message : String(e || ""));
       setStatus("Join failed: " + msg);
       showToast(/not found|no rows|does not exist|invalid|permission|policy/i.test(msg) ? "Couldn't join — invalid or expired game code." : ("Join failed: " + msg));
       return false;
     }
   }
+  var onSpectateRequired = null; // set by play-shell.js: function(gameId, visibility) { ...route to Watch... }
 
   // Pass turn — the turn engine (auto-untap + draw for turn) fires for the seat RECEIVING the
   // turn (G4.32). Solo/hotseat runs it here; online, the receiving client runs it in checkTurnChange.
@@ -2477,10 +2500,21 @@
   var CURSOR_COLORS = ["#4aa3e6", "#e0655c", "#46b277", "#9b86c4", "#e6c04a", "#eef0ea"];
   var cursorLast = 0, remoteCursors = {}, cursorTimer = null;
   function cursorsEnabled() { try { return localStorage.getItem("mtg-live-cursors") !== "off"; } catch (e) { return true; } }
+  // G7.54 — top-bar (Settings menu) toggle for shared cursors. Off means neither broadcast nor
+  // render: flip it off and immediately clear every peer cursor already on screen (no stale pointer).
+  function setCursorsEnabled(on) {
+    on = !!on;
+    try { localStorage.setItem("mtg-live-cursors", on ? "on" : "off"); } catch (e) {}
+    if (!on) {
+      for (var seat in remoteCursors) { try { remoteCursors[seat].el.remove(); } catch (e) {} }
+      remoteCursors = {};
+      if (cursorTimer) { clearInterval(cursorTimer); cursorTimer = null; }
+    }
+  }
   function cursorPing(cx, cy) {
     if (!online || !state || !cursorsEnabled()) return;
     if (!window.MTGTableSync || !MTGTableSync.broadcastEphemeral) return;
-    var now = Date.now(); if (now - cursorLast < 90) return; cursorLast = now;
+    var now = Date.now(); if (now - cursorLast < 30) return; cursorLast = now; // ~30ms throttle (spec: 20-40ms)
     var b = screenToBoard(cx, cy);
     var nm = (state.players && state.players[mySeat] && state.players[mySeat].name) || "Player";
     MTGTableSync.broadcastEphemeral({ type: "cursor", seat: mySeat, name: nm, bx: Math.round(b.bx), by: Math.round(b.by) });
@@ -2961,6 +2995,9 @@
     showKWOn: function () { return !!showKW; },
     setAutoTurn: function (on) { autoTurn = !!on; try { localStorage.setItem("mtg_auto_turn", autoTurn ? "1" : "0"); } catch (e) {} },
     autoTurnOn: function () { return !!autoTurn; },
+    // G7.54 — shared live-cursor toggle (Settings menu). Default on; off stops broadcast + render both ways.
+    setLiveCursors: function (on) { try { setCursorsEnabled(on); } catch (e) {} },
+    liveCursorsOn: function () { try { return cursorsEnabled(); } catch (e) { return true; } },
     // Mana pool + commander tax exposed so the bottom-left life hub mirrors the SAME state as the top vitals bar.
     manaPool: function () { return { W: manaPool.W || 0, U: manaPool.U || 0, B: manaPool.B || 0, R: manaPool.R || 0, G: manaPool.G || 0, C: manaPool.C || 0 }; },
     adjustMana: function (color, delta) { try { color = String(color).toUpperCase(); if (manaPool[color] == null) return; manaPool[color] = Math.max(0, (manaPool[color] || 0) + (Number(delta) || 0)); renderVitals(); } catch (e) {} },
@@ -2988,7 +3025,10 @@
     shuffle: function () { try { dispatch({ t: "library_shuffle", seat: mySeat, seed: "s" + Date.now() }); } catch (e) {} },
     openSideboard: function () { try { openSideboard(); } catch (e) {} },
     sideboard: function () { try { return sideboardCards.slice(); } catch (e) { return []; } },
-    endGame: function () { try { doEndGame(); } catch (e) {} }
+    endGame: function () { try { doEndGame(); } catch (e) {} },
+    // G7.57 — play-shell.js wires this once at boot: fn(gameId, visibility) fires when doJoin() hits
+    // the spectator gate (game already started), so the shell can route into the read-only spectate view.
+    setOnSpectateRequired: function (fn) { onSpectateRequired = (typeof fn === "function") ? fn : null; }
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();

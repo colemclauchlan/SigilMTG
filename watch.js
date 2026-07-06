@@ -385,11 +385,21 @@
     fn.then(done, done);
   }
 
+  // G7.57 — external entry point (play-shell.js) for "share link opened after the game started":
+  // jump straight into the live spectator mirror for a known gameId, skipping the games list. Only
+  // ever succeeds for a public game (existing "public spectate read" RLS) — private games surface
+  // the same honest "not public / unavailable to spectate" message renderLive() already shows.
+  function openLive(gameId, gameName) {
+    if (!gameId) return;
+    state.mode = "live"; state.gameId = gameId; state.gameName = gameName || "";
+    render();
+  }
+
   ensureStyles();
   document.addEventListener("click", function (e) { var t = e.target.closest && e.target.closest('[data-page-target="watch"]'); if (t) { stopLive(); state.mode = "list"; setTimeout(render, 40); } });
   // Stop live/VOD polling+subscription when the user navigates away from the Watch tab (prevents leaked timers/channels).
   window.addEventListener("mtg-page-changed", function (e) { if (!e || !e.detail) return; if (e.detail.page === "watch") { if (state.mode !== "live" && state.mode !== "vod") { state.mode = "list"; render(); } } else { stopPlayback(); stopLive(); } });
-  window.MTGWatch = { render: render };
+  window.MTGWatch = { render: render, openLive: openLive };
 
   // ---- self-injected styles (mirrors onboarding.js pattern; references .svc-* tokens from pages.css) ----
   function ensureStyles() {

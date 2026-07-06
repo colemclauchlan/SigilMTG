@@ -284,9 +284,20 @@ body.play-fs { overflow: hidden; }
 .ps-join input:focus { outline: none; border-color: var(--tbl-accent, #46c2d8); }
 .ps-join button { cursor: pointer; border: 0; border-radius: 10px; padding: 11px 20px; font-size: 14px; font-weight: 700; background: var(--tbl-accent, #46c2d8); color: #07120e; white-space: nowrap; }
 .ps-join button:hover { filter: brightness(1.06); }
-.ps-invite { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 905; display: flex; align-items: center; gap: 12px; background: rgba(15,23,38,.94); border: 1px solid var(--tbl-accent, #46c2d8); color: #e9eef6; border-radius: 999px; padding: 8px 8px 8px 16px; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
-.ps-invite b { color: var(--tbl-accent, #46c2d8); letter-spacing: .04em; }
-.ps-invite button { cursor: pointer; border: 0; border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 700; background: var(--tbl-accent, #46c2d8); color: #07120e; }
+/* G7.57 — compact corner pill (was a top-center banner covering the phase bar / menu UI).
+   Bottom-right, clear of the top HUD bar, the top-left pinned trackers, and the right-rail log. */
+.ps-invite { position: fixed; right: 16px; bottom: 16px; z-index: 905; font-size: 13px; }
+.ps-invite-pill { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border: 1px solid var(--tbl-accent, #46c2d8); border-radius: 999px; padding: 8px 14px; font-size: 12.5px; font-weight: 700; background: rgba(15,23,38,.92); color: var(--tbl-accent, #46c2d8); box-shadow: 0 10px 26px rgba(0,0,0,.45); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.ps-invite-pill:hover { background: rgba(15,23,38,1); }
+.ps-invite-pill svg { width: 15px; height: 15px; }
+.ps-invite-card { display: flex; flex-direction: column; gap: 8px; background: rgba(15,23,38,.96); border: 1px solid var(--tbl-accent, #46c2d8); color: #e9eef6; border-radius: 14px; padding: 10px 12px; box-shadow: 0 14px 34px rgba(0,0,0,.5); min-width: 220px; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.ps-invite-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ps-invite-row b { color: var(--tbl-accent, #46c2d8); letter-spacing: .04em; }
+.ps-invite-x { cursor: pointer; border: 0; background: transparent; color: #8a98ad; padding: 2px; border-radius: 6px; display: inline-flex; }
+.ps-invite-x:hover { color: #fff; background: rgba(255,255,255,.1); }
+.ps-invite-x svg { width: 13px; height: 13px; }
+.ps-invite-copybtn { cursor: pointer; border: 0; border-radius: 999px; padding: 7px 14px; font-size: 12px; font-weight: 700; background: var(--tbl-accent, #46c2d8); color: #07120e; }
+.ps-invite-copybtn:hover { filter: brightness(1.06); }
 
 /* ---- playmat picker (img 5) ---- */
 .ps-mat { align-items: center; justify-content: center; padding: 24px; }
@@ -564,6 +575,10 @@ body.play-fs.hud-log-off #playPage .tbl-log-head { display: none; }
   /* Track button clears the notch. */
   .ps-track-btn { top: max(12px, calc(env(safe-area-inset-top) + 2px)); right: max(12px, env(safe-area-inset-right)); }
   .ps-track { top: max(52px, calc(env(safe-area-inset-top) + 44px)); right: max(12px, env(safe-area-inset-right)); width: min(252px, calc(100vw - 24px)); }
+
+  /* Invite corner pill clears the home-indicator safe area. */
+  .ps-invite { right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); }
+  .ps-invite-card { min-width: min(240px, calc(100vw - 24px)); }
 }
 
 /* Touch: comfortable tap targets on the shell's small controls. */
