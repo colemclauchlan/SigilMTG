@@ -1292,9 +1292,22 @@
       try { if (window.MTGTable && MTGTable.mulligan) MTGTable.mulligan(); } catch (e) {}
       ohPolls = 0; setTimeout(renderOpeningHand, 350);
     };
-    if (ohPolls < 10) {
-      var missing = hand.length === 0 || hand.some(function (c) { return !c.img; });
-      if (missing) { ohPolls++; setTimeout(renderOpeningHand, 500); }
+    var sig = hand.map(function (c) { return c.id; }).join("|");
+    var missing = hand.length === 0 || hand.some(function (c) { return !c.img; });
+    if (missing && ohPolls < 10) { ohPolls++; setTimeout(renderOpeningHand, 500); return; }
+    if (choice.online && ohPolls < 40) {
+      // Online, the persisted deal can replace the locally drawn 7 a moment after this modal
+      // painted — keep watching (lightly, self-limiting) and repaint when the hand changes.
+      ohPolls++;
+      var watch = function () {
+        if (!ohEl || ohEl.style.display === "none") return;
+        var now = [];
+        try { now = (window.MTGTable && MTGTable.hand()) || []; } catch (e) {}
+        var nsig = now.map(function (c) { return c.id; }).join("|");
+        if (nsig !== sig) renderOpeningHand();
+        else if (ohPolls < 40) { ohPolls++; setTimeout(watch, 700); }
+      };
+      setTimeout(watch, 700);
     }
   }
   function closeOpeningHand() { if (ohEl) ohEl.style.display = "none"; try { document.body.classList.remove("oh-open"); } catch (e) {} }
