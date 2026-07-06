@@ -157,7 +157,15 @@ window.MTGVoice = (function () {
     S.selfMeta = opts.meta || S.selfMeta || null;
     if (opts.onLevel) S.onLevel = opts.onLevel;
     if (opts.onChange) S.onChange = opts.onChange;
-    S.stream = await getMic(S.inputId); applyMute();
+    try { S.stream = await getMic(S.inputId); }
+    catch (e) {
+      // Mic denied/unavailable: fully un-join. S.active was already true, so without this reset
+      // the failed join left a half-alive ghost — the next toggle said "Left voice chat" instead
+      // of retrying, and incoming offers were still answered with a silent no-track connection.
+      S.active = false; S.send = null; notify();
+      throw e;
+    }
+    applyMute();
     ensureCtx(); setupLocalAnalyser(); startLevelLoop();
     sig("join", null, null);            // announce; existing peers respond by offering
     notify();
