@@ -153,7 +153,7 @@ window.MTGTableSync = (function () {
 
   function subscribe() {
     sync.subscribeToGame(S.gameId, function (evt) {
-      if (evt.kind === "db") schedulePull();
+      if (evt.kind === "db") { if (!S.lobbyOnly) schedulePull(); }
       else if (evt.kind === "ephemeral" && api.onEphemeral) api.onEphemeral(evt.payload);
     }, function (status) {
       // Connection lifecycle → drive a reconnect/resume indicator in the table UI.
@@ -185,7 +185,7 @@ window.MTGTableSync = (function () {
   async function join(gameId, deckList, opts) {
     if (!ready()) throw new Error("Sign in to join an online game.");
     opts = opts || {};
-    S.gameId = gameId; S.online = true;
+    S.gameId = gameId; S.online = true; S.lobbyOnly = false;
     var ps = await sync.client.from("game_participants").select("*").eq("game_id", gameId).order("seat_index");
     if (ps.error) throw ps.error;
     var existing = ps.data || [];
@@ -200,6 +200,14 @@ window.MTGTableSync = (function () {
     }
     subscribe(); await pull();
     return S.gameId;
+  }
+  // Lobby presence only: subscribe to the game's realtime channel for ephemeral presence, WITHOUT a
+  // participant insert or state pull — lets a joiner/guest appear in the host's lobby before Start Game.
+  function joinLobby(gameId) {
+    if (!ready() || !gameId) return false;
+    S.gameId = gameId; S.online = true; S.lobbyOnly = true;
+    try { subscribe(); } catch (e) { return false; }
+    return true;
   }
 
   // ---- push a committed local action: upsert my changed rows + delete removed + log ----
@@ -270,6 +278,6 @@ window.MTGTableSync = (function () {
 
   api.listOpenGames = function (limit) { return (sync && sync.listOpenGames) ? sync.listOpenGames(limit) : Promise.resolve([]); };
   api.broadcastEphemeral = function (payload) { if (sync && sync.broadcastEphemeral) sync.broadcastEphemeral(payload); };
-  api.host = host; api.join = join; api.persistDeck = persistDeck; api.pushAction = pushAction; api.pull = pull; api.isOnline = isOnline; api.info = info; api.leave = leave; api.recordWinner = recordWinner;
+  api.host = host; api.join = join; api.joinLobby = joinLobby; api.persistDeck = persistDeck; api.pushAction = pushAction; api.pull = pull; api.isOnline = isOnline; api.info = info; api.leave = leave; api.recordWinner = recordWinner;
   return api;
 })();

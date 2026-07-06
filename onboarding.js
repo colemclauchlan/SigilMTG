@@ -89,9 +89,9 @@
           + [["casual", "Casual"], ["focused", "Focused"], ["cedh", "cEDH"]].map(function (s) { return "<button class='onb-chip" + (pref.style === s[0] ? " sel" : "") + "' data-style='" + s[0] + "'>" + s[1] + "</button>"; }).join("") + "</div>"
           + "<div class='onb-foot'><button class='onb-btn ghost' data-act='back'>Back</button><button class='onb-btn primary' data-act='next'>Next</button></div>";
       } else {
-        body = "<h2>Your first game</h2>"
-          + "<p>You’re set. Jump into a sample game to learn the virtual tabletop — pan/zoom, drag cards, right-click for actions — or finish and explore.</p>"
-          + "<div class='onb-foot'><button class='onb-btn ghost' data-act='finish'>Finish</button><button class='onb-btn primary' data-act='play'>Start a sample game</button></div>";
+        body = "<h2>You’re all set</h2>"
+          + "<p>Build or import a deck, then open <b>Play</b> to start a Commander game — or host a table and invite friends.</p>"
+          + "<div class='onb-foot'><button class='onb-btn ghost' data-act='deck'>Open deck builder</button><button class='onb-btn primary' data-act='finish'>Finish</button></div>";
       }
       card.innerHTML = dots + body;
     }
@@ -105,7 +105,6 @@
       else if (act === "deck") { savePref(pref); close(true); go("deck"); }
       else if (act === "back") { step = Math.max(0, step - 1); render(); }
       else if (act === "next") { step = Math.min(2, step + 1); render(); }
-      else if (act === "play") { savePref(pref); close(true); startGame(); }
     });
 
     render();

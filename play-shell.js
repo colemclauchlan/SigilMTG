@@ -266,12 +266,23 @@
     var ci = s.querySelector("#psJoinCode"); if (ci) ci.value = code;
     applyHostUi(s);
     renderPlayers(s);
-    // Allow guests: if not signed in, quietly create a guest (anonymous) session so they can join.
+    // Connect to the host's realtime lobby channel so both sides see each other before Start Game.
+    var connectLobby = function () {
+      try {
+        if (window.MTGTableSync && MTGTableSync.joinLobby && MTGTableSync.joinLobby(code)) {
+          setupLobbySync(s);
+          var ping = function () { broadcastPresence(); if (choice.locked) broadcastDeckPick(); };
+          ping(); setTimeout(ping, 700); setTimeout(ping, 1800);
+        }
+      } catch (e) {}
+    };
     try {
-      if (window.mtgSync && window.mtgSync.enabled && !window.mtgSync.session && window.mtgSync.signInAnonymously) {
+      if (window.mtgSync && window.mtgSync.session) connectLobby();
+      else if (window.mtgSync && window.mtgSync.enabled && window.mtgSync.signInAnonymously) {
         window.mtgSync.signInAnonymously().then(function () {
           try { refreshAccount(); } catch (e) {}
           logLine(s, 'Joined as <b>guest</b> — pick a deck and Start Game to play. You can make a free account after.');
+          connectLobby();
         }).catch(function () { logLine(s, 'To join, sign in (top-right) — guest play may be disabled.'); });
       }
     } catch (e) {}
@@ -382,6 +393,7 @@
         if (li) li.onclick = function () { li.focus(); li.select(); };
         // Hosting rewired MTGTableSync.onEphemeral — re-arm the lobby listener, then re-share state.
         setupLobbySync(s);
+        broadcastPresence();
         broadcastLobbyCfg();
         broadcastDeckPick();
         logLine(s, 'Room <b>' + escapeHtml(code) + '</b> created — share the link with your pod.');
@@ -595,6 +607,13 @@
       MTGTableSync.broadcastEphemeral({ type: "lobbycfg", preconsOnly: !!lobbyCfg.preconsOnly });
     } catch (e) {}
   }
+  // "I'm here" ping so players appear in each other's lobby before anyone locks a deck.
+  function broadcastPresence() {
+    try {
+      if (!choice.online || !window.MTGTableSync || !MTGTableSync.broadcastEphemeral) return;
+      MTGTableSync.broadcastEphemeral({ type: "presence", name: choice.name || "Player", color: choice.color });
+    } catch (e) {}
+  }
   function setupLobbySync(s) {
     if (!window.MTGTableSync) return;
     teardownLobbySync(); // idempotent: never capture our own wrapper as prev (avoids stacked handlers)
@@ -612,6 +631,14 @@
   }
   function handleLobbyEphemeral(s, pl) {
     if (!pl || !s) return;
+    if (pl.type === "presence" && pl.name && pl.name !== choice.name) {
+      var ppk = String(pl.name).slice(0, 24);
+      var isNewPeer = !lobbyState.picks[ppk];
+      if (isNewPeer) lobbyState.picks[ppk] = { name: ppk, color: typeof pl.color === "string" ? pl.color : "#4f7bf0", deck: null };
+      renderPlayers(s);
+      if (isNewPeer) { logLine(s, escapeHtml(ppk) + " joined the lobby."); broadcastPresence(); if (choice.locked) broadcastDeckPick(); if (isHost()) broadcastLobbyCfg(); }
+      return;
+    }
     if (pl.type === "deckpick" && pl.name && pl.name !== choice.name) {
       var key = String(pl.name).slice(0, 24);
       var first = !lobbyState.picks[key];
