@@ -109,7 +109,7 @@ window.MTGTableSync = (function () {
     var participants = data.participants || [];
     setMaps(participants);
     var seats = participants.length || 1;
-    var state = { seats: seats, activeSeat: (data.game && data.game.active_seat_index) || 0, turn: (data.game && data.game.total_turns) || 1, phase: (data.game && data.game.phase) || "main1", players: [], annotations: {}, cards: {} };
+    var state = { seats: seats, activeSeat: (data.game && data.game.active_seat_index) || 0, turn: (data.game && data.game.total_turns) || 1, phase: (data.game && data.game.phase) || "main1", settings: (data.game && data.game.settings) || {}, players: [], annotations: {}, cards: {} };
     for (var i = 0; i < seats; i++) {
       var p = participants[i] || { life: 40 };
       state.players[i] = { seat: i, life: p.life_total != null ? p.life_total : 40, counters: {}, cmdDamage: {}, name: p.display_name || ("Seat " + i) };
