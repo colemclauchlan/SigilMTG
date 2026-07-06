@@ -290,7 +290,7 @@
       try {
         if (window.MTGTableSync && MTGTableSync.joinLobby && MTGTableSync.joinLobby(code)) {
           setupLobbySync(s);
-          var ping = function () { broadcastPresence(); if (choice.locked) broadcastDeckPick(); };
+          var ping = function () { broadcastPresence(true); if (choice.locked) broadcastDeckPick(); };
           ping(); setTimeout(ping, 700); setTimeout(ping, 1800); setTimeout(ping, 4000);
         }
       } catch (e) {}
@@ -416,7 +416,7 @@
         if (li) li.onclick = function () { li.focus(); li.select(); };
         // Hosting rewired MTGTableSync.onEphemeral — re-arm the lobby listener, then re-share state.
         setupLobbySync(s);
-        broadcastPresence();
+        broadcastPresence(true);
         broadcastLobbyCfg();
         broadcastDeckPick();
         logLine(s, 'Room <b>' + escapeHtml(code) + '</b> created — share the link with your pod.');
@@ -716,10 +716,16 @@
     } catch (e) {}
   }
   // "I'm here" ping so players appear in each other's lobby before anyone locks a deck.
-  function broadcastPresence() {
+  // hello:true asks peers to answer back (used when first connecting); replies use hello:false so
+  // the exchange can't loop. The payload carries my deck pick so one heartbeat fully rebuilds a
+  // peer's view of me even if an individual deckpick message was missed.
+  function broadcastPresence(hello) {
     try {
       if (!choice.online || !window.MTGTableSync || !MTGTableSync.broadcastEphemeral) return;
-      MTGTableSync.broadcastEphemeral({ type: "presence", uid: myUid(), name: choice.name || "Player", color: choice.color });
+      MTGTableSync.broadcastEphemeral({
+        type: "presence", uid: myUid(), name: choice.name || "Player", color: choice.color, hello: !!hello,
+        deck: (choice.locked && choice.deckMeta) ? { name: choice.deckMeta.name, commander: choice.deckMeta.commander, bracket: choice.deckMeta.bracket } : null
+      });
     } catch (e) {}
   }
   function isSelfMsg(pl) {
@@ -742,13 +748,20 @@
     MTGTableSync.onConn = function (kind) {
       try {
         if (kind === "connected" || kind === "reconnected") {
-          broadcastPresence(); if (choice.locked) broadcastDeckPick(); if (isHost()) broadcastLobbyCfg();
+          broadcastPresence(true); if (choice.locked) broadcastDeckPick(); if (isHost()) broadcastLobbyCfg();
         }
       } catch (e) {}
       if (lobbySync.prevConn) { try { lobbySync.prevConn(kind); } catch (e) {} }
     };
+    // Gentle heartbeat: presence (+host config) every 5s while the lobby is connected — heals any
+    // missed message (e.g. a reply that raced a client's channel join) within one beat.
+    clearInterval(lobbySync.beat);
+    lobbySync.beat = setInterval(function () {
+      try { if (choice.online) { broadcastPresence(false); if (isHost()) broadcastLobbyCfg(); } } catch (e) {}
+    }, 5000);
   }
   function teardownLobbySync() {
+    clearInterval(lobbySync.beat); lobbySync.beat = null;
     if (!lobbySync.active) return;
     try { if (window.MTGTableSync) MTGTableSync.onEphemeral = lobbySync.prev; } catch (e) {}
     try { if (window.MTGTableSync) MTGTableSync.onConn = lobbySync.prevConn; } catch (e) {}
@@ -760,9 +773,14 @@
       var ppk = peerKey(pl);
       var isNewPeer = !lobbyState.picks[ppk];
       var prevPeer = lobbyState.picks[ppk];
-      lobbyState.picks[ppk] = { name: String(pl.name || "Player").slice(0, 24), color: typeof pl.color === "string" ? pl.color : "#4f7bf0", deck: prevPeer ? prevPeer.deck : null };
+      lobbyState.picks[ppk] = {
+        name: String(pl.name || "Player").slice(0, 24),
+        color: typeof pl.color === "string" ? pl.color : "#4f7bf0",
+        deck: pl.deck !== undefined ? (pl.deck || null) : (prevPeer ? prevPeer.deck : null)
+      };
       renderPlayers(s);
-      if (isNewPeer) { logLine(s, escapeHtml(lobbyState.picks[ppk].name) + " joined the lobby."); broadcastPresence(); if (choice.locked) broadcastDeckPick(); if (isHost()) broadcastLobbyCfg(); }
+      if (isNewPeer) logLine(s, escapeHtml(lobbyState.picks[ppk].name) + " joined the lobby.");
+      if (isNewPeer || pl.hello) { broadcastPresence(false); if (choice.locked) broadcastDeckPick(); if (isHost()) broadcastLobbyCfg(); }
       return;
     }
     if (pl.type === "deckpick" && !isSelfMsg(pl)) {
