@@ -292,6 +292,7 @@
           setupLobbySync(s);
           var ping = function () { broadcastPresence(true); if (choice.locked) broadcastDeckPick(); };
           ping(); setTimeout(ping, 700); setTimeout(ping, 1800); setTimeout(ping, 4000);
+          probeLobby(s, code);
         }
       } catch (e) {}
     };
@@ -304,6 +305,68 @@
           doConnect();
         }).catch(function () { logLine(s, 'To join, sign in (top-right) — guest play may be disabled.'); });
       }
+    } catch (e) {}
+  }
+
+  // Instant invite-code feedback via the lobby_peek RPC: nonexistent/finished codes say so
+  // immediately (instead of a silent dead lobby), and a code for an already-started game routes
+  // straight into the read-only spectator view — the same gate doJoin() would hit much later.
+  function probeLobby(s, code) {
+    try {
+      if (!window.MTGTableSync || !MTGTableSync.lobbyPeek) return;
+      Promise.resolve(MTGTableSync.lobbyPeek(code)).then(function (info) {
+        if (!info) return;
+        if (!info.found) { logLine(s, "That room code doesn't exist — check for a typo, or ask the host for a fresh link."); return; }
+        if (info.completed) { logLine(s, "That game has already finished."); return; }
+        if (info.started) { logLine(s, "That game has already started — opening the spectator view."); setTimeout(function () { spectateGame(code, info.visibility); }, 900); return; }
+        var n = Number(info.seats) || 0;
+        logLine(s, "Room found — <b>" + n + "</b> seated so far. Lock in a deck, then Start Game.");
+      }, function (e) {
+        var m = (e && e.message) || "";
+        if (/invalid input syntax|uuid/i.test(m)) logLine(s, "That doesn't look like a room code — codes look like <i>1a2b3c4d-…</i> (copy the whole thing).");
+      });
+    } catch (e) {}
+  }
+
+  // Take (reserve) my REAL seat while still in the lobby — join_game is idempotent, so the later
+  // Start Game join() simply finds the same seat. Without this, the host entering the table first
+  // flipped games.settings.started and the started-gate bounced every still-in-lobby guest to
+  // SPECTATOR when they pressed Start moments later (lobby race, G7.60). Called at deck lock-in
+  // and on the host's "gamestart" broadcast; retries once for a still-connecting guest session.
+  function reserveLobbySeat(s, isRetry) {
+    try {
+      if (!choice.online || !choice.joinCode || choice.seatReserved || choice.seatReserveFailed) return;
+      if (!window.MTGTableSync || !MTGTableSync.reserveSeat) return;
+      Promise.resolve(MTGTableSync.reserveSeat(choice.joinCode, { displayName: choice.name })).then(function (d) {
+        if (!d) { if (!isRetry) setTimeout(function () { reserveLobbySeat(s, true); }, 1600); return; } // session not ready yet — one retry
+        if (d.spectate) { choice.seatReserveFailed = true; logLine(s, "This game already started — opening the spectator view."); setTimeout(function () { spectateGame(choice.joinCode, d.visibility); }, 900); return; }
+        choice.seatReserved = true;
+        if (d.seat_index != null) logLine(s, "Seat <b>" + (Number(d.seat_index) + 1) + "</b> is yours — press Start Game when you're ready.");
+      }, function (e) {
+        var m = (e && e.message) || String(e || "");
+        choice.seatReserveFailed = true; // hard failure — don't retry/spam (full, bad code, finished)
+        if (/full/i.test(m)) logLine(s, "This game is <b>full</b> (8 players max).");
+        else if (/not found/i.test(m)) logLine(s, "That room code doesn't exist — check for a typo.");
+        else if (/finished/i.test(m)) logLine(s, "That game has already finished.");
+      });
+    } catch (e) {}
+  }
+
+  // Host pressed Start: one-shot broadcast so lobby guests reserve their seats BEFORE the host's
+  // table flips games.settings.started (see reserveLobbySeat). Guests show the host as "In game".
+  function broadcastGameStart() {
+    try {
+      if (!isHost() || !choice.online || !choice.hostedCode) return;
+      if (!window.MTGTableSync || !MTGTableSync.broadcastEphemeral) return;
+      MTGTableSync.broadcastEphemeral({ type: "gamestart", uid: myUid(), name: choice.name || "Host" });
+    } catch (e) {}
+  }
+  // Any player pressed Start: tell lobby peers I'm entering the game (renders an "In game" badge
+  // and exempts me from the stale-peer prune — I'm not gone, I'm playing).
+  function broadcastEntering() {
+    try {
+      if (!choice.online || !window.MTGTableSync || !MTGTableSync.broadcastEphemeral) return;
+      MTGTableSync.broadcastEphemeral({ type: "entering", uid: myUid(), name: choice.name || "Player", color: choice.color });
     } catch (e) {}
   }
 
@@ -327,6 +390,7 @@
     if (choice.bracketHalf == null) choice.bracketHalf = "L";
     lobbyCfg.maxBracket = 0; // host-set cap: highest bracket allowed at this table (0 = Any)
     choice.joinCode = null; choice.hostedCode = null; choice.online = false;
+    choice.seatReserved = false; choice.seatReserveFailed = false; choice.gameStarted = false;
     selTileId = null;
     var s = eln("div", "ps-screen ps-lobby");
     s.innerHTML =
@@ -380,6 +444,8 @@
     s.querySelector("#psLockIn").onclick = function () { lockInDeck(s); };
     s.querySelector("#psStartGo").onclick = function () {
       if (!choice.locked || !choice.deck) return;
+      broadcastGameStart();  // host only: still-picking lobby guests grab seats BEFORE started flips (G7.60)
+      broadcastEntering();   // everyone: peers show "In game" instead of pruning me as "left the lobby"
       teardownLobbySync();
       chooseDeck(choice.deck);
     };
@@ -574,6 +640,7 @@
     renderPlayers(s);
     broadcastDeckPick();
     logLine(s, 'You locked in <b>' + escapeHtml(t.name) + '</b>' + (t.commander ? ' (' + escapeHtml(t.commander) + ')' : '') + '.');
+    reserveLobbySeat(s); // locking in = claiming a seat: makes joining immune to the host starting first
   }
 
   function applyPreconsOnly(s) {
@@ -693,7 +760,8 @@
       var p = lobbyState.picks[k];
       html += '<div class="ps-player"><span class="ps-pl-sw" style="background:' + escapeAttr(p.color || "#4f7bf0") + '"></span>' +
         '<span class="ps-pl-name">' + escapeHtml(p.name) + '</span>' +
-        (p.deck ? deckLineHtml(p.deck) : '<span class="ps-pl-deck none">Choosing a deck…</span>') + '</div>';
+        (p.entered ? '<span class="ps-badge host">In game</span>' : '') +
+        (p.deck ? deckLineHtml(p.deck) : (p.entered ? '' : '<span class="ps-pl-deck none">Choosing a deck…</span>')) + '</div>';
     });
     box.innerHTML = html;
     var cnt = s.querySelector("#psPlayerCount"); if (cnt) cnt.textContent = "(" + (1 + names.length) + ")";
@@ -754,11 +822,32 @@
       if (lobbySync.prevConn) { try { lobbySync.prevConn(kind); } catch (e) {} }
     };
     // Gentle heartbeat: presence (+host config) every 5s while the lobby is connected — heals any
-    // missed message (e.g. a reply that raced a client's channel join) within one beat.
+    // missed message (e.g. a reply that raced a client's channel join) within one beat. Also
+    // prunes peers who stopped heartbeating (left the lobby / closed the tab).
     clearInterval(lobbySync.beat);
     lobbySync.beat = setInterval(function () {
-      try { if (choice.online) { broadcastPresence(false); if (isHost()) broadcastLobbyCfg(); } } catch (e) {}
+      try {
+        if (choice.online) { broadcastPresence(false); if (isHost()) broadcastLobbyCfg(); }
+        // Locked-in guests self-heal an unreserved seat (missed gamestart broadcast, or the
+        // anonymous session wasn't ready at lock-in). Guarded: stops after success/hard failure.
+        if (choice.online && choice.joinCode && choice.locked) reserveLobbySeat(s, true);
+        pruneLobbyPeers(s);
+      } catch (e) {}
     }, 5000);
+  }
+  // Drop lobby peers who missed ~3 heartbeats — closing the tab or backing out to Modes used to
+  // leave ghost players in everyone's list forever. Peers marked "In game" are exempt (they
+  // stopped heartbeating because they're PLAYING, not gone).
+  function pruneLobbyPeers(s) {
+    var cut = Date.now() - 16000, changed = false;
+    Object.keys(lobbyState.picks).forEach(function (k) {
+      var p = lobbyState.picks[k];
+      if (p && !p.entered && p.at && p.at < cut) {
+        delete lobbyState.picks[k]; changed = true;
+        logLine(s, escapeHtml(p.name || "A player") + " left the lobby.");
+      }
+    });
+    if (changed) renderPlayers(s);
   }
   function teardownLobbySync() {
     clearInterval(lobbySync.beat); lobbySync.beat = null;
@@ -776,18 +865,41 @@
       lobbyState.picks[ppk] = {
         name: String(pl.name || "Player").slice(0, 24),
         color: typeof pl.color === "string" ? pl.color : "#4f7bf0",
-        deck: pl.deck !== undefined ? (pl.deck || null) : (prevPeer ? prevPeer.deck : null)
+        deck: pl.deck !== undefined ? (pl.deck || null) : (prevPeer ? prevPeer.deck : null),
+        entered: !!(prevPeer && prevPeer.entered), at: Date.now()
       };
       renderPlayers(s);
       if (isNewPeer) logLine(s, escapeHtml(lobbyState.picks[ppk].name) + " joined the lobby.");
       if (isNewPeer || pl.hello) { broadcastPresence(false); if (choice.locked) broadcastDeckPick(); if (isHost()) broadcastLobbyCfg(); }
       return;
     }
+    // Host started the game: claim my seat NOW (before games.settings.started flips) so pressing
+    // Start Game a minute later can never bounce me to spectator. Host shows as "In game".
+    if (pl.type === "gamestart" && !isSelfMsg(pl)) {
+      var gpk = peerKey(pl), gp = lobbyState.picks[gpk];
+      if (gp) { gp.entered = true; gp.at = Date.now(); }
+      if (!choice.gameStarted) {
+        choice.gameStarted = true;
+        logLine(s, "<b>" + escapeHtml(String(pl.name || "The host").slice(0, 24)) + "</b> started the game — lock in a deck and press Start Game to take your seat.");
+      }
+      if (!isHost()) reserveLobbySeat(s);
+      renderPlayers(s);
+      return;
+    }
+    if (pl.type === "entering" && !isSelfMsg(pl)) {
+      var epk = peerKey(pl);
+      var ep = lobbyState.picks[epk] || (lobbyState.picks[epk] = { name: String(pl.name || "Player").slice(0, 24), color: typeof pl.color === "string" ? pl.color : "#4f7bf0", deck: null });
+      if (!ep.entered) logLine(s, escapeHtml(ep.name) + " entered the game.");
+      ep.entered = true; ep.at = Date.now();
+      renderPlayers(s);
+      return;
+    }
     if (pl.type === "deckpick" && !isSelfMsg(pl)) {
       var key = peerKey(pl);
       var first = !lobbyState.picks[key];
       var prevDeck = !first && lobbyState.picks[key].deck ? lobbyState.picks[key].deck.name : null;
-      lobbyState.picks[key] = { name: String(pl.name || "Player").slice(0, 24), color: typeof pl.color === "string" ? pl.color : "#4f7bf0", deck: pl.deck || null };
+      var prevEntered = !first && !!lobbyState.picks[key].entered;
+      lobbyState.picks[key] = { name: String(pl.name || "Player").slice(0, 24), color: typeof pl.color === "string" ? pl.color : "#4f7bf0", deck: pl.deck || null, entered: prevEntered, at: Date.now() };
       renderPlayers(s);
       var dn = (pl.deck && pl.deck.name) || "a deck";
       if (first || prevDeck !== dn) logLine(s, escapeHtml(lobbyState.picks[key].name) + " locked in <b>" + escapeHtml(dn) + "</b>.");

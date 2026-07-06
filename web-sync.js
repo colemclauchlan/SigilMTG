@@ -119,7 +119,26 @@ class MTGSyncAdapter {
   // ---- non-card game-state writers (life / turn / player counters / commander damage) ----
   async updateParticipantLife(participantId, life) {
     if (!this.enabled || !participantId) return;
-    await this.client.from("game_participants").update({ life_total: life }).eq("id", participantId);
+    // RPC, not a raw UPDATE: game_participants RLS only lets the row's OWN player or the HOST
+    // update it, so a guest writing an opponent's life (combat-panel damage, commander-damage
+    // life coupling, duels, SBAs) was silently filtered to zero rows (data:[], error:null).
+    // set_participant_life (member_participant_life_and_lobby_peek migration) is a SECURITY
+    // DEFINER RPC that validates is_game_member() and lets ANY seated player write it.
+    try {
+      const { error } = await this.client.rpc("set_participant_life", { p_participant: participantId, p_life: life });
+      if (error) throw error;
+    } catch (e) {
+      // Fallback for a not-yet-migrated project: self/host direct UPDATE still works pre-RPC.
+      try { await this.client.from("game_participants").update({ life_total: life }).eq("id", participantId); } catch (e2) {}
+    }
+  }
+  // Coarse lobby facts for an invite code (found / started / seats) — SECURITY DEFINER RPC so a
+  // private-game code holder gets instant validation feedback without taking a seat.
+  async lobbyPeek(gameId) {
+    if (!this.enabled || !gameId) return null;
+    const { data, error } = await this.client.rpc("lobby_peek", { p_game: gameId });
+    if (error) throw error;
+    return data || null;
   }
   async updateGameTurn(gameId, activeSeatIndex, totalTurns) {
     if (!this.enabled || !gameId) return;

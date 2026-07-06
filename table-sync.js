@@ -246,6 +246,19 @@ window.MTGTableSync = (function () {
     subscribe(); await pull();
     return S.gameId;
   }
+  // Reserve my seat in the room WITHOUT entering the board yet (join_game is idempotent — the
+  // later Start Game join() finds the same seat). Called from the lobby at deck lock-in and on
+  // the host's "gamestart" broadcast so the started-gate can never bounce a player who was
+  // legitimately in the lobby into spectator mode. Returns the RPC payload
+  // ({seat_index, spectate, ...}), or null when signed out / sync disabled.
+  async function reserveSeat(gameId, opts) {
+    if (!ready() || !gameId) return null;
+    opts = opts || {};
+    var r = await sync.client.rpc("join_game", { p_game: gameId, p_display_name: opts.displayName || "Player", p_life: opts.startingLife || 40 });
+    if (r.error) throw r.error;
+    return r.data || null;
+  }
+
   // Lobby presence only: subscribe to the game's realtime channel for ephemeral presence, WITHOUT a
   // participant insert or state pull — lets a joiner/guest appear in the host's lobby before Start Game.
   function joinLobby(gameId) {
@@ -329,10 +342,11 @@ window.MTGTableSync = (function () {
   }
 
   api.listOpenGames = function (limit) { return (sync && sync.listOpenGames) ? sync.listOpenGames(limit) : Promise.resolve([]); };
+  api.lobbyPeek = function (gameId) { return (sync && sync.lobbyPeek) ? sync.lobbyPeek(gameId) : Promise.resolve(null); };
   api.broadcastEphemeral = function (payload) { if (sync && sync.broadcastEphemeral) sync.broadcastEphemeral(payload); };
   // Host setting "players may interact with each other's cards": when ON, pushAction may also
   // upsert changed cards that an opponent owns (see the foreign-push branch above).
   api.setForeignPush = function (on) { S.allowForeign = !!on; };
-  api.host = host; api.join = join; api.joinLobby = joinLobby; api.persistDeck = persistDeck; api.pushAction = pushAction; api.pull = pull; api.isOnline = isOnline; api.info = info; api.leave = leave; api.recordWinner = recordWinner;
+  api.host = host; api.join = join; api.joinLobby = joinLobby; api.reserveSeat = reserveSeat; api.persistDeck = persistDeck; api.pushAction = pushAction; api.pull = pull; api.isOnline = isOnline; api.info = info; api.leave = leave; api.recordWinner = recordWinner;
   return api;
 })();
