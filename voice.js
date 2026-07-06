@@ -185,7 +185,14 @@ window.MTGVoice = (function () {
         if (msg.meta) { pj.meta = msg.meta; notify(); }
         if (!(S.selfId < id)) sig("hello", id, null);  // let the offerer learn our meta promptly
       } else if (msg.kind === "hello") {
-        if (S.peers[id] && msg.meta) { S.peers[id].meta = msg.meta; notify(); }
+        // Reply from an existing voice member to our join announce. If we have no peer record for
+        // them yet, they deliberately did NOT offer (mesh rule: smaller id offers, and their id is
+        // the larger one) — so WE must create the peer and make the offer. Without this, any pair
+        // where the larger-id side was in voice first deadlocked: the late smaller-id joiner
+        // ignored the hello, neither side ever offered, and the dock showed a permanent silent
+        // peer on one side only (G7.62).
+        var ph = S.peers[id] || makePeer(id, S.selfId < id);
+        if (msg.meta) { ph.meta = msg.meta; notify(); }
       } else if (msg.kind === "offer") {
         var p = makePeer(id, false);
         if (msg.meta) p.meta = msg.meta;
