@@ -123,12 +123,46 @@ class MTGSyncAdapter {
   }
   async updateGameTurn(gameId, activeSeatIndex, totalTurns) {
     if (!this.enabled || !gameId) return;
-    await this.client.from("games").update({ active_seat_index: activeSeatIndex, total_turns: totalTurns }).eq("id", gameId);
+    // RPC, not a raw UPDATE: "games" RLS is owner-only ("games owner manage"), so a guest's direct
+    // UPDATE is silently filtered to zero rows by RLS (data:[], error:null -- nothing to catch).
+    // set_game_turn (20260706_member_turn_phase_settings migration) is a SECURITY DEFINER RPC that
+    // validates is_game_member() and lets ANY seated player advance the shared turn/turn-counter.
+    try {
+      const { error } = await this.client.rpc("set_game_turn", { p_game: gameId, p_active_seat: activeSeatIndex, p_total_turns: totalTurns });
+      if (error) throw error;
+    } catch (e) {
+      // Fallback for a not-yet-migrated project: owner's own UPDATE still works pre-RPC.
+      try { await this.client.from("games").update({ active_seat_index: activeSeatIndex, total_turns: totalTurns }).eq("id", gameId); } catch (e2) {}
+    }
   }
   async updateGamePhase(gameId, phase) {
     if (!this.enabled || !gameId || !phase) return;
-    // games.phase arrives with the 20260701120000_games_phase migration; ignore errors on older schemas
-    try { await this.client.from("games").update({ phase: phase }).eq("id", gameId); } catch (e) {}
+    // Same RLS problem as updateGameTurn -- route through the member-checked RPC.
+    try {
+      const { error } = await this.client.rpc("set_game_phase", { p_game: gameId, p_phase: phase });
+      if (error) throw error;
+    } catch (e) {
+      // games.phase / set_game_phase arrive together in newer schemas; ignore on older ones.
+      try { await this.client.from("games").update({ phase: phase }).eq("id", gameId); } catch (e2) {}
+    }
+  }
+  async updateGameSettings(gameId, patch) {
+    // Host-set table settings (e.g. allowInteract) persisted on games.settings jsonb via the
+    // set_game_settings RPC (20260706_member_turn_phase_settings migration): SECURITY DEFINER,
+    // membership-checked, and HOST-gated inside the function (raises for a non-owner caller
+    // instead of silently no-op'ing). Merge-write so future settings keys survive.
+    if (!this.enabled || !gameId) return;
+    try {
+      const { error } = await this.client.rpc("set_game_settings", { p_game: gameId, p_patch: patch || {} });
+      if (error) throw error;
+    } catch (e) {
+      // Fallback for a not-yet-migrated project (pre-"settings" column): best-effort direct merge.
+      try {
+        const { data } = await this.client.from("games").select("settings").eq("id", gameId).maybeSingle();
+        const next = Object.assign({}, (data && data.settings) || {}, patch || {});
+        await this.client.from("games").update({ settings: next }).eq("id", gameId);
+      } catch (e2) {}
+    }
   }
   async upsertGameCounter(gameId, participantId, key, value) {
     if (!this.enabled || !participantId) return;

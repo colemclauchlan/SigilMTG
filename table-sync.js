@@ -251,6 +251,12 @@ window.MTGTableSync = (function () {
       if (c && c.ownerSeat === S.mySeat) {
         upserts.push(toRow(c)); S.lastRows[id] = true;
         if (isHidden(c)) hidUp.push(hiddenRow(c)); else hidDel.push(id); // keep owner-only identity in sync with the card's zone
+      } else if (c && S.allowForeign && !c._placeholder && S.seatToPart[c.ownerSeat] != null) {
+        // Host-permitted cross-player interaction: push the touched card even though an opponent
+        // owns it (the game_card_instances UPDATE policy is game-member-wide). Never track it in
+        // lastRows (that set drives DELETEs of my own vanished cards) and never touch their
+        // owner-gated hidden-identity rows.
+        upserts.push(toRow(c));
       } else if (!c && S.lastRows[id]) { removed.push(id); hidDel.push(id); delete S.lastRows[id]; }
     });
     if (upserts.length) await sync.upsertCardInstances(upserts);
@@ -311,6 +317,9 @@ window.MTGTableSync = (function () {
 
   api.listOpenGames = function (limit) { return (sync && sync.listOpenGames) ? sync.listOpenGames(limit) : Promise.resolve([]); };
   api.broadcastEphemeral = function (payload) { if (sync && sync.broadcastEphemeral) sync.broadcastEphemeral(payload); };
+  // Host setting "players may interact with each other's cards": when ON, pushAction may also
+  // upsert changed cards that an opponent owns (see the foreign-push branch above).
+  api.setForeignPush = function (on) { S.allowForeign = !!on; };
   api.host = host; api.join = join; api.joinLobby = joinLobby; api.persistDeck = persistDeck; api.pushAction = pushAction; api.pull = pull; api.isOnline = isOnline; api.info = info; api.leave = leave; api.recordWinner = recordWinner;
   return api;
 })();

@@ -35,6 +35,11 @@
 .tbl-card img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; display: block; }
 .tbl-card .nm { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 6px; font-size: 11px; color: var(--tbl-text); background: #2a3344; }
 .tbl-card.tapped { transform: rotate(90deg); }
+/* Local-only "read an opponent's card" view (Task: click on a card you don't control just flips it
+   180deg so you can read it -- never synced, never tapped, never logged). Composes with .tapped so the
+   card's real tap state stays visible through the peek. */
+.tbl-card.peek-rotated { transform: rotate(180deg); }
+.tbl-card.peek-rotated.tapped { transform: rotate(270deg); }
 .tbl-card.phased { opacity: .4; filter: grayscale(.6); }
 .tbl-card.on-stack { opacity: .5; filter: grayscale(.45); outline: 2px dashed rgba(120,180,255,.6); outline-offset: -2px; }
 .tbl-stack .stk-resolve { color: #8df0c8; }

@@ -39,10 +39,12 @@
   var state = null, undoStack = [], imagesById = {}, hoveredId = null, tokenSeq = 0, gameSeed = "g" + Date.now();
   var attachPending = null, booted = false, el = {};
   var mySeat = 0, online = false, selected = [], targetPending = null, annSeq = 0;
+  var interactOthers = false, _touchHintAt = 0; // host setting: may players touch each other's cards? (synced via games.settings + "tablecfg" ephemeral)
   var previewCard = null;
   var onStackIds = {};  // "on the stack" — keeps the card on the board (greyed) instead of moving it to a stack zone
   var stackOrder = []; // LIFO order of instanceIds on the stack (last = top); drives the stack panel + reorder
   var blockingIds = {}; // local "declared blocker" shield flags (cleared on untap_all / new game)
+  var peekRotated = {}; // local-only 180° "read an opponent's card" view flags — never synced, never logged
   var handPan = 0;      // hand overflow pan offset in px (G3.20), applied via the --hand-pan CSS var
   var _stackWasEmpty = null; // tracks empty→filled transitions so the stack can animate in/out (G2.17)
   var _turnKey = null;  // "turn:activeSeat" fingerprint for turn-change flashes + online turn-start engine
@@ -258,7 +260,7 @@
     for (var s = 0; s < seats; s++) { if (seatDecks[s]) decks.push(seatDecks[s].list); else decks.push((hotseat || s === 0) ? list : null); }
     state = MTGCore.init({ seats: seats, decks: decks, startingLife: startingLife, deckSize: 0 });
     undoStack = []; mulliganCount = 0; bottomNeeded = 0; pendingFit = true; onStackIds = {}; stackOrder = []; gameOverShown = false; matchRecorded = false; _lossFlagged = {};
-    blockingIds = {}; handPan = 0; _stackWasEmpty = null; _turnKey = null;
+    blockingIds = {}; handPan = 0; _stackWasEmpty = null; _turnKey = null; peekRotated = {};
     visibleCounters = ["poison", "energy", "experience"];   // pinned counters reset to a fresh state each new game
     try { if (window.MTGHUD && MTGHUD.resetPins) MTGHUD.resetPins(); } catch (e) {}
     if (el.hand) el.hand.style.setProperty("--hand-pan", "0px");
@@ -311,7 +313,7 @@
     if (!state) { setStatus("Load a deck first."); return; }
     if (!window.MTGTableSync) { setStatus("Sync not loaded."); return; }
     try {
-      MTGTableSync.onRemote = function (rs) { state = rs; render(); };
+      MTGTableSync.onRemote = function (rs) { state = rs; applyTableSettings(state.settings); render(); };
       MTGTableSync.onEphemeral = handleEphemeral;
       var pub = opts.visibility === "public";
       var gname = opts.name || "Commander table";
@@ -327,7 +329,7 @@
     opts = opts || {};
     if (!window.MTGTableSync) { setStatus("Sync not loaded."); return null; }
     try {
-      MTGTableSync.onRemote = function (rs) { state = rs; render(); };
+      MTGTableSync.onRemote = function (rs) { state = rs; applyTableSettings(state.settings); render(); };
       MTGTableSync.onEphemeral = handleEphemeral;
       var pub = opts.visibility === "public";
       var gid = await MTGTableSync.host([], { displayName: opts.displayName || "Host", visibility: pub ? "public" : "private", name: opts.name });
@@ -349,7 +351,7 @@
     var gid = gameId || window.prompt("Game id to join:"); if (!gid) return false; gid = String(gid).trim();
     setStatus("Joining " + gid + "…"); showToast("Joining game…");
     try {
-      MTGTableSync.onRemote = function (rs) { state = rs; render(); };
+      MTGTableSync.onRemote = function (rs) { state = rs; applyTableSettings(state.settings); render(); };
       MTGTableSync.onEphemeral = handleEphemeral;
       await MTGTableSync.join(gid, deckListFromState(), { displayName: opts.displayName || "Player", hand: MTGCore.zoneCount(state, mySeat, "hand") || 7 });
       online = true; mySeat = MTGTableSync.info().mySeat;
@@ -904,7 +906,7 @@
 
   function cardNode(c, inHand) {
     var node = document.createElement("div");
-    node.className = "tbl-card" + (c.tapped ? " tapped" : "") + (c.faceDown ? " facedown" : "") + (c.phased ? " phased" : "") + (onStackIds[c.instanceId] ? " on-stack" : "") + (selected.indexOf(c.instanceId) >= 0 ? " selected" : "") + (c.isFoil ? " is-foil" : "") + (c.isEtched ? " is-etched" : "") + (c.attacking && c.zone === "battlefield" ? " attacking" : "");
+    node.className = "tbl-card" + (c.tapped ? " tapped" : "") + (c.faceDown ? " facedown" : "") + (c.phased ? " phased" : "") + (onStackIds[c.instanceId] ? " on-stack" : "") + (selected.indexOf(c.instanceId) >= 0 ? " selected" : "") + (c.isFoil ? " is-foil" : "") + (c.isEtched ? " is-etched" : "") + (c.attacking && c.zone === "battlefield" ? " attacking" : "") + (peekRotated[c.instanceId] ? " peek-rotated" : "");
     node.dataset.id = c.instanceId; node.dataset.zone = c.zone;
     if (!inHand) { node.style.left = (c.x / 100 * BOARD_W) + "px"; node.style.top = (c.y / 100 * BOARD_H) + "px"; }
     var src = imgFor(c);
@@ -935,7 +937,18 @@
   }
   function onCardClick(c) {
     if (bottomNeeded > 0 && c.zone === "hand" && c.ownerSeat === mySeat) { dispatch({ t: "card_move", instanceId: c.instanceId, toZone: "library" }); bottomNeeded--; setStatus(bottomNeeded > 0 ? ("Put " + bottomNeeded + " more on the bottom.") : "Hand kept \u2014 good luck!"); if (bottomNeeded === 0) log("<b>Kept</b> at " + MTGCore.zoneCount(state, mySeat, "hand") + " cards."); return; }
+    // Targeting mode is active (started from the right-click menu) \u2014 completing a target/attach/block
+    // link on ANY card, including one you don't control, is an explicit exception and must go through
+    // regardless of the interact gate. confirmLink() logs the target itself.
     if (linkSource && linkSource !== c.instanceId) { chooseLink(c.instanceId); return; }
+    // Not your card and the host hasn't enabled cross-player interaction: clicking it only rotates it
+    // 180\u00b0 locally so you can read it. No tap, no move, no dispatch, no action-log entry \u2014 this is a
+    // pure client-side view toggle (never synced; each player's "read mode" is their own).
+    if (!canTouch(c)) {
+      peekRotated[c.instanceId] = !peekRotated[c.instanceId];
+      render();
+      return;
+    }
     if (c.zone === "hand") playFromHand(c);
     else if (c.zone === "battlefield") dispatch({ t: "card_tap", instanceId: c.instanceId });
   }
@@ -970,12 +983,13 @@
     node.addEventListener("pointermove", function (e) {
       if (!st || e.pointerId !== st.pid) return;
       if (!st.moving && Math.abs(e.clientX - st.sx) + Math.abs(e.clientY - st.sy) < DRAG) return;
+      if (!canTouch(c)) return; // not your card (and cross-player interaction is off) — never let a drag start; falls through to a plain click in up()
       st.moving = true; var b = screenToBoard(e.clientX, e.clientY); var _dr = regionOf((c.controllerSeat != null ? c.controllerSeat : c.ownerSeat)); node.style.left = (b.bx - _dr.x) + "px"; node.style.top = (b.by - _dr.y) + "px"; highlightDrop(e.clientX, e.clientY);
     });
     function up(e) {
       if (!st || e.pointerId !== st.pid) return;
       try { node.releasePointerCapture(st.pid); } catch (x) {}
-      if (st.moving) {
+      if (st.moving && canTouch(c)) {
         var zone = zoneAtPoint(node, e.clientX, e.clientY);
         if (zone === "battlefield") { var cur = state.cards[c.instanceId]; if (cur && cur.attachedTo) dispatch({ t: "card_attach", instanceId: c.instanceId, attachedTo: null }); var b = screenToBoard(e.clientX, e.clientY); var _d = dropPct(b.bx, b.by); dispatch({ t: "card_move", instanceId: c.instanceId, toZone: "battlefield", x: _d.x, y: _d.y }); }
         else dispatch({ t: "card_move", instanceId: c.instanceId, toZone: zone });
@@ -1000,6 +1014,7 @@
     node.addEventListener("pointermove", function (e) {
       if (!st || e.pointerId !== st.pid) return;
       if (!st.moving && Math.abs(e.clientX - st.sx) + Math.abs(e.clientY - st.sy) < DRAG) return;
+      if (!canTouch(c)) return; // not your card (and cross-player interaction is off) — never let a drag start
       if (!st.moving) { st.moving = true; ghost = makeGhost(c); node.classList.add("hand-dragging"); }
       if (ghost) { ghost.style.left = e.clientX + "px"; ghost.style.top = e.clientY + "px"; } highlightDrop(e.clientX, e.clientY);
     });
@@ -1007,7 +1022,7 @@
       if (!st || e.pointerId !== st.pid) return;
       try { node.releasePointerCapture(st.pid); } catch (x) {}
       node.classList.remove("hand-dragging");
-      if (st.moving) {
+      if (st.moving && canTouch(c)) {
         if (ghost) { ghost.remove(); ghost = null; }
         var zone = zoneAtPointXY(e.clientX, e.clientY);
         if (zone === "battlefield") { var cur = state.cards[c.instanceId]; if (cur && cur.attachedTo) dispatch({ t: "card_attach", instanceId: c.instanceId, attachedTo: null }); var b = screenToBoard(e.clientX, e.clientY); var _d = dropPct(b.bx, b.by); dispatch({ t: "card_move", instanceId: c.instanceId, toZone: "battlefield", x: _d.x, y: _d.y }); }
@@ -1131,10 +1146,123 @@
     draw(); document.body.appendChild(ov);
   }
 
+  // ==== interaction permission gate (host setting), synced combat flags, detach, ping ====
+  function ctrlSeatOf(c) { return c.controllerSeat != null ? c.controllerSeat : c.ownerSeat; }
+  // May I act on this card? Always my own stuff; opponents' cards only when the host allows it.
+  function canTouch(c) {
+    if (!c) return false;
+    if (!online) return true; // solo/hotseat: no gate
+    if (c._placeholder) return false;
+    return interactOthers || ctrlSeatOf(c) === mySeat || c.ownerSeat === mySeat;
+  }
+  function touchHint(c) {
+    var now = Date.now(); if (now - _touchHintAt < 1500) return; _touchHintAt = now;
+    var pl = state && state.players && state.players[ctrlSeatOf(c)];
+    var who = (pl && pl.name) ? pl.name : ("Seat " + ctrlSeatOf(c));
+    try { showToast("That's " + who + "'s card \u2014 the host hasn't enabled touching other players' cards."); } catch (e) {}
+    setStatus("Not your card.");
+  }
+  // Apply the synced table settings (games.settings jsonb via pull, or the "tablecfg" ephemeral).
+  function applyTableSettings(s) {
+    if (!s || typeof s !== "object") return;
+    var on = !!s.allowInteract;
+    if (on === interactOthers) return;
+    interactOthers = on;
+    try { if (window.MTGTableSync && MTGTableSync.setForeignPush) MTGTableSync.setForeignPush(on); } catch (e) {}
+    log("<b>Host setting</b> \u2014 players " + (on ? "can now touch" : "can no longer touch") + " each other's cards.");
+    try { showToast(on ? "Interacting with other players' cards: ON" : "Interacting with other players' cards: OFF"); } catch (e) {}
+  }
+  // Host-only writer: flips the flag for everyone (instant ephemeral + persisted on games.settings).
+  function setInteractionAllowed(on) {
+    on = !!on;
+    if (!online) { interactOthers = on; return; }
+    if (mySeat !== 0) { setStatus("Only the host can change that setting."); return; }
+    applyTableSettings({ allowInteract: on });
+    try { if (window.MTGTableSync && MTGTableSync.broadcastEphemeral) MTGTableSync.broadcastEphemeral({ type: "tablecfg", allowInteract: on, seat: mySeat }); } catch (e) {}
+    try {
+      var gid = window.MTGTableSync && MTGTableSync.info && MTGTableSync.info().gameId;
+      if (gid && window.mtgSync && mtgSync.updateGameSettings) mtgSync.updateGameSettings(gid, { allowInteract: on });
+    } catch (e) {}
+  }
+  function isBlockingCard(c) { return !!(c && c.zone === "battlefield" && ((c.counters && c.counters._blk) || blockingIds[c.instanceId])); }
+  // Blocking rides an internal "_blk" counter so the shield marker syncs to every client.
+  function setCardBlocking(c, on) {
+    var cur = (c.counters && c.counters._blk) || 0;
+    if (on) { blockingIds[c.instanceId] = 1; if (!cur) dispatch({ t: "card_counter", instanceId: c.instanceId, kind: "_blk", delta: 1 }); else render(); }
+    else { delete blockingIds[c.instanceId]; if (cur) dispatch({ t: "card_counter", instanceId: c.instanceId, kind: "_blk", delta: -cur }); else render(); }
+  }
+  // Detach an aura/equipment: clear attachedTo/attachOrder and give it back its own spot beside the host.
+  function detachCard(c) {
+    var host = c.attachedTo ? state.cards[c.attachedTo] : null;
+    var acts = [{ t: "card_attach", instanceId: c.instanceId, attachedTo: null, attachOrder: 0 }];
+    if (c.zone === "battlefield" && host && host.zone === "battlefield") {
+      acts.push({ t: "card_move", instanceId: c.instanceId, toZone: "battlefield", x: clamp((Number(host.x) || 40) + 7), y: clamp((Number(host.y) || 50) + 14) });
+    }
+    dispatch({ t: "batch", actions: acts });
+    setStatus("Detached " + (c.name || "card") + ".");
+  }
+  // ---- gamewide attention ping (transient \u2014 ephemeral broadcast, never persisted) ----
+  function renderPingPulse(bx, by, name) {
+    if (!el.viewport) return;
+    var lay = document.getElementById("tblPings");
+    if (!lay) { lay = document.createElement("div"); lay.id = "tblPings"; lay.className = "tbl-pings"; el.viewport.appendChild(lay); }
+    var n = document.createElement("div"); n.className = "tbl-ping";
+    n.style.left = (camera.x + bx * camera.z) + "px"; n.style.top = (camera.y + by * camera.z) + "px";
+    n.innerHTML = '<span class="ping-ring"></span><span class="ping-ring r2"></span><span class="ping-dot"></span><span class="ping-name"></span>';
+    var nmEl = n.querySelector(".ping-name");
+    if (name) nmEl.textContent = String(name).slice(0, 20); else nmEl.remove(); // textContent \u2014 remote name is untrusted
+    lay.appendChild(n);
+    setTimeout(function () { n.remove(); }, 1600);
+  }
+  function showPing(pl) {
+    if (!pl) return;
+    var p = null;
+    if (pl.instanceId && state && state.cards[pl.instanceId]) p = ptOfCard(pl.instanceId);
+    if (!p && pl.bx != null && pl.by != null) p = { x: Number(pl.bx) || 0, y: Number(pl.by) || 0 };
+    if (!p) return;
+    var nm = pl.name ? String(pl.name).slice(0, 24) : ("Seat " + pl.seat);
+    renderPingPulse(p.x, p.y, nm);
+    log("<b>" + esc(nm) + "</b> pinged " + (pl.cardName ? ("<i>" + esc(String(pl.cardName).slice(0, 40)) + "</i>") : "the board"));
+  }
+  function doPing(c, bx, by) {
+    var nm = (state && state.players && state.players[mySeat] && state.players[mySeat].name) || "You";
+    var payload = { type: "ping", seat: mySeat, name: nm };
+    if (c) {
+      payload.instanceId = c.instanceId;
+      payload.cardName = (c.faceDown || !c.name) ? "a card" : c.name;
+      var p = ptOfCard(c.instanceId);
+      if (!p) { var r = regionOf(ctrlSeatOf(c)); p = { x: r.x + r.w / 2, y: r.y + r.h / 2 }; } // pile/hand card: pulse the owner's mat
+      payload.bx = Math.round(p.x); payload.by = Math.round(p.y);
+    } else if (bx != null) { payload.bx = Math.round(bx); payload.by = Math.round(by); }
+    showPing(payload); // the broadcast channel is self:false \u2014 render the sender's pulse locally
+    if (online && window.MTGTableSync && MTGTableSync.broadcastEphemeral) MTGTableSync.broadcastEphemeral(payload);
+  }
+  // Reduced right-click menu for cards you may not act on (opponent's card while the gate is off):
+  // communication + inspection only.
+  function openPeekMenu(x, y, c) {
+    closeMenu();
+    var m = document.createElement("div"); m.className = "tbl-menu";
+    function item(label, fn) { var b = document.createElement("button"); b.innerHTML = "<span>" + label + "</span>"; b.onclick = function () { closeMenu(); fn(); }; m.appendChild(b); }
+    item("Ping", function () { doPing(c); });
+    if (c.zone === "battlefield") item("Target (draw a line)", function () { startLink(c.instanceId, "draw", "target"); });
+    // Copying an opponent's card is an explicit exception (like targeting): allowed regardless of the
+    // interact gate, and it announces to the action log (card_clone always logs \u2014 see logAction()).
+    if (c.zone === "battlefield") item("Create token copy", function () { dispatch({ t: "card_clone", fromId: c.instanceId, instanceId: "tok" + (tokenSeq++), x: 45, y: 60 }); });
+    item("Inspect card", function () { openInspect(c); });
+    var note = document.createElement("div"); note.className = "menu-note";
+    note.textContent = "Opponent's card \u2014 the host hasn't enabled touching other players' cards.";
+    m.appendChild(note);
+    document.body.appendChild(m);
+    var vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
+    m.style.left = Math.min(x, vw - m.offsetWidth - 6) + "px"; m.style.top = Math.min(y, vh - m.offsetHeight - 6) + "px";
+    menuEl = m;
+  }
+
   var menuEl = null;
   function closeMenu() { if (menuEl) { menuEl.remove(); menuEl = null; } }
   function openMenu(x, y, c) {
     closeMenu();
+    if (!canTouch(c)) { openPeekMenu(x, y, c); return; }
     var m = document.createElement("div"); m.className = "tbl-menu";
     function item(label, fn, key) { var b = document.createElement("button"); b.innerHTML = "<span>" + label + "</span>" + (key ? '<span class="mk">' + key + "</span>" : ""); b.onclick = function () { closeMenu(); fn(); }; m.appendChild(b); }
     function sep() { var s = document.createElement("div"); s.className = "sep"; m.appendChild(s); }
@@ -1545,7 +1673,9 @@
     if (f && t) {
       if (k === "attach") { dispatch({ t: "card_attach", instanceId: f, attachedTo: t, attachOrder: 0 }); setStatus("Attached."); }
       else if (k === "block") { fireArrow(f, t, false, "#4f9bff"); log("<b>Blocker</b> " + cardLink(f) + " blocks " + cardLink(t)); setStatus("Blocker declared."); }
-      else { fireArrow(f, t); tryDuel(f, t); setStatus("Target drawn."); }
+      // Targeting always logs — even (especially) when the target is an opponent's card you otherwise
+      // can't tap/move (Task 3 exception: "targeted" and "copied" are announced regardless of the gate).
+      else { fireArrow(f, t); log("<b>Targeted</b> " + cardLink(t)); tryDuel(f, t); setStatus("Target drawn."); }
     }
   }
   function clearLink() { linkSource = null; linkMode = null; linkChosen = null; linkKind = null; hideLinkToolbar(); clearArrow(); }
