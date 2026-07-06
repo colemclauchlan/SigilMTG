@@ -178,10 +178,22 @@
   // ---------- session state ----------
   var menu = null;
   function closeMenu() { if (menu) { menu.remove(); menu = null; } }
+  // Account card label: display name → Guest (anonymous) → email local-part → Planeswalker.
+  // Never renders the raw email address.
+  function displayNameFor(session) {
+    var u = session && session.user; if (!u) return "Account";
+    var anon = !!(u.is_anonymous || (sync && sync.isAnonymous && sync.isAnonymous()));
+    var md = u.user_metadata || {};
+    var dn = md.display_name || md.full_name || md.name;
+    if (dn) return String(dn).trim().slice(0, 24);
+    if (anon) return "Guest";
+    if (u.email) return String(u.email).split("@")[0].slice(0, 24);
+    return "Planeswalker";
+  }
   function showMenu(session) {
     closeMenu();
     menu = document.createElement("div"); menu.className = "auth-menu";
-    var who = session.user && (session.user.email || (session.user.is_anonymous ? "Guest" : "Account"));
+    var who = displayNameFor(session);
     menu.innerHTML = '<div style="padding:6px 10px;color:#9ca3af;font-size:12px">' + who + "</div>";
     var out = document.createElement("button"); out.textContent = "Sign out";
     out.onclick = async function () { closeMenu(); try { await sync.signOut(); } catch (e) {} };
@@ -189,7 +201,7 @@
   }
   function updateUI(session) {
     if (session) {
-      var label = (session.user && session.user.email) || (session.user && session.user.is_anonymous ? "Guest" : "Account");
+      var label = displayNameFor(session);
       btn.textContent = label;
       ind.className = "auth-ind synced"; ind.innerHTML = '<span class="dot"></span>Synced';
     } else {
