@@ -15,9 +15,19 @@
  * Reads/writes the game ONLY through the window.MTGTable life API:
  *   seatsInfo() · getState() · playerInfo() · applyLife(seat,delta) · addCounter(kind,delta)
  *   myCounters() · applyCmdr(target,source,amount,{cmdr,poison,lifelink}) · passTurn() · untapAll()
- *   (+ feature-detected MTGTable.dispatch for counter-only commander-damage minus and Draw)
+ *   cmdDamageDetail(seat) — per-source-commander breakdown for the read-only opponent panel
+ *   (+ feature-detected MTGTable.dispatch for the commander-damage −/+ batch and Draw)
  *
- * Surface: window.MTGLife = { show, hide, refresh }.
+ * Commander-damage −/+ (openModal/cmdrDelta) is ALWAYS scoped to MY OWN seat (the defending
+ * player's own menu) — "+" takes damage from an opponent's commander, "−" fixes a miscount.
+ * Both ends are coupled to life symmetrically (+1 cmd dmg → −1 life; −1 cmd dmg → +1 life), so a
+ * removal always refunds exactly the life the matching addition cost. No client ever writes
+ * another player's life/counters/commander-damage — the top vitals bar's opponent chips
+ * (table.js renderVitals) are READ-ONLY and open MTGLife.openOpponent(seat), a live-synced,
+ * no-edit-controls sheet showing that player's commander damage taken, grouped by source
+ * commander, sourced from MTGTable.cmdDamageDetail(seat) and re-rendered on every refresh() tick.
+ *
+ * Surface: window.MTGLife = { show, hide, refresh, openOpponent }.
  */
 (function () {
   "use strict";
@@ -45,12 +55,13 @@
   var root = null, refInt = null, mo = null;
   var pending = 0, pendStart = null;   // pending ± delta for MY life (readout shows "+N" / "−N" only)
   var commitTO = null, flashTO = null, lifeFxTO = null;
-  var modal = null;                    // commander-damage sheet
+  var modal = null;                    // commander-damage sheet (MY damage taken, editable)
   var ctrPopup = null;                 // player-counters popup
   var confirmEl = null;                // scoop/concede confirm modal
   var lastLife = null, lastSeat = null;
   var poisonKO = null;                 // life stashed when 10-poison zeroes it; restored if corrected below 10
   var lastCdSig = "";                  // cmd-damage sheet repaint signature (avoid churn on the 500ms tick)
+  var oppModal = null, oppModalSeat = null, lastOppSig = ""; // read-only opponent commander-damage-received panel
   var holds = {};                      // per-pointer hold-to-repeat map (multi-touch-safe), pointerId → {dir,t0,int}
 
   // inline SVG radiation trefoil (no good Material Symbol for it)
@@ -473,6 +484,7 @@
 
     if (ctrPopup && ctrPopup.isConnected) paintCounters();
     if (modal && modal.isConnected) renderModalLive(list);
+    if (oppModal && oppModal.isConnected) renderOppLive(list);
   }
 
   // ============================================================
@@ -510,10 +522,21 @@
       // existing atomic batch: commander_damage + adjust_life in ONE dispatch (single Undo)
       if (typeof t.applyCmdr === "function") { try { t.applyCmdr(m.seat, srcSeat, 1, { cmdr: true }); } catch (e) {} }
     } else {
-      // Phase-11 rule: minus is COUNTER-ONLY (no life refund) — needs the dispatch export.
+      // Symmetric life coupling: combat damage from a commander both raises commander damage AND
+      // drops life, so REMOVING it (fixing a misclick) must restore the same life it cost. The
+      // reducer clamps cmdDamage at a floor of 0, so credit back exactly what actually comes off
+      // (never more) — avoids double-crediting life on a no-op remove. Only I ever touch my OWN
+      // seat's life/cmdDamage here (defending player's own menu — matches applyCmdr's ownership rule
+      // and RLS, which only lets a client write its own participant row).
       var taken = (m.cmdFrom && m.cmdFrom[srcSeat]) || 0;
       if (taken <= 0 || !canDispatch()) return;
-      try { t.dispatch({ t: "commander_damage", seat: m.seat, fromSeat: srcSeat, fromCmd: "primary", delta: -1 }); } catch (e) {}
+      var removed = Math.min(1, taken);
+      try {
+        t.dispatch({ t: "batch", actions: [
+          { t: "commander_damage", seat: m.seat, fromSeat: srcSeat, fromCmd: "primary", delta: -removed },
+          { t: "adjust_life", seat: m.seat, delta: removed }
+        ] });
+      } catch (e) {}
     }
     lastCdSig = ""; // force repaint
     refresh();
@@ -556,6 +579,81 @@
   function closeModal() { if (modal) { try { modal.remove(); } catch (e) {} } modal = null; lastCdSig = ""; }
 
   // ============================================================
+  // OPPONENT PANEL (read-only) — click an opponent's chip (top vitals bar) to see the commander
+  // damage THEY have taken, broken down per source commander ("From Zinnia: 7 · From Krenko: 3").
+  // No edit controls: only the target player may change their own life/counters/commander damage.
+  // Stays live-synced — renderOppLive() repaints from state every refresh() tick (same 500ms loop
+  // that already keeps the rest of this hub current across the realtime channel + pull()/rebuild).
+  // ============================================================
+  function openOpponent(seat) {
+    seat = Number(seat);
+    var list = seats(); var m = me(list); if (!m || seat === m.seat) return; // never opens for MY OWN chip
+    closeOppModal();
+    oppModalSeat = seat;
+    oppModal = eln("div", "pl-modal"); oppModal.id = "plOppModal";
+    oppModal.innerHTML =
+      '<div class="pl-sheet pl-cd-sheet pl-opp-sheet" role="dialog" aria-label="Commander damage taken">' +
+        '<button type="button" class="pl-sheet-x" data-oact="close" aria-label="Close">' + IC.close + '</button>' +
+        '<div class="pl-sheet-hd"><div class="pl-sheet-tt"><p class="pl-kick" id="plOppKick">Read-only · 21 is lethal</p><h3 id="plOppTitle">Commander Damage</h3></div></div>' +
+        '<div class="pl-opp-life" id="plOppLife"></div>' +
+        '<div class="pl-cd-grid pl-opp-grid" id="plOppGrid"></div>' +
+        '<p class="pl-cd-hint">' + esc("Read-only — only they can change their own life, counters, or commander damage.") + '</p>' +
+      '</div>';
+    (document.getElementById("playPage") || document.body).appendChild(oppModal);
+    oppModal.addEventListener("click", function (e) {
+      if (e.target === oppModal) { closeOppModal(); return; }
+      var x = e.target.closest ? e.target.closest('[data-oact="close"]') : null;
+      if (x && oppModal.contains(x)) { closeOppModal(); }
+    });
+    lastOppSig = "";
+    renderOppLive(list);
+  }
+
+  function renderOppLive(list) {
+    if (!oppModal || oppModalSeat == null) return;
+    list = list || seats();
+    var m = me(list); if (!m) return;
+    var opp = null; for (var i = 0; i < list.length; i++) if (list[i] && list[i].seat === oppModalSeat) { opp = list[i]; break; }
+    if (!opp) { closeOppModal(); return; } // seat vanished (left the game) — don't show stale data
+    var t = T();
+    var detail = callT("cmdDamageDetail", oppModalSeat) || [];
+
+    // repaint only when the underlying data changed (life, poison, or any commander-damage value) —
+    // matches the existing pl-cd sheet's anti-churn pattern so the 500ms tick doesn't eat clicks.
+    var sig = opp.life + "|" + opp.poison + "|" + detail.map(function (d) { return d.sourceSeat + ":" + d.fromCmd + "=" + d.amount; }).join(",");
+    if (sig === lastOppSig) return;
+    lastOppSig = sig;
+
+    var titleEl = oppModal.querySelector("#plOppTitle"); if (titleEl) titleEl.textContent = "Commander Damage — " + (opp.name || ("Seat " + opp.seat));
+    var kickEl = oppModal.querySelector("#plOppKick"); if (kickEl) kickEl.textContent = "Damage taken by " + (opp.name || ("Seat " + opp.seat)) + " · read-only · 21 is lethal";
+
+    var lifeEl = oppModal.querySelector("#plOppLife");
+    if (lifeEl) {
+      var lifeShown = Math.max(0, Number(opp.life) || 0);
+      var chips = COUNTERS.map(function (c) {
+        var v = c.k === "poison" ? Math.max(0, Number(opp.poison) || 0) : 0; // opponent counters beyond poison aren't exposed by seatsInfo(); poison is
+        return v > 0 ? '<span class="pl-cchip pl-cchip-' + c.k + '" title="' + esc(c.label) + '">' + (c.ic || "") + '<b>' + v + '</b></span>' : "";
+      }).join("");
+      lifeEl.innerHTML = '<span class="pl-opp-lifenum">' + lifeShown + '</span><span class="pl-opp-lifelbl">Life</span>' + (chips ? '<span class="pl-opp-chips">' + chips + '</span>' : "");
+    }
+
+    var grid = oppModal.querySelector("#plOppGrid"); if (!grid) return;
+    if (!detail.length) { grid.innerHTML = '<p class="pl-cd-empty">No commander damage taken yet.</p>'; return; }
+    grid.innerHTML = detail.map(function (d) {
+      var art = cssUrl(d.commanderArt);
+      var cls = d.amount >= 21 ? " lethal" : (d.amount >= 15 ? " warn" : "");
+      return '<div class="pl-cd-tile pl-opp-tile">' +
+        '<span class="pl-cd-art' + (art ? "" : " blank") + '"' + (art ? ' style="background-image:' + art + '"' : "") + '></span>' +
+        '<span class="pl-cd-nm">' + esc(d.commanderName) + '</span>' +
+        '<span class="pl-cd-owner">From ' + esc(d.sourcePlayerName) + '</span>' +
+        '<span class="pl-cd-tot' + cls + '">' + d.amount + '/21</span>' +
+      '</div>';
+    }).join("");
+  }
+
+  function closeOppModal() { if (oppModal) { try { oppModal.remove(); } catch (e) {} } oppModal = null; oppModalSeat = null; lastOppSig = ""; }
+
+  // ============================================================
   // LIFECYCLE
   // ============================================================
   function hideLegacy() { try { var hl = document.getElementById("hudLife"); if (hl) hl.style.display = "none"; } catch (e) {} }
@@ -575,7 +673,7 @@
     if (commitTO) { clearTimeout(commitTO); commitTO = null; }
     pending = 0; pendStart = null; lastLife = null; lastSeat = null; poisonKO = null;
     endAllHolds();
-    closeModal(); closeCounters(); closeConcede();
+    closeModal(); closeCounters(); closeConcede(); closeOppModal();
     if (root) root.style.display = "none";
   }
 
@@ -604,5 +702,5 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
 
-  window.MTGLife = { show: show, hide: hide, refresh: refresh };
+  window.MTGLife = { show: show, hide: hide, refresh: refresh, openOpponent: openOpponent };
 })();

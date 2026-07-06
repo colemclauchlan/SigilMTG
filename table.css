@@ -162,7 +162,8 @@
 .tbl-seatband.mine { background: linear-gradient(180deg, rgba(20,184,166,.06), transparent 40%); }
 .tbl-seatband .sb-label { position: absolute; left: 12px; top: 8px; font-size: 13px; color: var(--tbl-muted); text-transform: uppercase; letter-spacing: .05em; }
 .vit-opps { display: flex; gap: 10px; flex-wrap: wrap; }
-.vit-opp { font-size: 12px; color: var(--tbl-text); background: var(--tbl-panel2); border: 1px solid var(--tbl-border); border-radius: 8px; padding: 2px 8px; }
+.vit-opp { font-size: 12px; color: var(--tbl-text); background: var(--tbl-panel2); border: 1px solid var(--tbl-border); border-radius: 8px; padding: 2px 8px; cursor: pointer; font-family: inherit; }
+.vit-opp:hover { border-color: var(--tbl-accent); }
 .tbl-shuffly { position: fixed; z-index: 5400; pointer-events: none; border-radius: 7px; overflow: hidden; box-shadow: 0 6px 18px rgba(0,0,0,.6); transition: transform .18s ease, opacity .3s ease; }
 .tbl-shuffly img { width: 100%; height: 100%; object-fit: cover; display: block; }
 @keyframes tblShuffle { 0%,100% { transform: translateX(0) rotate(0); } 20% { transform: translateX(-4px) rotate(-3deg); } 40% { transform: translateX(4px) rotate(3deg); } 60% { transform: translateX(-3px) rotate(-2deg); } 80% { transform: translateX(3px) rotate(2deg); } }
@@ -218,9 +219,15 @@
 .pd-foot { display: flex; justify-content: flex-end; margin-top: 12px; }
 .pd-foot .primary { background: var(--tbl-accent); color: #06302b; font-weight: 700; border: none; border-radius: 8px; padding: 9px 20px; cursor: pointer; font-size: 14px; }
 .tbl-vitals .vit-opps { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.tbl-vitals .vit-opp { display: inline-flex; align-items: center; gap: 5px; color: var(--tbl-text); font-size: 13px; background: var(--tbl-panel2); border: 1px solid var(--tbl-border); border-radius: 8px; padding: 2px 8px; }
-.tbl-vitals .vit-opp button { min-width: 22px; padding: 1px 6px; font-size: 13px; }
+.tbl-vitals .vit-opp { display: inline-flex; align-items: center; gap: 5px; color: var(--tbl-text); font-size: 13px; background: var(--tbl-panel2); border: 1px solid var(--tbl-border); border-radius: 8px; padding: 2px 8px; cursor: pointer; font-family: inherit; transition: border-color .12s ease; }
+.tbl-vitals .vit-opp:hover, .tbl-vitals .vit-opp:focus-visible { border-color: var(--tbl-accent); outline: none; }
 .tbl-vitals .vit-onum { min-width: 26px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 700; }
+.tbl-vitals .vit-opp-ctr { display: inline-flex; align-items: center; font-size: 10.5px; font-weight: 700; color: var(--tbl-muted); background: rgba(255,255,255,.06); border-radius: 5px; padding: 0 4px; }
+.tbl-vitals .vit-opp-ctr-poison { color: #b891ff; }
+.tbl-vitals .vit-opp-ctr-energy { color: #4fd1e8; }
+.tbl-vitals .vit-opp-ctr-experience { color: #ffd166; }
+.tbl-vitals .vit-opp-ctr-rad { color: #8bd450; }
+.tbl-vitals .vit-opp-ctr-monarch { color: #f2b632; }
 .tbl-card .pt-badge { position: absolute; bottom: 3px; right: 3px; background: rgba(0,0,0,.82); color: #fff; font-size: 12px; font-weight: 800; border-radius: 6px; padding: 1px 6px; font-variant-numeric: tabular-nums; box-shadow: 0 1px 3px rgba(0,0,0,.6); }
 .tbl-card .pt-badge.buffed { background: rgba(22,128,46,.92); }
 .tbl-card .pt-badge.debuffed { background: rgba(160,32,32,.92); }

@@ -109,7 +109,7 @@
         else if (b.dataset.ph === "untap" && cur >= order.indexOf("end")) { var pass = document.getElementById("tblPass"); if (pass) pass.click(); }
         else dispatch({ t: "set_phase", phase: b.dataset.ph });
       }
-      else if (b.dataset.ol != null) { floatDelta(b, Number(b.dataset.d)); dispatch({ t: "adjust_life", seat: Number(b.dataset.ol), delta: Number(b.dataset.d) }); }
+      else if (b.dataset.oppdmg != null) { try { if (window.MTGLife && MTGLife.openOpponent) MTGLife.openOpponent(Number(b.dataset.oppdmg)); } catch (e) {} }
       else if (b.dataset.manaopen) { openMana = (openMana === b.dataset.manaopen ? null : b.dataset.manaopen); renderVitals(); }
       else if (b.dataset.ctrpick != null) { ctrPickOpen = !ctrPickOpen; renderVitals(); }
       else if (b.dataset.manakeep != null) { keepMana = !keepMana; setStatus(keepMana ? "Mana pool will carry between turns." : "Mana pool empties each turn."); renderVitals(); }
@@ -790,7 +790,21 @@
     if (hasCmd) html += '<div class="vit-tax" title="Live commander tax — casting your commander from the command zone costs +this; it rises +2 each time the commander returns to the command zone">Cmdr tax <b>+' + cmdTax + '</b></div>';
     var cd = p.cmdDamage || {}, keys = Object.keys(cd).filter(function (k) { return cd[k] > 0; });
     if (keys.length) html += '<div class="vit-cmd">Cmdr dmg: ' + keys.map(function (k) { return cd[k] + " (" + k + ")"; }).join(" · ") + "</div>";
-    if (state.players.length > 1) { html += '<div class="vit-opps">'; state.players.forEach(function (pl, i) { if (i === mySeat || !pl) return; var hc = MTGCore.zoneCount(state, i, "hand"); html += '<span class="vit-opp">' + (pl.name ? esc(pl.name) : ("Seat " + i)) + ' <button data-ol="' + i + '" data-d="-1">-</button><b class="vit-onum">' + pl.life + '</b><button data-ol="' + i + '" data-d="1">+</button> &hearts;</span>'; }); html += "</div>"; }
+    // Opponent chips: READ-ONLY life total + trackers (you can only change your OWN life). Click a
+    // chip to open the commander-damage-received panel for that player (see openOppPanel below).
+    if (state.players.length > 1) {
+      html += '<div class="vit-opps">';
+      state.players.forEach(function (pl, i) {
+        if (i === mySeat || !pl) return;
+        var ctrs = pl.counters || {}, chips = "";
+        ["poison", "energy", "experience", "rad", "monarch"].forEach(function (k) {
+          var v = Number(ctrs[k] || 0); if (v > 0) chips += '<span class="vit-opp-ctr vit-opp-ctr-' + k + '" title="' + k + '">' + v + esc(k[0].toUpperCase()) + '</span>';
+        });
+        html += '<button type="button" class="vit-opp" data-oppdmg="' + i + '" title="View commander damage taken by ' + esc(pl.name || ("Seat " + i)) + '">' +
+          (pl.name ? esc(pl.name) : ("Seat " + i)) + ' <b class="vit-onum">' + pl.life + '</b> &hearts;' + chips + '</button>';
+      });
+      html += "</div>";
+    }
     el.vitals.innerHTML = html;
   }
   function stackRemove(id) { delete onStackIds[id]; var i = stackOrder.indexOf(id); if (i >= 0) stackOrder.splice(i, 1); }
@@ -2878,6 +2892,40 @@
           for (var key in cd) { var sseat = key.split(":")[0]; from[sseat] = (from[sseat] || 0) + (cd[key] || 0); }
           out.push({ seat: i, isMe: i === mySeat, name: p.name || (i === mySeat ? "You" : "Seat " + i), life: p.life, color: p.color || "", poison: (p.counters && p.counters.poison) || 0, commanderArt: art, commanderName: cname || "Commander", cmdFrom: from });
         });
+        return out;
+      } catch (e) { return []; }
+    },
+    // Per-SOURCE-COMMANDER commander-damage breakdown for targetSeat (any seat, not just mySeat) —
+    // "From Zinnia: 7 / From Krenko: 3" style detail for the opponent commander-damage-received panel
+    // (play-life.js). Distinct from seatsInfo().cmdFrom, which aggregates by source SEAT only.
+    cmdDamageDetail: function (targetSeat) {
+      try {
+        targetSeat = Number(targetSeat);
+        if (!state || !state.players || !state.players[targetSeat]) return [];
+        var cd = state.players[targetSeat].cmdDamage || {};
+        var out = [];
+        for (var key in cd) {
+          var val = cd[key]; if (!val) continue;
+          var parts = key.split(":"); var srcSeat = Number(parts[0]); var fromCmd = parts.slice(1).join(":") || "primary";
+          var srcName = ""; var art = "";
+          try {
+            var list = commandersOf(srcSeat);
+            var found = null;
+            for (var i = 0; i < list.length; i++) if (list[i].key === fromCmd) { found = list[i]; break; }
+            if (found) {
+              srcName = found.name;
+              if (found.card) { var im = imagesById[found.card.cardId]; if (im && im.img) art = im.img; }
+            }
+          } catch (e) {}
+          var srcPlayer = state.players[srcSeat];
+          out.push({
+            sourceSeat: srcSeat, fromCmd: fromCmd, amount: val,
+            commanderName: srcName || "Commander",
+            commanderArt: art,
+            sourcePlayerName: (srcPlayer && srcPlayer.name) || (srcSeat === mySeat ? "You" : "Seat " + srcSeat)
+          });
+        }
+        out.sort(function (a, b) { return b.amount - a.amount; });
         return out;
       } catch (e) { return []; }
     },

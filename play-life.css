@@ -285,6 +285,21 @@ body.oh-open .pl-cluster { display: none !important; }
 .pl-cd-b[disabled]:hover { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.16); color: #fff; }
 .pl-cd-hint { margin: 12px 0 0; color: #8a98ad; font-size: 11px; line-height: 1.5; }
 
+/* ============================================================
+   OPPONENT PANEL (read-only) — commander damage TAKEN by another player,
+   grouped per source commander. No edit controls anywhere in this sheet.
+   ============================================================ */
+.pl-opp-sheet { width: min(420px, 94vw); }
+.pl-opp-life {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 2px 0 12px;
+  padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
+}
+.pl-opp-lifenum { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; color: #e9eef6; }
+.pl-opp-lifelbl { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #8a98ad; }
+.pl-opp-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+.pl-opp-grid { margin-top: 0; }
+.pl-opp-tile { cursor: default; } /* read-only — no −/+ steps rendered, so no pointer affordance needed */
+
 /* ---- reduced motion: no pulses/flashes ---- */
 @media (prefers-reduced-motion: reduce) {
   .pl-life.hit, .pl-life.heal, .pl-pill.hit, .pl-pill.heal, .pl-flash.go { animation: none; }
