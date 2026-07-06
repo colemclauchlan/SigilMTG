@@ -318,6 +318,12 @@
         if (!info) return;
         if (!info.found) { logLine(s, "That room code doesn't exist — check for a typo, or ask the host for a fresh link."); return; }
         if (info.completed) { logLine(s, "That game has already finished."); return; }
+        // Already seated (refresh / reopened invite link): the seat is saved — rejoin, never spectate.
+        if (info.seated) {
+          choice.seatReserved = true;
+          logLine(s, "Welcome back — seat <b>" + (Number(info.my_seat) + 1) + "</b> is saved for you. Lock in your deck and press Start Game to rejoin.");
+          return;
+        }
         if (info.started) { logLine(s, "That game has already started — opening the spectator view."); setTimeout(function () { spectateGame(code, info.visibility); }, 900); return; }
         var n = Number(info.seats) || 0;
         logLine(s, "Room found — <b>" + n + "</b> seated so far. Lock in a deck, then Start Game.");
