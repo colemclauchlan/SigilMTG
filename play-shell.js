@@ -307,6 +307,8 @@
     lobbyState.picks = {};
     lobbyCfg.preconsOnly = false; lobbyCfg.lookingForPlayers = false;
     choice.locked = false; choice.deckMeta = null; choice.deck = null;
+    if (choice.bracket == null) choice.bracket = 2;
+    if (choice.bracketHalf == null) choice.bracketHalf = "L";
     choice.joinCode = null; choice.hostedCode = null; choice.online = false;
     selTileId = null;
     var s = eln("div", "ps-screen ps-lobby");
@@ -325,6 +327,7 @@
           '<div class="ps-lockbar">' +
             '<div class="ps-locksel" id="psLockSel">Pick a deck, then lock it in.</div>' +
             '<button type="button" id="psLockIn" class="ps-lock-btn" disabled>Lock In</button>' +
+            '<button type="button" id="psBracketBtn" class="ps-host-btn ps-bracket-btn" title="Declare your Commander bracket — tap to change">Bracket 2</button>' +
             '<button type="button" id="psStartGo" class="ps-start-btn" disabled>Start Game ›</button></div>' +
         '</div>' +
         '<div class="ps-lobby-cols">' +
@@ -363,6 +366,22 @@
       teardownLobbySync();
       chooseDeck(choice.deck);
     };
+    var brBtn = s.querySelector("#psBracketBtn");
+    if (brBtn) {
+      var paintBr = function () {
+        brBtn.textContent = "Bracket " + (choice.bracket || 2);
+        var bb = BRACKETS[(choice.bracket || 2) - 1];
+        if (bb) brBtn.style.background = "linear-gradient(135deg," + bb.c1 + "," + bb.c2 + ")";
+      };
+      paintBr();
+      brBtn.onclick = function () {
+        choice.bracket = ((choice.bracket || 2) % 5) + 1;
+        if (choice.deckMeta) choice.deckMeta.bracket = choice.bracket;
+        paintBr(); renderPlayers(s);
+        try { broadcastPick(); } catch (e) {}
+        logLine(s, "Bracket set to <b>" + choice.bracket + "</b>.");
+      };
+    }
 
     // Invite friends (host) — creates the online room, then shares the link.
     var invBtn = s.querySelector("#psInviteBtn"), invOut = s.querySelector("#psInviteOut");
@@ -530,7 +549,10 @@
     var t = tileById(selTileId); if (!t) return;
     if (!tileAllowed(t)) { logLine(s, "Precons only is on — pick a precon instead."); return; }
     choice.deck = t.ref;
-    choice.deckMeta = { name: t.name, commander: t.commander || "", bracket: t.bracket || null };
+    if (t.bracket) choice.bracket = Math.min(5, Math.max(1, Number(t.bracket)));
+    choice.deckMeta = { name: t.name, commander: t.commander || "", bracket: choice.bracket || (t.bracket || null) };
+    var _brb = s.querySelector("#psBracketBtn");
+    if (_brb) { _brb.textContent = "Bracket " + (choice.bracket || 2); var _bb = BRACKETS[(choice.bracket || 2) - 1]; if (_bb) _brb.style.background = "linear-gradient(135deg," + _bb.c1 + "," + _bb.c2 + ")"; }
     choice.locked = true;
     var lk = s.querySelector("#psLockIn"); if (lk) { lk.innerHTML = "Locked " + (window.MTGIcons ? MTGIcons.get("check", "1em") : ""); lk.disabled = true; }
     var st = s.querySelector("#psStartGo"); if (st) st.disabled = false;
@@ -970,7 +992,7 @@
     s.querySelector("#psMatCancel").onclick = function () { show("lobby"); };
     s.querySelector("#psMatGo").onclick = function () {
       try { if (choice.mat && window.MTGTable && MTGTable.applyPlaymat) MTGTable.applyPlaymat(choice.mat); } catch (e) {}
-      buildDraftSelect(); show("draft");
+      launchGame();
     };
   }
 
@@ -1087,6 +1109,7 @@
   }
   function afterStart() {
     try { if (window.MTGTable && MTGTable.setName && choice.name) MTGTable.setName(choice.name); } catch (e) {}
+    try { if (window.MTGTable && MTGTable.setBracket) MTGTable.setBracket((choice.bracketHalf || "L") + (choice.bracket || 2)); } catch (e) {}
     if (choice.online && window.MTGTable) {
       if (choice.joinCode && MTGTable.join) { try { MTGTable.join(choice.joinCode); } catch (e) {} }
       else if (choice.hostedCode && MTGTable.persistMyDeck) { try { MTGTable.persistMyDeck().then(function () { showInvite(choice.hostedCode); }, function () { showInvite(choice.hostedCode); }); } catch (e) {} }
