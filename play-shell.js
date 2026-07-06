@@ -1532,9 +1532,8 @@
     setTimeout(function () {
       try { if (window.MTGWatch && window.MTGWatch.openLive) window.MTGWatch.openLive(gameId, choice.name || ""); } catch (e) {}
     }, 60);
-    if (visibility && visibility !== "public") {
-      setTimeout(function () { try { if (window.alert) window.alert("This game already started. Private games in progress can only be spectated once they're public — you can watch public games live from the Watch tab."); } catch (e) {} }, 120);
-    }
+    // No window.alert here: it froze the whole tab behind a native modal. The Watch mirror
+    // itself renders the honest "not public / unavailable to spectate" message for private games.
   }
 
   // ---- wiring ----
