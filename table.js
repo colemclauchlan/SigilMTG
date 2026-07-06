@@ -263,6 +263,7 @@
   }
   function buildAndStart(list, images, label) {
     imagesById = {}; for (var ik in images) imagesById[ik] = images[ik];
+    imgFetching = {}; // the latch map must reset with the cache it guards — stale latches after this wipe permanently blocked re-enrichment (no P/T, type or keyword meta for the whole game)
     for (var sdk in seatDecks) { var sim = seatDecks[sdk].images || {}; for (var sk in sim) imagesById[sk] = sim[sk]; }
     lastList = list; lastImages = images; lastLabel = label || "deck";
     mySeat = 0;
@@ -1667,7 +1668,8 @@
       var batch = batchKeys.map(function (k) { return byKey[k]; });
       try {
         var res = await fetch("https://api.scryfall.com/cards/collection", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identifiers: batch }) }).then(function (x) { return x.json(); });
-        (res.data || []).forEach(function (card) { var im = entryImages(card), pti = cardPT(card), f0 = (card.card_faces && card.card_faces[0]) || {}; var meta = { img: im.img, back: im.back, name: card.name, pt: pti.pt, isCreature: pti.isCreature, cmc: (card.cmc != null ? card.cmc : (f0.cmc || 0)), colors: card.colors || f0.colors || [], type: card.type_line || f0.type_line || "", keywords: card.keywords || [] }; if (card.id) imagesById[card.id] = meta; if (card.name) imagesById[card.name] = meta; });
+        if (!res || !Array.isArray(res.data)) throw new Error("collection fetch failed"); // 429/5xx parse to an error object, not a rejection
+        res.data.forEach(function (card) { var im = entryImages(card), pti = cardPT(card), f0 = (card.card_faces && card.card_faces[0]) || {}; var meta = { img: im.img, back: im.back, name: card.name, pt: pti.pt, isCreature: pti.isCreature, cmc: (card.cmc != null ? card.cmc : (f0.cmc || 0)), colors: card.colors || f0.colors || [], type: card.type_line || f0.type_line || "", keywords: card.keywords || [] }; if (card.id) imagesById[card.id] = meta; if (card.name) imagesById[card.name] = meta; });
       } catch (e) {
         // Failed batch (network/429): release the latch so a later render RETRIES — otherwise
         // these cards permanently lose art/P-T/keyword meta for the whole session.
