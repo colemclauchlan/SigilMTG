@@ -1844,7 +1844,7 @@
     var byKey = {};
     for (var id in state.cards) {
       var c = state.cards[id]; if (c._placeholder) continue; var k = c.cardId;
-      if (!k || (imagesById[k] && imagesById[k].img && imagesById[k].type != null) || imgFetching[k]) continue;
+      if (!k || (imagesById[k] && imagesById[k].img && imagesById[k].type != null && imagesById[k].oracle != null) || imgFetching[k]) continue; // oracle != null: legacy deck-saved meta lacks oracle text — re-enrich once so trigger scanning works
       imgFetching[k] = 1;
       byKey[k] = /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(k) ? { id: k } : { name: k };
     }
@@ -1855,7 +1855,7 @@
       try {
         var res = await fetch("https://api.scryfall.com/cards/collection", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identifiers: batch }) }).then(function (x) { return x.json(); });
         if (!res || !Array.isArray(res.data)) throw new Error("collection fetch failed"); // 429/5xx parse to an error object, not a rejection
-        res.data.forEach(function (card) { var im = entryImages(card), pti = cardPT(card), f0 = (card.card_faces && card.card_faces[0]) || {}; var meta = { img: im.img, back: im.back, name: card.name, pt: pti.pt, isCreature: pti.isCreature, cmc: (card.cmc != null ? card.cmc : (f0.cmc || 0)), colors: card.colors || f0.colors || [], type: card.type_line || f0.type_line || "", keywords: card.keywords || [] }; if (card.id) imagesById[card.id] = meta; if (card.name) imagesById[card.name] = meta; });
+        res.data.forEach(function (card) { var im = entryImages(card), pti = cardPT(card), f0 = (card.card_faces && card.card_faces[0]) || {}; var meta = { img: im.img, back: im.back, name: card.name, pt: pti.pt, isCreature: pti.isCreature, cmc: (card.cmc != null ? card.cmc : (f0.cmc || 0)), colors: card.colors || f0.colors || [], type: card.type_line || f0.type_line || "", keywords: card.keywords || [], oracle: card.oracle_text || (card.card_faces ? card.card_faces.map(function (f) { return f.oracle_text || ""; }).join("\n") : "") }; if (card.id) imagesById[card.id] = meta; if (card.name) imagesById[card.name] = meta; });
       } catch (e) {
         // Failed batch (network/429): release the latch so a later render RETRIES — otherwise
         // these cards permanently lose art/P-T/keyword meta for the whole session.
