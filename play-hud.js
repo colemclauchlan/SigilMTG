@@ -277,14 +277,16 @@
     }
     var advOn = !!(window.MTGEngineAssistUI && MTGEngineAssistUI.isOn && MTGEngineAssistUI.isOn());
     var enfOn = !!(T.engineEnforceOn && T.engineEnforceOn());
+    var trgOn = !!(T.engineTriggersOn && T.engineTriggersOn());
     var ptOn = T.showPTOn ? !!T.showPTOn() : true;
     var kwOn = T.showKWOn ? !!T.showKWOn() : true;
     var body =
-      tog("enforce", "Auto-enforce rules", "State-based actions: 0-toughness creatures die; 0-life, 10-poison and 21-commander losses flagged; +1/+1 and -1/-1 counters cancel; leftover tokens cleared.", enfOn) +
+      tog("enforce", "Auto-enforce rules", "State-based actions: 0-toughness creatures and 0-loyalty planeswalkers die; losses flagged; +1/+1 and -1/-1 counters cancel; leftover tokens cleared; legend rule, second land drops and unattached auras flagged. Combat legality: tapped creatures, defenders and summoning-sick creatures (no haste) can't be declared, vigilance skips the attack tap, and illegal blocks (flying, menace, protection...) are refused.", enfOn) +
+      tog("trg", "Trigger reminders", "Surface \u201CWhen / Whenever / At\u201D abilities as dismissible reminders when cards enter, die, attack, block, get cast or deal combat damage, and at each upkeep \u2014 including other cards watching the event (Soul Warden, aristocrats, landfall). Nothing resolves automatically.", trgOn) +
       tog("pt", "Power & toughness on cards", "Show each creature's total power and effective P/T (base + counters) on the board.", ptOn) +
       tog("kw", "Ability keywords on cards", "Show compact keyword chips (flying, deathtouch, trample, lifelink...) on creatures.", kwOn) +
       tog("adv", "Advisory analysis", "The engine watches the game and flags rules issues without changing anything (the E button on the bar).", advOn) +
-      '<p class="hud-eng-note">The full rules engine is still rolling out - these are the parts live today. Leave all three off to disable the engine entirely.</p>';
+      '<p class="hud-eng-note">The full rules engine is still rolling out - these are the parts live today. Leave every toggle off to disable the engine entirely.</p>';
     var ov = popup("engine", "Rules engine", "Engine settings", body, false);
     if (!ov) return;
     ov.addEventListener("click", function (e) {
@@ -292,6 +294,7 @@
       var which = b.dataset.eng, on = !b.classList.contains("on");
       try {
         if (which === "enforce" && T.setEngineEnforce) T.setEngineEnforce(on);
+        else if (which === "trg" && T.setEngineTriggers) T.setEngineTriggers(on);
         else if (which === "pt" && T.setShowPT) T.setShowPT(on);
         else if (which === "kw" && T.setShowKW) T.setShowKW(on);
         else if (which === "adv" && window.MTGEngineAssistUI) { if (on) MTGEngineAssistUI.enable(); else MTGEngineAssistUI.disable(); }

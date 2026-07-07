@@ -619,3 +619,18 @@ body.play-fs #playPage .tbl-rail { padding-top: 0 !important; }
   /* Selection toolbar buttons reach a tappable height. */
   .tbl-seltoolbar button { min-height: 40px; }
 }
+
+/* ===== Engine trigger-reminder tray (opt-in "Trigger reminders" toggle) ===== */
+.tbl-trgtray { position: absolute; right: 12px; bottom: 14px; width: 272px; max-height: 44vh; overflow-y: auto; background: rgba(15, 20, 32, .95); border: 1px solid #2b3550; border-radius: 10px; z-index: 55; box-shadow: 0 8px 24px rgba(0, 0, 0, .45); display: none; font-size: 12px; }
+.tbl-trgtray .trg-head { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-bottom: 1px solid #26304a; color: #cbd5f5; font-weight: 700; position: sticky; top: 0; background: rgba(15, 20, 32, .97); }
+.tbl-trgtray .trg-clear { background: none; border: 1px solid #33406b; color: #9fb0e8; border-radius: 6px; padding: 1px 8px; cursor: pointer; font-size: 11px; }
+.tbl-trgtray .trg-clear:hover { color: #fff; border-color: #4a5a8f; }
+.tbl-trgtray .trg-row { display: flex; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #1d2438; align-items: flex-start; }
+.tbl-trgtray .trg-row:last-child { border-bottom: none; }
+.tbl-trgtray .trg-kind { flex: 0 0 auto; background: #223055; color: #9fc0ff; border-radius: 5px; padding: 1px 6px; font-size: 10px; margin-top: 1px; white-space: nowrap; }
+.tbl-trgtray .trg-body { flex: 1 1 auto; min-width: 0; color: #e5e9f5; }
+.tbl-trgtray .trg-body b { display: block; font-size: 12px; }
+.tbl-trgtray .trg-body i { display: block; font-style: normal; color: #93a0c0; font-size: 11px; line-height: 1.35; }
+.tbl-trgtray .trg-x { flex: 0 0 auto; background: none; border: none; color: #7f8db0; cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; }
+.tbl-trgtray .trg-x:hover { color: #fff; }
+@media (max-width: 700px) { .tbl-trgtray { right: 8px; bottom: 8px; width: min(272px, calc(100vw - 16px)); max-height: 36vh; } }

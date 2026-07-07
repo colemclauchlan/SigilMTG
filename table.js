@@ -277,7 +277,7 @@
     for (var s = 0; s < seats; s++) { if (seatDecks[s]) decks.push(seatDecks[s].list); else decks.push((hotseat || s === 0) ? list : null); }
     state = MTGCore.init({ seats: seats, decks: decks, startingLife: startingLife, deckSize: 0 });
     undoStack = []; mulliganCount = 0; bottomNeeded = 0; pendingFit = true; onStackIds = {}; stackOrder = []; gameOverShown = false; matchRecorded = false; _lossFlagged = {};
-    blockingIds = {}; handPan = 0; _stackWasEmpty = null; _turnKey = null; peekRotated = {};
+    blockingIds = {}; handPan = 0; _stackWasEmpty = null; _turnKey = null; peekRotated = {}; _advFlagged = {}; _trgQueue = []; _etbTurn = {}; _landDropFlags = {}; _pwLoyaltySeen = {}; try { renderTriggerTray(); } catch (e) {}
     visibleCounters = ["poison", "energy", "experience"];   // pinned counters reset to a fresh state each new game
     try { if (window.MTGHUD && MTGHUD.resetPins) MTGHUD.resetPins(); } catch (e) {}
     if (el.hand) el.hand.style.setProperty("--hand-pan", "0px");
@@ -334,7 +334,7 @@
     if (!state) { setStatus("Load a deck first."); return; }
     if (!window.MTGTableSync) { setStatus("Sync not loaded."); return; }
     try {
-      MTGTableSync.onRemote = function (rs) { state = rs; applyTableSettings(state.settings); render(); };
+      MTGTableSync.onRemote = onRemoteState;
       MTGTableSync.onEphemeral = handleEphemeral;
       var pub = opts.visibility === "public";
       var gname = opts.name || "Commander table";
@@ -357,7 +357,7 @@
     opts = opts || {};
     if (!window.MTGTableSync) { setStatus("Sync not loaded."); return null; }
     try {
-      MTGTableSync.onRemote = function (rs) { state = rs; applyTableSettings(state.settings); render(); };
+      MTGTableSync.onRemote = onRemoteState;
       MTGTableSync.onEphemeral = handleEphemeral;
       var pub = opts.visibility === "public";
       var gid = await MTGTableSync.host([], { displayName: opts.displayName || "Host", visibility: pub ? "public" : "private", name: opts.name });
@@ -385,7 +385,7 @@
     var gid = gameId || window.prompt("Game id to join:"); if (!gid) return false; gid = String(gid).trim();
     setStatus("Joining " + gid + "…"); showToast("Joining game…");
     try {
-      MTGTableSync.onRemote = function (rs) { state = rs; applyTableSettings(state.settings); render(); };
+      MTGTableSync.onRemote = onRemoteState;
       MTGTableSync.onEphemeral = handleEphemeral;
       await MTGTableSync.join(gid, deckListFromState(), { displayName: opts.displayName || "Player", hand: MTGCore.zoneCount(state, mySeat, "hand") || 7 });
       online = true; mySeat = MTGTableSync.info().mySeat;
@@ -557,17 +557,59 @@
     var inv = MTGCore.invert(action, state);
     var next = MTGCore.reduce(state, action);
     if (JSON.stringify(next) === JSON.stringify(state)) return;
-    undoStack.push(inv); state = next; logAction(action); render();
+    undoStack.push(inv); var _trgPrev = state; state = next; logAction(action); render();
     if (anim) postAnim(anim);
     if (action.t === "library_shuffle") animateShuffle();
     if (action.t === "draw" && el.hand) { var _lib = findPileNode("library"); if (_lib) animateFlyTo(_lib.getBoundingClientRect(), el.hand.getBoundingClientRect(), CARD_BACK); }
     if (online && window.MTGTableSync) { try { MTGTableSync.pushAction(action, state, changedIdsOf(action)); } catch (e) {} }
+    trackBoardDiff(_trgPrev, next);
+    scanTriggerEvents(_trgPrev, next);
     enforceSBAs();
     checkGameOver();
   }
+  // Shared remote-state handler: applies the synced state, then feeds the state DIFF to the opt-in
+  // trigger-reminder engine so remote players' plays surface reminders here too. Advisory only —
+  // it never dispatches, so every client can run it without any risk of multiplayer desync.
+  function onRemoteState(rs) { var prev = state; state = rs; applyTableSettings(state.settings); render(); trackBoardDiff(prev, rs); scanTriggerEvents(prev, rs); }
   // ---- engine: opt-in state-based-action enforcement on the live board (CR 704) ----
-  var engineEnforce = false, _enforcing = false, _lossFlagged = {}, showPT = true, showKW = true, autoTurn = true;
+  var engineEnforce = false, _enforcing = false, _lossFlagged = {}, _advFlagged = {}, showPT = true, showKW = true, autoTurn = true;
   try { showPT = localStorage.getItem("mtg_show_pt") !== "0"; showKW = localStorage.getItem("mtg_show_kw") !== "0"; autoTurn = localStorage.getItem("mtg_auto_turn") !== "0"; engineEnforce = localStorage.getItem("mtg_engine_enforce") === "1"; } catch (e) {}
+  // ---- engine: always-on LOCAL board-diff bookkeeping (never dispatches, so it is MP-safe on both
+  // the local dispatch path and onRemoteState). Feeds the opt-in enforcement/advisory features:
+  //   _etbTurn[id] = turn a card last ENTERED the battlefield  -> summoning-sickness gate (CR 302.6)
+  //   land-drop counting per seat+turn                          -> one-land-per-turn advisory (CR 305.2)
+  // Fails OPEN: cards already in play before this client loaded aren't in the map -> never blocked.
+  var _etbTurn = {}, _landDropFlags = {}, _pwLoyaltySeen = {};
+  function trackBoardDiff(prev, next) {
+    if (!prev || !next || prev === next || !next.cards) return;
+    try {
+      for (var id in next.cards) {
+        var nc = next.cards[id], pc = prev.cards[id];
+        if (!nc) continue;
+        if (nc.zone === "battlefield" && (!pc || pc.zone !== "battlefield")) {
+          _etbTurn[id] = next.turn;
+          // CR 305.2 advisory (opt-in): flag a seat's SECOND land drop in one turn. Advisory only —
+          // effects like Exploration legally allow it, so we warn instead of blocking.
+          if (engineEnforce && pc && pc.zone === "hand") {
+            var _m = metaForCard(nc);
+            if (/\bLand\b/i.test(_m.type || "")) {
+              var seat = nc.controllerSeat != null ? nc.controllerSeat : nc.ownerSeat;
+              var lk = "land:" + seat + ":" + next.turn;
+              _landDropFlags[lk] = (_landDropFlags[lk] || 0) + 1;
+              if (_landDropFlags[lk] === 2) {
+                var lmsg = "Rules: that's the 2nd land this turn — one land per turn unless an effect allows more (CR 305.2).";
+                log("<b>SBA</b> " + esc(lmsg)); try { showToast(lmsg); } catch (e) {}
+              }
+            }
+          }
+        } else if (nc.zone !== "battlefield" && pc && pc.zone === "battlefield") {
+          delete _etbTurn[id];
+        }
+      }
+    } catch (e) {}
+  }
+  // Summoning sickness (CR 302.6): true when we WITNESSED the card enter the battlefield this turn.
+  function isSummoningSick(c) { return !!(c && state && _etbTurn[c.instanceId] != null && _etbTurn[c.instanceId] === state.turn); }
   // advisory ability-keyword chips on creatures (Scryfall keywords; gated by showKW)
   var KW_ABBR = { Flying: "FL", "First strike": "FS", "Double strike": "DS", Deathtouch: "DT", Trample: "TR", Lifelink: "LL", Vigilance: "VG", Menace: "MN", Reach: "RE", Defender: "DF", Haste: "HA", Hexproof: "HX", Indestructible: "ID", Ward: "WD", Flash: "FH", Prowess: "PW", Shadow: "SD", Fear: "FE", Intimidate: "IT", Skulk: "SK", Toxic: "TX", Infect: "IF", Wither: "WI", Protection: "PT" };
   // manually grantable keyword abilities offered on the "Add/remove keywords" right-click submenu (G3.25) — stored as
@@ -632,6 +674,45 @@
       var dead = [];
       for (var id in state.cards) { var c = state.cards[id]; if (!c || c.zone !== "battlefield" || c.faceDown) continue; var t = effToughness(c); if (t != null && t <= 0) dead.push(id); }
       dead.forEach(function (id) { var c = state.cards[id]; if (!c) return; log("<b>SBA</b> " + esc(c.name || "creature") + " has 0 toughness → graveyard"); dispatch({ t: "card_move", instanceId: id, toZone: "graveyard" }); });
+      // CR 704.5i — a planeswalker with no loyalty goes to the graveyard. Loyalty here is the
+      // player-tracked "loyalty" counter; the reducer deletes zeroed keys, so we remember which
+      // walkers HAD tracked loyalty (_pwLoyaltySeen) and fire when it drops to 0 or below.
+      var pwDead = [];
+      for (var pwid in state.cards) {
+        var pw = state.cards[pwid]; if (!pw || pw.zone !== "battlefield" || pw.faceDown) continue;
+        var pwm = imagesById[pw.cardId] || {}; if (!/planeswalker/i.test(pwm.type || "")) continue;
+        var loy = (pw.counters && pw.counters["loyalty"]) || 0;
+        if (loy > 0) { _pwLoyaltySeen[pwid] = 1; }
+        else if (_pwLoyaltySeen[pwid]) { delete _pwLoyaltySeen[pwid]; pwDead.push(pwid); }
+      }
+      pwDead.forEach(function (id) { var c = state.cards[id]; if (!c) return; log("<b>SBA</b> " + esc(c.name || "planeswalker") + " has no loyalty → graveyard (CR 704.5i)"); dispatch({ t: "card_move", instanceId: id, toZone: "graveyard" }); });
+      // CR 704.5j (advisory) — legend rule: one player controls two+ legendary permanents with the
+      // same name. Never auto-destroys (the player chooses which to keep); flags once per pairing.
+      var _legByKey = {};
+      for (var lid in state.cards) {
+        var lc = state.cards[lid]; if (!lc || lc.zone !== "battlefield" || lc.faceDown) continue;
+        var lm = imagesById[lc.cardId] || {}; if (!/legendary/i.test(lm.type || "")) continue;
+        var lk = "leg:" + (lc.controllerSeat != null ? lc.controllerSeat : lc.ownerSeat) + "|" + (lc.name || lm.name || "");
+        _legByKey[lk] = (_legByKey[lk] || 0) + 1;
+      }
+      for (var lk2 in _legByKey) {
+        if (_legByKey[lk2] > 1 && !_advFlagged[lk2]) {
+          _advFlagged[lk2] = 1;
+          var _lnm = lk2.slice(4).split("|").slice(1).join("|");
+          var lmsg = "Legend rule: two \u201C" + _lnm + "\u201D under one player's control — choose one to keep (CR 704.5j).";
+          log("<b>SBA</b> " + esc(lmsg)); try { showToast(lmsg); } catch (e) {}
+        } else if (!(_legByKey[lk2] > 1) && _advFlagged[lk2]) delete _advFlagged[lk2];
+      }
+      // CR 704.5m (advisory) — an Aura on the battlefield attached to nothing (log-only, no toast).
+      for (var auid in state.cards) {
+        var au = state.cards[auid]; if (!au || au.zone !== "battlefield" || au.faceDown) continue;
+        var am = imagesById[au.cardId] || {}; if (!/\bAura\b/i.test(am.type || "")) continue;
+        var atgt = au.attachedTo && state.cards[au.attachedTo];
+        var abad = !atgt || atgt.zone !== "battlefield";
+        var akey = "aura:" + auid;
+        if (abad && !_advFlagged[akey]) { _advFlagged[akey] = 1; log("<b>SBA</b> " + esc((au.name || "An Aura") + " isn't attached to anything — an unattached Aura goes to the graveyard (CR 704.5m).")); }
+        else if (!abad && _advFlagged[akey]) delete _advFlagged[akey];
+      }
       // player-loss findings via the rules engine (advisory surface — never auto-removes a player)
       if (window.MTGEngineAssist && MTGEngineAssist.analyze) {
         var a = MTGEngineAssist.analyze(state) || {};
@@ -645,10 +726,96 @@
     } catch (e) {} finally { _enforcing = false; }
   }
   function setEngineEnforce(on) {
-    engineEnforce = !!on; _lossFlagged = {}; try { localStorage.setItem("mtg_engine_enforce", engineEnforce ? "1" : "0"); } catch (e) {}
-    setStatus("Rules auto-enforce " + (engineEnforce ? "ON — 0-toughness creatures die, player losses flagged." : "OFF."));
+    engineEnforce = !!on; _lossFlagged = {}; _advFlagged = {}; try { localStorage.setItem("mtg_engine_enforce", engineEnforce ? "1" : "0"); } catch (e) {}
+    setStatus("Rules auto-enforce " + (engineEnforce ? "ON — 0-toughness creatures and 0-loyalty walkers die, summoning sickness enforced, losses flagged." : "OFF."));
     if (engineEnforce) enforceSBAs();
   }
+  // ---- engine: opt-in trigger reminders (advisory tray — nothing resolves automatically) ----
+  // Every client computes reminders locally from the same synced state transitions (dispatch for my
+  // actions, onRemoteState for everyone else's), so the tray stays consistent with ZERO extra sync
+  // traffic and zero desync risk: this path never dispatches game actions.
+  var engineTriggers = false, _trgQueue = [], _trgEl = null;
+  try { engineTriggers = localStorage.getItem("mtg_engine_triggers") === "1"; } catch (e) {}
+  function metaForCard(c) { var m = imagesById[c.cardId] || imagesById[c.name] || {}; return { oracle: m.oracle || "", type: m.type || "", name: m.name || c.name || "" }; }
+  function scanTriggerEvents(prev, next) {
+    if (!engineTriggers || !prev || !next || prev === next || !window.MTGRulesTriggerScan) return;
+    try {
+      var evs = [];
+      // zone transitions (etb / dies) via the pure diff recognizer
+      if (window.MTGRulesTriggers && MTGRulesTriggers.diffEvents) {
+        MTGRulesTriggers.diffEvents(prev, next).forEach(function (ev) { if (ev.kind === "etb" || ev.kind === "dies") evs.push({ kind: ev.kind, instanceId: ev.instanceId }); });
+      }
+      // combat declarations (attacking / blocking flags flipping on)
+      for (var id in next.cards) {
+        var pc = prev.cards[id], nc = next.cards[id];
+        if (!nc || nc.zone !== "battlefield") continue;
+        if (nc.attacking && !(pc && pc.attacking)) evs.push({ kind: "attacks", instanceId: id });
+        if (nc.blocking && !(pc && pc.blocking)) evs.push({ kind: "blocks", instanceId: id });
+        // hand -> battlefield reads as CASTING a spell (lands aren't cast — CR 601.2 vs 305.1),
+        // so prowess-style "whenever you cast" watchers surface alongside the ETB reminder.
+        if (pc && pc.zone === "hand" && !/\bLand\b/i.test((metaForCard(nc) || {}).type || "")) evs.push({ kind: "cast", instanceId: id });
+      }
+      // turn handoff: the leaving seat's end step, then the receiving seat's upkeep
+      if (prev.activeSeat !== next.activeSeat && next.activeSeat != null) {
+        if (prev.activeSeat != null) evs.push({ kind: "end_step", seat: prev.activeSeat, turn: prev.turn });
+        evs.push({ kind: "upkeep", seat: next.activeSeat, turn: next.turn });
+      }
+      evs.forEach(function (ev) {
+        MTGRulesTriggerScan.remindersFor(ev, next, metaForCard).forEach(function (r) { queueTriggerReminder(ev, r); });
+      });
+    } catch (e) {}
+  }
+  var TRG_KIND_LABEL = { etb: "Enters", dies: "Dies", attacks: "Attacks", blocks: "Blocks", upkeep: "Upkeep", end_step: "End step", cast: "Cast", combat_damage: "Combat damage" };
+  function queueTriggerReminder(ev, r) {
+    var key = ev.kind + "|" + (ev.turn != null ? ev.turn + "|" : "") + r.instanceId + "|" + r.text;
+    for (var i = 0; i < _trgQueue.length; i++) if (_trgQueue[i].key === key) return;
+    _trgQueue.push({ key: key, kind: ev.kind, name: r.name, text: r.text });
+    while (_trgQueue.length > 8) _trgQueue.shift();
+    log("<b>Trigger</b> " + esc(r.name) + " &mdash; " + esc(r.text));
+    renderTriggerTray();
+  }
+  function renderTriggerTray() {
+    if (!el.viewport) return;
+    if (_trgEl && !_trgEl.parentNode) { try { el.viewport.appendChild(_trgEl); } catch (e) {} }
+    if (!_trgEl) { _trgEl = document.createElement("div"); _trgEl.className = "tbl-trgtray"; el.viewport.appendChild(_trgEl); }
+    if (!engineTriggers || !_trgQueue.length) { _trgEl.style.display = "none"; _trgEl.innerHTML = ""; return; }
+    var h = '<div class="trg-head"><span>Triggers</span><button class="trg-clear" type="button">Clear</button></div>';
+    h += _trgQueue.map(function (q, i) {
+      return '<div class="trg-row"><span class="trg-kind">' + esc(TRG_KIND_LABEL[q.kind] || q.kind) + '</span><div class="trg-body"><b>' + esc(q.name) + '</b><i>' + esc(q.text) + '</i></div><button class="trg-x" type="button" data-i="' + i + '" aria-label="Dismiss">&times;</button></div>';
+    }).join("");
+    _trgEl.innerHTML = h; _trgEl.style.display = "block";
+    var cb = _trgEl.querySelector(".trg-clear"); if (cb) cb.onclick = function () { _trgQueue = []; renderTriggerTray(); };
+    Array.prototype.forEach.call(_trgEl.querySelectorAll(".trg-x"), function (b) { b.onclick = function () { _trgQueue.splice(+b.dataset.i, 1); renderTriggerTray(); }; });
+  }
+  // "deals combat damage to a player" reminders. Combat lives in the resolver UIs (combat panel /
+  // arrow duel), not in synced state, so the RESOLVING client emits these directly after applying
+  // the damage. Advisory only — remote clients still see the life/log changes through normal sync.
+  function emitCombatDamageTriggers(ids) {
+    if (!engineTriggers || !state || !window.MTGRulesTriggerScan) return;
+    try {
+      (ids || []).forEach(function (id) {
+        if (!state.cards[id]) return;
+        var ev = { kind: "combat_damage", instanceId: id };
+        MTGRulesTriggerScan.remindersFor(ev, state, metaForCard).forEach(function (r) { queueTriggerReminder(ev, r); });
+      });
+    } catch (e) {}
+  }
+  function setEngineTriggers(on) {
+    engineTriggers = !!on; try { localStorage.setItem("mtg_engine_triggers", engineTriggers ? "1" : "0"); } catch (e) {}
+    if (!engineTriggers) _trgQueue = [];
+    renderTriggerTray();
+    setStatus("Trigger reminders " + (engineTriggers ? "ON — enters/dies/attacks/casts, combat damage and upkeep abilities appear in the tray (nothing auto-resolves)." : "OFF."));
+  }
+  // Full keyword set for a live card: printed Scryfall keywords + manual "kw:" counter grants +
+  // static-ability grants from the rules engine. Used for combat legality + vigilance handling.
+  function cardKeywords(c) {
+    var m = imagesById[c.cardId] || imagesById[c.name] || {};
+    var out = (m.keywords || []).slice();
+    try { if (c.counters) for (var k in c.counters) { if (c.counters[k] && k.slice(0, 3) === "kw:") { var kn = k.slice(3); if (out.indexOf(kn) < 0) out.push(kn); } } } catch (e) {}
+    try { if (window.MTGRulesStatic && MTGRulesStatic.grantedKeywords && state) MTGRulesStatic.grantedKeywords(state, c.instanceId, {}).forEach(function (kw) { if (out.indexOf(kw) < 0) out.push(kw); }); } catch (e) {}
+    return out;
+  }
+  function hasKeyword(c, name) { name = String(name).toLowerCase(); return cardKeywords(c).some(function (k) { return String(k).toLowerCase() === name; }); }
   function findCardNode(id) { var n = el.surface.querySelectorAll(".tbl-card"); for (var i = 0; i < n.length; i++) if (n[i].dataset.id === id) return n[i]; var h = el.hand.querySelectorAll(".tbl-card"); for (var j = 0; j < h.length; j++) if (h[j].dataset.id === id) return h[j]; return null; }
   function findPileNode(zone) { var p = el.surface.querySelectorAll(".tbl-pile"); var fb = null; for (var i = 0; i < p.length; i++) { if (p[i].dataset.zone === zone) { if (p[i].dataset.seat === String(mySeat)) return p[i]; if (!fb) fb = p[i]; } } return fb; }
   function animateShuffle() {
@@ -1360,14 +1527,26 @@
     submenu("Target", [{ label: "Select a card", fn: function () { startLink(c.instanceId, "select", "target"); } }, { label: "Draw a line", fn: function () { startLink(c.instanceId, "draw", "target"); } }]);
     if (c.zone === "battlefield") item(c.attacking ? "Remove from combat" : "Declare attacker", function () {
       var willAttack = !c.attacking;
+      // engine (opt-in): CR 508.1 attack legality — tapped creatures and defenders can't be declared.
+      var _vig = false;
+      if (willAttack && engineEnforce) {
+        if (c.tapped) { setStatus("Rules: tapped creatures can't attack."); try { showToast("Tapped creatures can't attack."); } catch (e) {} return; }
+        if (hasKeyword(c, "defender")) { setStatus("Rules: " + (c.name || "this creature") + " has defender — it can't attack."); try { showToast("Defender can't attack."); } catch (e) {} return; }
+        // CR 302.6 — summoning sickness: entered the battlefield this turn and no haste -> can't attack.
+        // Only blocks when this client WITNESSED the entry (fails open for pre-existing/unknown cards).
+        if (isSummoningSick(c) && !hasKeyword(c, "haste")) { setStatus("Rules: " + (c.name || "this creature") + " has summoning sickness — it entered this turn and lacks haste."); try { showToast("Summoning sickness — can't attack this turn."); } catch (e) {} return; }
+        _vig = hasKeyword(c, "vigilance"); // CR 508.1f — attacking with vigilance doesn't tap
+      }
       var acts = [{ t: "card_combat", instanceId: c.instanceId, attacking: willAttack }];
       if (willAttack && c.blocking) acts.push({ t: "__set", cards: [{ id: c.instanceId, fields: { blocking: false } }] }); // a card can't attack and block at once
-      if (willAttack && !c.tapped) acts.push({ t: "card_tap", instanceId: c.instanceId, tapped: true });
+      if (willAttack && !c.tapped && !_vig) acts.push({ t: "card_tap", instanceId: c.instanceId, tapped: true });
       dispatch({ t: "batch", actions: acts });
     });
     // G3.24/G3.27 — Declare blocker: synced shield indicator (game_card_instances.combat) + a BLUE arrow to the attacker it blocks.
     if (c.zone === "battlefield") item(c.blocking ? "Remove blocker" : "Declare blocker", function () {
       if (c.blocking) { setCardBlocking(c, false); return; }
+      // engine (opt-in): CR 509.1a — tapped creatures can't block.
+      if (engineEnforce && c.tapped) { setStatus("Rules: tapped creatures can't block."); try { showToast("Tapped creatures can't block."); } catch (e) {} return; }
       var acts = [{ t: "__set", cards: [{ id: c.instanceId, fields: { blocking: true } }] }];
       if (c.attacking) acts.push({ t: "card_combat", instanceId: c.instanceId, attacking: false }); // mutual exclusivity, mirrored
       dispatch({ t: "batch", actions: acts });
@@ -1729,8 +1908,8 @@
         if (srcCard && srcCard.isCommander && srcCard.ownerSeat !== seat) acts.unshift({ t: "commander_damage", seat: seat, fromSeat: srcCard.ownerSeat, fromCmd: cmdrKeyOf(srcCard) || "primary", delta: dmg });
         dispatch(acts.length > 1 ? { t: "batch", actions: acts } : acts[0]);
       }
-      if (r.trample && r.trample.toB) playerDamage(bf.c, B.seat, r.trample.toB);
-      if (r.trample && r.trample.toA) playerDamage(bt.c, A.seat, r.trample.toA);
+      if (r.trample && r.trample.toB) { playerDamage(bf.c, B.seat, r.trample.toB); emitCombatDamageTriggers([fromId]); }
+      if (r.trample && r.trample.toA) { playerDamage(bt.c, A.seat, r.trample.toA); emitCombatDamageTriggers([toId]); }
       if (r.aDies) dispatch({ t: "card_move", instanceId: fromId, toZone: "graveyard" });
       if (r.bDies) dispatch({ t: "card_move", instanceId: toId, toZone: "graveyard" });
       var tramp = (r.trample && (r.trample.toA + r.trample.toB)) || 0;
@@ -2313,7 +2492,9 @@
   function engCard(c) {
     var m = imagesById[c.cardId] || imagesById[c.name] || {};
     var pt = m.pt || [0, 0];
-    return { name: c.name || m.name || "creature", power: parseInt(pt[0], 10) || 0, toughness: parseInt(pt[1], 10) || 0, counters: c.counters || {}, keywords: m.keywords || [], colors: m.colors || [], oracle: m.oracle || "", type: m.type || "" };
+    // keywords via cardKeywords(): printed + manual "kw:" grants + static-ability grants, so the
+    // combat resolver honors granted deathtouch/flying/etc., not just what's printed on the card.
+    return { name: c.name || m.name || "creature", power: parseInt(pt[0], 10) || 0, toughness: parseInt(pt[1], 10) || 0, counters: c.counters || {}, keywords: cardKeywords(c), colors: m.colors || [], oracle: m.oracle || "", type: m.type || "" };
   }
   function openCombat() {
     if (!state) { setStatus("Start a game first."); return; }
@@ -2333,9 +2514,17 @@
       else {
         h += '<div class="cmb-list">' + atk.map(function (c) { return '<div class="cmb-row"><span>' + esc(c.name) + '</span><b>' + combatPower(c) + '</b></div>'; }).join("") + '</div>';
         if (blk.length) {
+          // engine: MTGDuel.canBlock legality per pairing (flying/reach, menace, fear, shadow,
+          // protection, skulk...). Always ANNOTATED; actually disabled only when enforcement is on.
           h += '<div class="cmb-block"><div class="cmb-bh">Assign blockers</div>' + blk.map(function (b) {
+            var bEng = engCard(b);
             return '<div class="cmb-brow"><span>' + esc(b.name) + ' <i>' + combatPower(b) + '</i></span><select data-blk="' + b.instanceId + '"><option value="">— not blocking —</option>' +
-              atk.map(function (a) { return '<option value="' + a.instanceId + '"' + (assign[b.instanceId] === a.instanceId ? " selected" : "") + '>blocks ' + esc(a.name) + '</option>'; }).join("") + '</select></div>';
+              atk.map(function (a) {
+                var chk = { ok: true, reason: "" };
+                try { if (window.MTGDuel && MTGDuel.canBlock) chk = MTGDuel.canBlock(engCard(a), bEng) || chk; } catch (e) {}
+                var bad = chk.ok === false;
+                return '<option value="' + a.instanceId + '"' + (assign[b.instanceId] === a.instanceId ? " selected" : "") + ((bad && engineEnforce) ? " disabled" : "") + '>blocks ' + esc(a.name) + (bad ? " ⚠ " + esc(chk.reason) : "") + '</option>';
+              }).join("") + '</select></div>';
           }).join("") + '</div>';
         }
         h += '<div class="cmb-tot">' + (blk.length ? "Unblocked reach player " : "Total power ") + '<b>' + total + '</b></div>';
@@ -2345,12 +2534,20 @@
       panel.innerHTML = h;
       panel.querySelector(".pv-x").onclick = function () { ov.remove(); };
       Array.prototype.forEach.call(panel.querySelectorAll("select[data-blk]"), function (s) { s.onchange = function () { assign[s.dataset.blk] = s.value; }; });
-      var go = panel.querySelector(".cmb-go"); if (go) go.onclick = function () { var sel = panel.querySelector(".cmb-sel"); var a2 = attackers(); var tot = a2.reduce(function (a, c) { return a + combatPower(c); }, 0); var tgt = sel ? +sel.value : firstOpp; dispatch({ t: "adjust_life", seat: tgt, delta: -tot }); clearAll(a2); log("<b>Combat</b> — " + tot + " to " + (tgt === mySeat ? "you" : "seat " + tgt) + "."); ov.remove(); };
+      var go = panel.querySelector(".cmb-go"); if (go) go.onclick = function () { var sel = panel.querySelector(".cmb-sel"); var a2 = attackers(); var tot = a2.reduce(function (a, c) { return a + combatPower(c); }, 0); var tgt = sel ? +sel.value : firstOpp; dispatch({ t: "adjust_life", seat: tgt, delta: -tot }); emitCombatDamageTriggers(a2.filter(function (c) { return combatPower(c) > 0; }).map(function (c) { return c.instanceId; })); clearAll(a2); log("<b>Combat</b> — " + tot + " to " + (tgt === mySeat ? "you" : "seat " + tgt) + "."); ov.remove(); };
       var rz = panel.querySelector(".cmb-resolve"); if (rz) rz.onclick = function () {
         if (!window.MTGDuel || !MTGDuel.resolveFullCombat) { setStatus("Combat engine not loaded."); return; }
         var sel = panel.querySelector(".cmb-sel"); var tgt = sel ? +sel.value : firstOpp;
         var a2 = attackers(), b2 = declaredBlockers();
         var pairs = a2.map(function (a) { var mine = b2.filter(function (b) { return assign[b.instanceId] === a.instanceId; }); return { atkCard: a, blkCards: mine, attacker: engCard(a), blockers: mine.map(engCard) }; });
+        // engine (opt-in): whole-declaration legality (adds the menace two-blocker group rule).
+        if (engineEnforce && window.MTGDuel && MTGDuel.legalBlockGroup) {
+          for (var _pi = 0; _pi < pairs.length; _pi++) {
+            if (!pairs[_pi].blockers.length) continue;
+            var _lg = MTGDuel.legalBlockGroup(pairs[_pi].attacker, pairs[_pi].blockers);
+            if (_lg && _lg.ok === false) { setStatus("Illegal block on " + pairs[_pi].attacker.name + " \u2014 " + _lg.reason); try { showToast("Illegal block: " + _lg.reason); } catch (e) {} return; }
+          }
+        }
         var res = MTGDuel.resolveFullCombat(pairs), deaths = 0;
         pairs.forEach(function (p, i) {
           var r = res.results[i];
@@ -2359,6 +2556,7 @@
         });
         if (res.toPlayer > 0) dispatch({ t: "adjust_life", seat: tgt, delta: -res.toPlayer });
         if (res.lifegain && res.lifegain.attackers > 0) dispatch({ t: "adjust_life", seat: mySeat, delta: res.lifegain.attackers });
+        emitCombatDamageTriggers(pairs.filter(function (p, pi) { return res.results[pi] && res.results[pi].playerDamage > 0; }).map(function (p) { return p.atkCard.instanceId; }));
         a2.forEach(function (c) { dispatch({ t: "card_combat", instanceId: c.instanceId, attacking: false }); });
         clearBlockers(b2);
         log("<b>Combat resolved</b> — " + res.toPlayer + " to " + (tgt === mySeat ? "you" : "seat " + tgt) + (deaths ? (", " + deaths + " creature" + (deaths > 1 ? "s" : "") + " died") : "") + (res.lifegain && res.lifegain.attackers ? (", +" + res.lifegain.attackers + " life") : "") + ".");
@@ -3022,6 +3220,8 @@
     untapAll: function () { try { if (state) dispatch({ t: "untap_all", seat: mySeat }); } catch (e) {} },
     setEngineEnforce: function (on) { try { setEngineEnforce(!!on); } catch (e) {} },
     engineEnforceOn: function () { return !!engineEnforce; },
+    setEngineTriggers: function (on) { try { setEngineTriggers(!!on); } catch (e) {} },
+    engineTriggersOn: function () { return !!engineTriggers; },
     setShowPT: function (on) { showPT = !!on; try { localStorage.setItem("mtg_show_pt", showPT ? "1" : "0"); } catch (e) {} try { render(); } catch (e) {} },
     showPTOn: function () { return !!showPT; },
     setShowKW: function (on) { showKW = !!on; try { localStorage.setItem("mtg_show_kw", showKW ? "1" : "0"); } catch (e) {} try { render(); } catch (e) {} },
