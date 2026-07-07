@@ -145,5 +145,10 @@
   function render() { var root = document.querySelector("#profileRoot"); if (!root || busy) return; busy = true; load(root).then(function () { busy = false; }, function () { busy = false; }); }
   document.addEventListener("click", function (e) { var t = e.target.closest && e.target.closest('[data-page-target="profile"]'); if (t) setTimeout(render, 40); });
   window.addEventListener("mtg-page-changed", function (e) { if (e && e.detail && e.detail.page === "profile") render(); });
+  // Re-render on sign-in/sign-out so the page never shows the previous identity's data.
+  window.addEventListener("mtg-auth-changed", function () {
+    var panel = document.querySelector('[data-page="profile"]');
+    if (panel && panel.classList.contains("active")) setTimeout(render, 80);
+  });
   window.MTGProfile = { render: render };
 })();

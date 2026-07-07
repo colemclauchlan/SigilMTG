@@ -568,6 +568,11 @@
       if (!d) return;
       var cmd = null;
       try { (d.cards || []).some(function (en) { if (en && en.section === "commander") { cmd = en; return true; } return false; }); } catch (e) {}
+      // Decks imported from a pasted list may lack a commander *section* — fall back to
+      // the stored commander name so the tile still shows a subtitle and art.
+      if (!cmd && d.commanderName) {
+        try { (d.cards || []).some(function (en) { if (en && en.card && en.card.name === d.commanderName) { cmd = en; return true; } return false; }); } catch (e) {}
+      }
       var br = Number(d.bracket) || null;
       if (!br && typeof window.analyzeDeckForBracket === "function") {
         try { var an = window.analyzeDeckForBracket(d); br = (an && Number(an.bracket)) || null; } catch (e) {}
@@ -575,7 +580,7 @@
       tiles.push({
         id: "saved-" + i, kind: "saved", ref: { index: i },
         name: d.name || ("Deck " + (i + 1)),
-        commander: (cmd && cmd.card && cmd.card.name) || "",
+        commander: (cmd && cmd.card && cmd.card.name) || d.commanderName || "",
         art: d.commanderArtUrl || artFromCard(cmd && cmd.card),
         bracket: br
       });

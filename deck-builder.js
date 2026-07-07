@@ -568,6 +568,7 @@ function moxfieldBoardToDeckSection(board) {
 
 async function hydrateMoxfieldCardsWithScryfall(cards) {
   const hydrated = [];
+  const notFound = [];
 
   for (let index = 0; index < cards.length; index += 75) {
     const chunk = cards.slice(index, index + 75);
@@ -584,16 +585,28 @@ async function hydrateMoxfieldCardsWithScryfall(cards) {
     }
 
     const data = await response.json();
-    const found = new Map((data.data || []).map((card) => [card.name.toLowerCase(), card]));
+    const found = new Map();
+    (data.data || []).forEach((card) => {
+      found.set(card.name.toLowerCase(), card);
+      String(card.name).split(" // ").forEach((face) => {
+        const key = face.trim().toLowerCase();
+        if (key && !found.has(key)) found.set(key, card);
+      });
+    });
     chunk.forEach((card) => {
       const scryfall = found.get(card.name.toLowerCase());
+      if (!scryfall) {
+        notFound.push(card.name);
+        return;
+      }
       hydrated.push({
         ...card,
-        card: normalizeCard(scryfall || card),
+        card: normalizeCard(scryfall),
       });
     });
   }
 
+  hydrated.notFound = notFound;
   return hydrated;
 }
 
@@ -801,6 +814,7 @@ async function importArchidektToDeckBuilder(deckId) {
     const cards = normalizeArchidektDeckCards(data);
     if (!cards.length) throw new Error("No cards found");
     const hydrated = await hydrateMoxfieldCardsWithScryfall(cards);
+    if (!hydrated.length) throw new Error("No cards found");
     applyMoxfieldDeckToBuilder({ name: data.name || ("Archidekt deck " + deckId) }, hydrated, "archidekt-" + deckId);
     const n = hydrated.reduce((sum, card) => sum + (card.quantity || 1), 0);
     setDeckStatus("Imported " + n + " cards from Archidekt.", "success");
@@ -848,6 +862,7 @@ async function importMoxfieldToDeckBuilder() {
     if (!cards.length) throw new Error("No cards found");
 
     const hydratedCards = await hydrateMoxfieldCardsWithScryfall(cards);
+    if (!hydratedCards.length) throw new Error("No cards found");
     const imported = applyMoxfieldDeckToBuilder(moxfieldDeck, hydratedCards, deckId);
     if (imported) {
       setDeckStatus(`Imported ${hydratedCards.reduce((sum, card) => sum + card.quantity, 0)} cards from Moxfield.`, "success");
@@ -2321,6 +2336,7 @@ function updateDeckFromInputs() {
   saveDeckBuilder();
   renderDeckStats(deck);
   clearDeckWarnings();
+  renderSavedDeckLibrary();
 }
 
 function normalizeDeckCardName(name = "") {

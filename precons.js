@@ -131,11 +131,21 @@
     if (btn) { btn.disabled = true; btn.textContent = "Importing…"; }
     if (typeof setDeckStatus === "function") setDeckStatus("Importing " + deckName + "…", "info");
     hydrateMoxfieldCardsWithScryfall(cards).then(function (hydrated) {
+      var skipped = (hydrated.notFound || []).length;
+      if (!hydrated.length) {
+        if (typeof setDeckStatus === "function") setDeckStatus("No recognizable card names in that list — nothing imported.", "warning");
+        if (btn) { btn.disabled = false; btn.textContent = orig; }
+        if (onDone) onDone(false);
+        return;
+      }
       applyMoxfieldDeckToBuilder({ name: deckName }, hydrated, deckKey);
       if (typeof setDeckStatus === "function") {
         var n = hydrated.reduce(function (s, c) { return s + (c.quantity || 1); }, 0);
-        setDeckStatus("Imported " + n + " cards into " + deckName + ".", "success");
+        var msg = "Imported " + n + " cards into " + deckName + ".";
+        if (skipped) msg += " Skipped " + skipped + " unrecognized line" + (skipped === 1 ? "" : "s") + ".";
+        setDeckStatus(msg, skipped ? "warning" : "success");
       }
+      if (btn) { btn.disabled = false; btn.textContent = orig; }
       if (onDone) onDone(true);
     }).catch(function () {
       if (typeof setDeckStatus === "function") setDeckStatus("Could not import that list (network?). Try again.", "warning");

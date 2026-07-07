@@ -10,7 +10,9 @@
     try { var s = window.mtgSync && window.mtgSync.session; return (s && s.user && s.user.id) || "guest"; } catch (e) { return "guest"; }
   }
   function alreadyOnboarded() {
-    try { var m = JSON.parse(localStorage.getItem(FLAG) || "{}"); return !!m[uid()]; } catch (e) { return false; }
+    // Any completed onboarding on this device counts — don't replay the tour when a
+    // guest who already finished it signs up / signs in mid-session.
+    try { var m = JSON.parse(localStorage.getItem(FLAG) || "{}"); return !!m[uid()] || Object.keys(m).length > 0; } catch (e) { return false; }
   }
   function markOnboarded() {
     try { var m = JSON.parse(localStorage.getItem(FLAG) || "{}"); m[uid()] = Date.now(); localStorage.setItem(FLAG, JSON.stringify(m)); } catch (e) {}
