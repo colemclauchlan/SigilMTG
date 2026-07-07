@@ -657,7 +657,23 @@ function applyMoxfieldDeckToBuilder(moxfieldDeck, cards, deckId) {
     tags: [],
     notes: "",
   }));
-  const commander = entries.find((entry) => entry.section === "commander") || entries[0];
+  let commander = entries.find((entry) => entry.section === "commander") || null;
+  if (!commander) {
+    // Pasted lists often lack a "Commander" header — promote the first card that can
+    // legally lead the deck so it starts in the command zone instead of the library.
+    const canLead = (entry) => {
+      const tl = String(entry?.card?.type_line || "");
+      const ot = String(entry?.card?.oracle_text || "");
+      return /Legendary/i.test(tl) && (/Creature/i.test(tl) || /can be your commander/i.test(ot));
+    };
+    const candidate = entries.find((entry) => entry.quantity === 1 && canLead(entry));
+    if (candidate) {
+      candidate.section = "commander";
+      commander = candidate;
+    } else {
+      commander = entries[0];
+    }
+  }
 
   deck.name = getMoxfieldDeckName(moxfieldDeck, deckId);
   deck.format = "commander";

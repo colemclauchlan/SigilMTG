@@ -227,6 +227,10 @@
       var deck = readSavedDecks()[Number(choice)];
       if (!deck) { log("<b>Deck not found</b> — that saved deck is gone; loading the sample deck."); sideboardCards = []; sideboardDeckKey = null; return loadSample(); }
       var images = {}, list = [], sbCollected = [];
+      // Decks imported from a pasted list may have no commander *section* — fall back to the
+      // stored commander name so the commander still starts in the command zone.
+      var hasCmdrSection = (deck.cards || []).some(function (e) { return e && sectionIsCommander(e.section); });
+      var cmdrName = String(deck.commanderName || "");
       (deck.cards || []).forEach(function (entry) {
         var nm = (entry.card && entry.card.name) || entry.name; if (!nm) return;
         var id = (entry.card && entry.card.id) || nm;
@@ -234,7 +238,8 @@
         // maybeboard never touches the table; the sideboard is EXCLUDED from the library but COLLECTED for swapping.
         if (entry.section === "maybeboard") return;
         if (entry.section === "sideboard") { for (var sk = 0; sk < (entry.quantity || 1); sk++) sbCollected.push({ cardId: id, name: nm }); return; }
-        for (var k = 0; k < (entry.quantity || 1); k++) list.push({ cardId: id, name: nm, isCommander: sectionIsCommander(entry.section) });
+        var isCmdr = sectionIsCommander(entry.section) || (!hasCmdrSection && !!cmdrName && nm === cmdrName && (entry.quantity || 1) === 1);
+        for (var k = 0; k < (entry.quantity || 1); k++) list.push({ cardId: id, name: nm, isCommander: isCmdr });
       });
       if (!list.length) return loadSample();
       // Load (or reset) the persistent sideboard for THIS deck. A different deck resets it; the same deck restores swaps.
