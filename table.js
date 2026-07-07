@@ -1041,8 +1041,9 @@
     hand.forEach(function (c) { dispatch({ t: "card_move", instanceId: c.instanceId, toZone: "library" }); });
     dispatch({ t: "library_shuffle", seat: mySeat, seed: "mull-" + Date.now() + "-" + Math.floor(Math.random() * 1e9) });
     dispatch({ t: "draw", seat: mySeat, count: 7 });
-    mulliganCount++; bottomNeeded = mulliganCount;
-    log("<b>Mulligan</b> #" + mulliganCount + " \u2014 bottom " + bottomNeeded + ".");
+    // Commander rules: the first mulligan is free (bottom 0); each one after bottoms N-1.
+    mulliganCount++; bottomNeeded = Math.max(0, mulliganCount - 1);
+    log("<b>Mulligan</b> #" + mulliganCount + (bottomNeeded > 0 ? " \u2014 bottom " + bottomNeeded + "." : " \u2014 free."));
     setStatus(bottomNeeded > 0 ? ("Mulligan " + mulliganCount + ": click " + bottomNeeded + " card(s) in hand to put on the bottom.") : "Opening hand.");
   }
 
@@ -2753,13 +2754,12 @@
       case "library_shuffle": return "<b>Shuffle</b> library";
       case "set_phase": {
         var phL = { untap: "Untap", upkeep: "Upkeep", draw: "Draw", main1: "Main 1", combat: "Combat", main2: "Main 2", end: "End", cleanup: "Cleanup" };
-        var seat = state ? state.activeSeat : 0, pl = state && state.players ? state.players[seat] : null;
-        var who = pl && pl.name ? esc(pl.name) : ("Seat " + seat);
-        return "<b>" + who + "</b> moved to <b>" + (phL[a.phase] || a.phase) + "</b>";
+        // The renderer already prefixes the actor's name — don't repeat it here.
+        return "moved to <b>" + (phL[a.phase] || a.phase) + "</b>";
       }
       case "pass_turn": {
         var ns = state ? state.activeSeat : 0, np = state && state.players ? state.players[ns] : null;
-        return "<b>" + (np && np.name ? esc(np.name) : ("Seat " + ns)) + "</b> took the turn";
+        return "passed the turn — <b>" + (np && np.name ? esc(np.name) : ("Seat " + ns)) + "</b> is up";
       }
       default: return "<b>" + esc(a.t) + "</b>";
     }

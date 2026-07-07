@@ -16,8 +16,13 @@
   async function fetchDetail(id) {
     var t = await safe(client().from("tournaments").select("*").eq("id", id).single());
     if (!t) return null;
-    var players = (await safe(client().from("tournament_players").select("tournament_id, profile_id, seed, dropped, profiles(display_name, elo)").eq("tournament_id", id).order("seed", { ascending: true }))) || [];
-    players = players.map(function (p) { return { profile_id: p.profile_id, seed: p.seed, dropped: p.dropped, display_name: (p.profiles && p.profiles.display_name) || null, elo: p.profiles && p.profiles.elo }; });
+    // NOTE: profile_id FKs to auth.users, so a PostgREST profiles(...) embed 400s silently.
+    // Fetch players plain, then look profiles up by id in a second query.
+    var players = (await safe(client().from("tournament_players").select("tournament_id, profile_id, seed, dropped").eq("tournament_id", id).order("seed", { ascending: true }))) || [];
+    var pids = players.map(function (p) { return p.profile_id; });
+    var profs = pids.length ? ((await safe(client().from("profiles").select("id, display_name, elo").in("id", pids))) || []) : [];
+    var pmap = {}; profs.forEach(function (pr) { pmap[pr.id] = pr; });
+    players = players.map(function (p) { var pr = pmap[p.profile_id] || {}; return { profile_id: p.profile_id, seed: p.seed, dropped: p.dropped, display_name: pr.display_name || null, elo: pr.elo }; });
     var rounds = (await safe(client().from("tournament_rounds").select("*").eq("tournament_id", id).order("round_no", { ascending: true }))) || [];
     // Load all rounds' pairings in one query (globally table_no-ordered) instead of one per round (N+1).
     if (rounds.length) {
@@ -36,7 +41,9 @@
   }
   async function joinTournament(id) {
     var s = session(); if (!s) return false;
-    return (await safe(client().from("tournament_players").upsert({ tournament_id: id, profile_id: s.user.id, dropped: false }, { onConflict: "tournament_id,profile_id" }))) !== null;
+    // An upsert without .select() returns null data on success — only a returned error means failure.
+    var r = await client().from("tournament_players").upsert({ tournament_id: id, profile_id: s.user.id, dropped: false }, { onConflict: "tournament_id,profile_id" }).then(function (x) { return x; }, function () { return { error: true }; });
+    return !(r && r.error);
   }
   function mkPair(roundId, tableNo, a, b) { return { round_id: roundId, table_no: tableNo, player_ids: [a, b], winner_profile_id: null, reported: false }; }
   // Result codes: false = nothing generated; "unreported" = finish current round first; "done" = champion decided (single-elim).
@@ -69,7 +76,7 @@
     if (format === "single_elim") pool = players.filter(function (p) { return !lost[p.profile_id]; });
     else pool = players.slice().sort(function (a, b) { return (winCount[b.profile_id] || 0) - (winCount[a.profile_id] || 0) || a.seed - b.seed; });
 
-    if (pool.length < 2) return priorRounds.length ? "done" : false; // champion decided, or not enough players yet
+    if (pool.length < 2) return priorRounds.length ? "done" : "need2"; // champion decided, or not enough players yet
 
     var round = await safe(client().from("tournament_rounds").insert({ tournament_id: id, round_no: next }).select().single());
     if (!round) return false;
@@ -196,13 +203,20 @@
       '<div><h3 style="color:#f3f6fb;margin:0 0 6px">Rounds</h3><div style="border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);padding:4px 0">' + roundsHtml + "</div></div></div>" + standingsHtml + "</div>";
     wireBack(root);
     var jb = root.querySelector("#tJoin");
-    if (jb) jb.addEventListener("click", async function () { jb.disabled = true; jb.textContent = "…"; await joinTournament(state.id); render(); });
+    if (jb) jb.addEventListener("click", async function () {
+      jb.disabled = true; jb.textContent = "…";
+      var ok = await joinTournament(state.id);
+      if (!ok) { jb.disabled = false; jb.textContent = "Couldn't join — try again"; setTimeout(function () { jb.textContent = "Join"; }, 2200); return; }
+      render();
+    });
     var gb = root.querySelector("#tGenRound");
     if (gb) gb.addEventListener("click", async function () {
       gb.disabled = true; gb.textContent = "…";
       var res = await generateRound(state.id, d.format || "swiss");
       if (res === "unreported") { gb.disabled = false; gb.textContent = "Report all results first"; setTimeout(function () { gb.textContent = "Generate round"; }, 2200); return; }
       if (res === "done") { gb.disabled = false; gb.textContent = "Champion decided"; setTimeout(function () { gb.textContent = "Generate round"; }, 2200); return; }
+      if (res === "need2") { gb.disabled = false; gb.textContent = "Need at least 2 players"; setTimeout(function () { gb.textContent = "Generate round"; }, 2200); return; }
+      if (!res) { gb.disabled = false; gb.textContent = "Couldn't generate — try again"; setTimeout(function () { gb.textContent = "Generate round"; }, 2200); return; }
       render();
     });
     var db = root.querySelector("#tDrop");

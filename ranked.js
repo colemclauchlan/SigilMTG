@@ -21,9 +21,12 @@
   var seasonDays = 0; // 0 = all-time
 
   async function fetchLeaderboard() {
-    var res = await sb().from("profiles").select("*").limit(100);
+    var res = await sb().from("profiles").select("*").limit(200);
     if (res.error) throw res.error;
     return (res.data || [])
+      // Only players who have actually played — hides the wall of default 1200 "Planeswalker"
+      // profiles that every fresh account creates (ranked dedupe).
+      .filter(function (p) { return ((p.wins || 0) + (p.losses || 0)) > 0; })
       .sort(function (a, b) { return (b.elo || 0) - (a.elo || 0) || (b.wins || 0) - (a.wins || 0); })
       .slice(0, 50)
       .map(function (p, i) { p.rank = i + 1; return p; });

@@ -153,7 +153,15 @@ function getSavedDeckEntryCard(entry = {}) {
 }
 
 function getSavedDeckCommanderEntry(deck) {
-  return deck.cards.find((entry) => entry.section === "commander") || deck.cards[0] || null;
+  const bySection = deck.cards.find((entry) => entry.section === "commander");
+  if (bySection) return bySection;
+  // Pasted-list imports may lack a commander section — prefer the stored commander name
+  // over blindly taking the first (often alphabetized) card.
+  if (deck.commanderName) {
+    const byName = deck.cards.find((entry) => getSavedDeckEntryCard(entry).name === deck.commanderName);
+    if (byName) return byName;
+  }
+  return deck.cards[0] || null;
 }
 
 function normalizeSearchText(value = "") {
