@@ -287,8 +287,12 @@ body.play-fs { overflow: hidden; }
 .ps-join button { cursor: pointer; border: 0; border-radius: 10px; padding: 11px 20px; font-size: 14px; font-weight: 700; background: var(--tbl-accent, #46c2d8); color: #07120e; white-space: nowrap; }
 .ps-join button:hover { filter: brightness(1.06); }
 
-/* Task 4(b) — host-only custom invite code input, shown once a room exists. */
+/* Task 4(b) — host-only custom invite code input, shown once a room exists. The explicit [hidden]
+   rule is required: .ps-custom-code's own `display: flex` has equal specificity to the UA
+   stylesheet's `[hidden]{display:none}` and author styles win that tie, so without this override
+   the box stayed visible even while its `hidden` attribute was correctly set to true. */
 .ps-custom-code { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.ps-custom-code[hidden] { display: none; }
 .ps-custom-code input { flex: 1; min-width: 160px; background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.14); color: #e9eef6; border-radius: 10px; padding: 9px 12px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
 .ps-custom-code input:focus { outline: none; border-color: var(--tbl-accent, #46c2d8); }
 .ps-custom-code input:disabled { opacity: .45; cursor: not-allowed; }
