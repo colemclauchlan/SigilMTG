@@ -140,6 +140,23 @@ class MTGSyncAdapter {
     if (error) throw error;
     return data || null;
   }
+  // Resolve a short/custom invite code (or a raw UUID, for back-compat) to the game's real id.
+  // SECURITY DEFINER + anon/authenticated grant (mirrors join_game/lobby_peek) — a non-member must
+  // be able to resolve a code before they've joined. Returns null when the code doesn't exist.
+  async resolveInviteCode(code) {
+    if (!this.enabled || !code) return null;
+    const { data, error } = await this.client.rpc("resolve_invite_code", { p_code: String(code).trim() });
+    if (error) throw error;
+    return data || null;
+  }
+  // Host-only: set (or randomly generate, when code is falsy) this game's short invite code.
+  // HOST-gated + uniqueness-validated inside the RPC; throws a friendly message on collision/bad input.
+  async setInviteCode(gameId, code) {
+    if (!this.enabled || !gameId) return null;
+    const { data, error } = await this.client.rpc("set_invite_code", { p_game: gameId, p_code: code || null });
+    if (error) throw error;
+    return data || null;
+  }
   async updateGameTurn(gameId, activeSeatIndex, totalTurns) {
     if (!this.enabled || !gameId) return;
     // RPC, not a raw UPDATE: "games" RLS is owner-only ("games owner manage"), so a guest's direct

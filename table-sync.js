@@ -366,6 +366,10 @@ window.MTGTableSync = (function () {
 
   api.listOpenGames = function (limit) { return (sync && sync.listOpenGames) ? sync.listOpenGames(limit) : Promise.resolve([]); };
   api.lobbyPeek = function (gameId) { return (sync && sync.lobbyPeek) ? sync.lobbyPeek(gameId) : Promise.resolve(null); };
+  // Short/custom invite codes (games.invite_code) — resolve a code/UUID to a game id, or (host-only)
+  // set the game's code. Thin passthroughs to the web-sync RPC wrappers.
+  api.resolveInviteCode = function (code) { return (sync && sync.resolveInviteCode) ? sync.resolveInviteCode(code) : Promise.resolve(null); };
+  api.setInviteCode = function (gameId, code) { return (sync && sync.setInviteCode) ? sync.setInviteCode(gameId, code) : Promise.resolve(null); };
   api.broadcastEphemeral = function (payload) { if (sync && sync.broadcastEphemeral) sync.broadcastEphemeral(payload); };
   // Host setting "players may interact with each other's cards": when ON, pushAction may also
   // upsert changed cards that an opponent owns (see the foreign-push branch above).

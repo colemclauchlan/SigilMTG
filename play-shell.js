@@ -255,6 +255,8 @@
   }
 
   // Opened via an invite link (?join=CODE): jump straight to the lobby with the code loaded.
+  // CODE may be a short/custom invite code (games.invite_code) or a raw game uuid (older links) —
+  // resolveJoinCode() below turns it into the real game id before anything touches the network.
   function openForJoin(code) {
     // Enter the Play view the way the Play tab does so #playPage becomes active — the shell lives
     // inside #playPage, so calling open() while on Home leaves it mounted in a hidden parent.
@@ -267,9 +269,31 @@
     var ci = s.querySelector("#psJoinCode"); if (ci) ci.value = code;
     applyHostUi(s);
     renderPlayers(s);
-    // Connect to the host's realtime lobby channel so both sides see each other before Start Game.
-    connectLobby(s, code);
     logLine(s, 'Invite code <b>' + escapeHtml(code) + '</b> loaded — lock in a deck, then Start Game to join.');
+    // Resolve the short/custom code to the real game id, THEN connect — connectLobby/reserveSeat/
+    // lobbyPeek all key off choice.joinCode being the real id from here on.
+    resolveJoinCode(code, function (realId) {
+      if (!realId) { logLine(s, "That room code doesn't exist — check for a typo, or ask the host for a fresh link."); return; }
+      choice.joinCode = realId;
+      connectLobby(s, realId);
+    });
+  }
+
+  // Turn a short/custom invite code (or a raw uuid, for back-compat) into the game's real id via the
+  // resolve_invite_code RPC. Fails soft: if the RPC isn't available (older deploy), try the code
+  // AS the game id directly — that's exactly what every caller did before short codes existed.
+  function resolveJoinCode(code, cb) {
+    code = String(code || "").trim();
+    if (!code) { cb(null); return; }
+    try {
+      if (window.MTGTableSync && MTGTableSync.resolveInviteCode) {
+        Promise.resolve(MTGTableSync.resolveInviteCode(code)).then(function (id) {
+          cb(id || code); // not found via the resolver — fall back to treating the input as a raw id
+        }, function () { cb(code); });
+        return;
+      }
+    } catch (e) {}
+    cb(code);
   }
 
   function onPickMode(mode) { buildLobby(mode); show("lobby"); }
@@ -330,7 +354,7 @@
         logLine(s, "Room found — <b>" + n + "</b> seated so far. Lock in a deck, then Start Game.");
       }, function (e) {
         var m = (e && e.message) || "";
-        if (/invalid input syntax|uuid/i.test(m)) logLine(s, "That doesn't look like a room code — codes look like <i>1a2b3c4d-…</i> (copy the whole thing).");
+        if (/invalid input syntax|uuid/i.test(m)) logLine(s, "That doesn't look like a valid room code — double-check it and try again.");
       });
     } catch (e) {}
   }
@@ -387,6 +411,21 @@
       MTGTableSync.broadcastEphemeral({ type: "entering", uid: myUid(), name: choice.name || "Player", color: choice.color });
     } catch (e) {}
   }
+  // Task 2 — players enter the game TOGETHER: a locked-in guest auto-launches into the table the
+  // moment the host's "gamestart" broadcast lands (or, if it already landed while I was still
+  // choosing a deck, the moment I lock one in) — mirrors exactly what the host's own Start Game
+  // click does (broadcastEntering + teardownLobbySync + chooseDeck), just triggered by the host's
+  // signal instead of my own click. One-shot: gamestart heartbeats and a lockInDeck() that races the
+  // broadcast must never fire this twice. No-op for the host (their own Start click already did this).
+  var _autoEntered = false;
+  function autoEnterOnGameStart(s) {
+    if (isHost() || _autoEntered) return;
+    if (!choice.locked || !choice.deck) return; // no deck yet — the gamestart handler already logged a clear prompt; wait for lockInDeck() to call us back
+    _autoEntered = true;
+    broadcastEntering();
+    teardownLobbySync();
+    chooseDeck(choice.deck);
+  }
 
   // ============================== LOBBY ==============================
   var lobbyCfg = { preconsOnly: false, lookingForPlayers: false };
@@ -409,6 +448,7 @@
     lobbyCfg.maxBracket = 0; // host-set cap: highest bracket allowed at this table (0 = Any)
     choice.joinCode = null; choice.hostedCode = null; choice.online = false;
     choice.seatReserved = false; choice.seatReserveFailed = false; choice.seatReserving = false; choice.gameStarted = false;
+    _autoEntered = false; // fresh lobby visit — Task 2's auto-launch latch must re-arm
     selTileId = null;
     var s = eln("div", "ps-screen ps-lobby");
     s.innerHTML =
@@ -427,7 +467,8 @@
             '<div class="ps-locksel" id="psLockSel">Pick a deck, then lock it in.</div>' +
             '<button type="button" id="psLockIn" class="ps-lock-btn" disabled>Lock In</button>' +
             '<button type="button" id="psBracketBtn" class="ps-host-btn ps-bracket-btn" title="Host: set the highest Commander bracket allowed at this table">Bracket cap: Any</button>' +
-            '<button type="button" id="psStartGo" class="ps-start-btn" disabled>Start Game ›</button></div>' +
+            '<button type="button" id="psStartGo" class="ps-start-btn" disabled>Start Game ›</button>' +
+            '<span class="ps-start-hint" id="psStartHint" hidden>Waiting for host to start</span></div>' +
         '</div>' +
         '<div class="ps-lobby-cols">' +
           '<div class="ps-panel"><h3>Players <span id="psPlayerCount">(1)</span></h3><div class="ps-players" id="psPlayers"></div></div>' +
@@ -442,6 +483,11 @@
               '<input type="checkbox" id="psPreconOnly" /> Precons only</label>' +
           '</div>' +
           '<div class="ps-invite-out" id="psInviteOut" hidden></div>' +
+          '<div class="ps-custom-code" id="psCustomCodeWrap" hidden title="Host only — pick a memorable code instead of the random one">' +
+            '<input id="psCustomCode" type="text" placeholder="Custom code (optional) — e.g. GOBLINS" maxlength="12" />' +
+            '<button id="psCustomCodeGo" type="button">Set code</button>' +
+            '<span class="ps-custom-code-msg" id="psCustomCodeMsg"></span>' +
+          '</div>' +
           '<div class="ps-join" id="psJoin"><input id="psJoinCode" type="text" placeholder="Have an invite code? Paste it to join a friend’s game" /><button id="psJoinGo" type="button">Join game</button></div>' +
         '</div>' +
       '</div>';
@@ -460,10 +506,16 @@
     };
 
     s.querySelector("#psLockIn").onclick = function () { lockInDeck(s); };
+    // Start Game is HOST-ONLY (Task 1): the button is hidden/disabled for non-hosts via applyHostUi,
+    // but the click handler double-checks isHost() too — belt-and-suspenders against any stale DOM
+    // state (e.g. a host/non-host flip mid-session) ever letting a guest trigger a start themselves.
+    // A guest's OWN entry into the game happens automatically off the host's "gamestart" broadcast
+    // (see handleLobbyEphemeral's gamestart branch) — never by clicking this button.
     s.querySelector("#psStartGo").onclick = function () {
+      if (!isHost()) { logLine(s, "Only the host can start the game."); return; }
       if (!choice.locked || !choice.deck) return;
-      broadcastGameStart();  // host only: still-picking lobby guests grab seats BEFORE started flips (G7.60)
-      broadcastEntering();   // everyone: peers show "In game" instead of pruning me as "left the lobby"
+      broadcastGameStart();  // still-picking lobby guests grab seats BEFORE started flips (G7.60), AND auto-launch together (Task 2)
+      broadcastEntering();   // peers show the host as "In game" instead of pruning as "left the lobby"
       teardownLobbySync();
       chooseDeck(choice.deck);
     };
@@ -504,10 +556,46 @@
         broadcastLobbyCfg();
         broadcastDeckPick();
         logLine(s, 'Room <b>' + escapeHtml(code) + '</b> created — share the link with your pod.');
+        applyHostUi(s); // reveals the custom-code box now that choice.hostedCode is set
       }, function (e) { invBtn.disabled = false; invBtn.textContent = "Generate invite link"; invOut.hidden = false; invOut.textContent = "Couldn't create a game: " + ((e && e.message) || e); });
+
+    // Task 4(b) — host sets a CUSTOM invite code (validated for availability/charset server-side by
+    // the set_invite_code RPC). On success, re-render the invite-link box + join link with the new
+    // code so the pill/link/paste-box all stay in sync with whatever the host just chose.
+    var ccWrap = s.querySelector("#psCustomCodeWrap"), ccIn = s.querySelector("#psCustomCode"), ccGo = s.querySelector("#psCustomCodeGo"), ccMsg = s.querySelector("#psCustomCodeMsg");
+    if (ccGo) ccGo.onclick = function () {
+      if (!isHost()) return;
+      var wanted = (ccIn && ccIn.value || "").trim();
+      if (!wanted) { if (ccIn) ccIn.focus(); return; }
+      if (!window.MTGTableSync || !MTGTableSync.setInviteCode || !window.MTGTableSync.info) { if (ccMsg) ccMsg.textContent = "Online play isn't configured on this site yet."; return; }
+      var gid = null;
+      try { gid = MTGTableSync.info().gameId; } catch (e) {}
+      if (!gid) { if (ccMsg) ccMsg.textContent = "Generate an invite link first."; return; }
+      ccGo.disabled = true; ccGo.textContent = "Checking…"; if (ccMsg) ccMsg.textContent = "";
+      Promise.resolve(MTGTableSync.setInviteCode(gid, wanted)).then(function (newCode) {
+        ccGo.disabled = false; ccGo.textContent = "Set code";
+        if (!newCode) { if (ccMsg) { ccMsg.textContent = "Couldn't set that code — try another."; ccMsg.classList.add("err"); } return; }
+        choice.hostedCode = newCode;
+        if (ccIn) ccIn.value = "";
+        if (ccMsg) { ccMsg.textContent = "Code set: " + newCode; ccMsg.classList.remove("err"); }
+        // Re-paint the invite-out box with the new code so the link/pill match immediately.
+        var newLink = location.origin + location.pathname + "?join=" + encodeURIComponent(newCode);
+        var liveLink = invOut.querySelector(".ps-invite-link");
+        if (liveLink) {
+          liveLink.value = newLink;
+          var codeLbl = invOut.querySelector(".ps-invite-code"); if (codeLbl) codeLbl.innerHTML = 'Room code <b>' + escapeHtml(newCode) + '</b> — share the link, or share this code to paste into &ldquo;Join game&rdquo;.';
+        }
+        logLine(s, 'Invite code changed to <b>' + escapeHtml(newCode) + '</b>.');
+      }, function (e) {
+        ccGo.disabled = false; ccGo.textContent = "Set code";
+        var m = (e && e.message) || String(e || "");
+        if (ccMsg) { ccMsg.textContent = /taken/i.test(m) ? "That code is taken — try another." : m; ccMsg.classList.add("err"); }
+      });
+    };
     };
 
-    // Join by invite code (grouped with the invite-friends UI).
+    // Join by invite code (grouped with the invite-friends UI). Accepts a short/custom code OR a
+    // raw game uuid (older links) — resolveJoinCode() maps it to the real game id before connecting.
     var jg = s.querySelector("#psJoinGo");
     jg.onclick = function () {
       var code = (s.querySelector("#psJoinCode").value || "").trim();
@@ -515,8 +603,12 @@
       choice.joinCode = code; choice.online = true;
       applyHostUi(s);
       renderPlayers(s);
-      connectLobby(s, code);
       logLine(s, 'Joining room <b>' + escapeHtml(code) + '</b> — lock in a deck, then Start Game to take your seat.');
+      resolveJoinCode(code, function (realId) {
+        if (!realId) { logLine(s, "That room code doesn't exist — check for a typo, or ask the host for a fresh code."); return; }
+        choice.joinCode = realId;
+        connectLobby(s, realId);
+      });
     };
 
     // Host-only "Precons only" toggle — broadcast so joiners see it enforced.
@@ -534,16 +626,34 @@
     setupLobbySync(s);
   }
 
+  // Task 3 — every lobby CONFIGURATION control (bracket cap, precons-only, looking-for-players,
+  // invite/custom-code generation, and Start) is host-only: non-hosts see the current value but the
+  // control renders disabled/greyed-out with a "host only" tooltip. Per-player controls (deck tiles,
+  // Lock In, precon picker, import, join-by-code) are deliberately left untouched — those belong to
+  // whichever player is looking at the lobby, not to the host.
+  var HOST_ONLY_TITLE = "Only the host can change this.";
   function applyHostUi(s) {
     var host = isHost();
     var cb = s.querySelector("#psPreconOnly"), wrap = s.querySelector("#psPreconOnlyWrap"), inv = s.querySelector("#psInviteBtn");
     if (cb) { cb.disabled = !host; cb.checked = !!lobbyCfg.preconsOnly; }
     var lfpc = s.querySelector("#psLfp"), lfpw = s.querySelector("#psLfpWrap");
     if (lfpc) { lfpc.disabled = !host; lfpc.checked = !!lobbyCfg.lookingForPlayers; }
-    if (lfpw) lfpw.classList.toggle("view", !host);
-    if (wrap) wrap.classList.toggle("view", !host);
-    if (inv) inv.disabled = !host;
-    paintBracketBtn(s);
+    if (lfpw) { lfpw.classList.toggle("view", !host); lfpw.title = host ? "" : HOST_ONLY_TITLE; }
+    if (wrap) { wrap.classList.toggle("view", !host); wrap.title = host ? "Host only — when on, everyone must play a WotC precon" : HOST_ONLY_TITLE; }
+    if (inv) { inv.disabled = !host; inv.title = host ? "" : HOST_ONLY_TITLE; }
+    // Custom invite code (Task 4): host-only input + button, hidden entirely for non-hosts (there's
+    // nothing for them to set, and the box would otherwise show blank/inert).
+    var ccWrap = s.querySelector("#psCustomCodeWrap"), ccIn = s.querySelector("#psCustomCode"), ccGo = s.querySelector("#psCustomCodeGo");
+    if (ccWrap) ccWrap.hidden = !host || !choice.hostedCode; // only meaningful once a room actually exists
+    if (ccIn) ccIn.disabled = !host;
+    if (ccGo) ccGo.disabled = !host;
+    // Start Game (Task 1): HOST-ONLY control. Non-hosts never see a functional Start — it's hidden
+    // outright and replaced by a "waiting for host" hint, so there is no disabled-but-visible button
+    // a non-host could ever click through (belt-and-suspenders alongside the onclick's isHost() check).
+    var startBtn = s.querySelector("#psStartGo"), startHint = s.querySelector("#psStartHint");
+    if (startBtn) startBtn.hidden = !host;
+    if (startHint) startHint.hidden = !!host;
+    paintBracketBtn(s); // sets #psBracketBtn's disabled state + its own host/non-host tooltip
   }
 
   function logLine(s, html) {
@@ -664,6 +774,9 @@
     broadcastDeckPick();
     logLine(s, 'You locked in <b>' + escapeHtml(t.name) + '</b>' + (t.commander ? ' (' + escapeHtml(t.commander) + ')' : '') + '.');
     reserveLobbySeat(s); // locking in = claiming a seat: makes joining immune to the host starting first
+    // Task 2 — the host already started while I was still picking a deck: don't leave me stranded in
+    // the lobby now that I've locked in. Auto-launch immediately, same as if gamestart arrived now.
+    if (choice.gameStarted && !isHost()) autoEnterOnGameStart(s);
   }
 
   function applyPreconsOnly(s) {
@@ -697,7 +810,7 @@
     var bb = cap ? BRACKETS[cap - 1] : null;
     b.style.background = bb ? "linear-gradient(135deg," + bb.c1 + "," + bb.c2 + ")" : "";
     b.disabled = !isHost();
-    b.title = isHost() ? "Host: set the highest Commander bracket allowed at this table" : "Set by the host — the highest bracket allowed at this table";
+    b.title = isHost() ? "Host: set the highest Commander bracket allowed at this table" : "Only the host can change this — the highest Commander bracket allowed at this table";
   }
   function applyBracketCap(s) {
     var cap = lobbyCfg.maxBracket || 0;
@@ -902,17 +1015,27 @@
       if (isNewPeer || pl.hello) { broadcastPresence(false); if (choice.locked) broadcastDeckPick(); if (isHost()) broadcastLobbyCfg(); }
       return;
     }
-    // Host started the game: claim my seat NOW (before games.settings.started flips) so pressing
-    // Start Game a minute later can never bounce me to spectator. Host shows as "In game".
+    // Host started the game (Task 2 — enter together): claim my seat NOW (before
+    // games.settings.started flips) so a delayed auto-launch can never bounce me to spectator, THEN
+    // — if I already locked in a deck — auto-launch straight into the table myself, at the same
+    // moment as the host, instead of waiting for me to notice and click Start. A guest who hasn't
+    // locked a deck yet gets a clear, persistent prompt instead of being silently left in the lobby;
+    // lockInDeck() below re-checks choice.gameStarted and auto-launches the instant they lock in.
     if (pl.type === "gamestart" && !isSelfMsg(pl)) {
       var gpk = peerKey(pl), gp = lobbyState.picks[gpk];
       if (gp) { gp.entered = true; gp.at = Date.now(); }
       if (!choice.gameStarted) {
         choice.gameStarted = true;
-        logLine(s, "<b>" + escapeHtml(String(pl.name || "The host").slice(0, 24)) + "</b> started the game — lock in a deck and press Start Game to take your seat.");
+        if (choice.locked && choice.deck) {
+          logLine(s, "<b>" + escapeHtml(String(pl.name || "The host").slice(0, 24)) + "</b> started the game — joining the table…");
+        } else {
+          logLine(s, "<b>" + escapeHtml(String(pl.name || "The host").slice(0, 24)) + "</b> started the game — <b>lock in a deck now</b> to join the table.");
+          try { var sh = s.querySelector("#psStartHint"); if (sh) { sh.hidden = false; sh.textContent = "Lock in a deck to join — the game already started"; } } catch (e) {}
+        }
       }
       if (!isHost()) reserveLobbySeat(s);
       renderPlayers(s);
+      autoEnterOnGameStart(s);
       return;
     }
     if (pl.type === "entering" && !isSelfMsg(pl)) {

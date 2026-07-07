@@ -343,7 +343,10 @@
       var gid = await MTGTableSync.host(deckListFromState(), { displayName: opts.displayName || "Host", visibility: pub ? "public" : "private", name: gname, scheduledAt: opts.scheduledAt || null, hand: 7 });
       online = true; mySeat = MTGTableSync.info().mySeat;
       markGameStarted(gid);
-      setStatus((pub ? "Hosting PUBLIC game " : "Hosting private game ") + gid); log("<b>Hosting</b> " + (pub ? "public " : "") + "game " + gid + (pub ? " — others can Find it." : " (share the id)")); render();
+      var hcode = gid;
+      try { if (MTGTableSync.setInviteCode) { var hc = await MTGTableSync.setInviteCode(gid, null); if (hc) hcode = hc; } } catch (e) {}
+      setStatus((pub ? "Hosting PUBLIC game " : "Hosting private game ") + hcode); log("<b>Hosting</b> " + (pub ? "public " : "") + "game " + hcode + (pub ? " — others can Find it." : " (share the code)")); render();
+      return hcode;
     } catch (e) { setStatus("Host failed: " + (e && e.message ? e.message : e)); }
   }
   // G7.57 — flip games.settings.started once the host's table is actually live (deck loaded, seated).
@@ -353,6 +356,9 @@
     try { if (gid && window.mtgSync && mtgSync.updateGameSettings) mtgSync.updateGameSettings(gid, { started: true }); } catch (e) {}
   }
   // Create an EMPTY online room instantly (no deck yet) so the lobby can hand out an invite link before the host picks a deck.
+  // Returns the game's SHORT invite code (games.invite_code) when available, falling back to the raw
+  // uuid on a not-yet-migrated project — callers (play-shell.js) treat the return value as "the code
+  // to share/join with" either way, and doJoin/reserveSeat resolve a short code back to the real id.
   async function doHostRoom(opts) {
     opts = opts || {};
     if (!window.MTGTableSync) { setStatus("Sync not loaded."); return null; }
@@ -362,10 +368,12 @@
       var pub = opts.visibility === "public";
       var gid = await MTGTableSync.host([], { displayName: opts.displayName || "Host", visibility: pub ? "public" : "private", name: opts.name });
       online = true; mySeat = MTGTableSync.info().mySeat;
+      var code = gid;
+      try { if (MTGTableSync.setInviteCode) { var c = await MTGTableSync.setInviteCode(gid, opts.inviteCode || null); if (c) code = c; } } catch (e) {}
       // Not marked started here — this is the INSTANT-ROOM path (invite link handed out before the
       // host has even picked a deck); persistMyDeck() below marks it started once the host is seated.
-      setStatus("Online room created — share your invite link."); log("<b>Room created</b> " + gid + " — pick your deck to take your seat.");
-      return gid;
+      setStatus("Online room created — share your invite link."); log("<b>Room created</b> " + code + " — pick your deck to take your seat.");
+      return code;
     } catch (e) { setStatus("Couldn't create room: " + (e && e.message ? e.message : e)); throw e; }
   }
   // Push my freshly-loaded deck into the room I already created (pairs with doHostRoom).
@@ -382,7 +390,11 @@
     opts = opts || {};
     if (!state) { setStatus("Load your deck first."); showToast("Load a deck first."); return false; }
     if (!window.MTGTableSync) { setStatus("Sync not loaded."); showToast("Online sync isn't available."); return false; }
-    var gid = gameId || window.prompt("Game id to join:"); if (!gid) return false; gid = String(gid).trim();
+    var gid = gameId || window.prompt("Game id or invite code to join:"); if (!gid) return false; gid = String(gid).trim();
+    // Accept a short/custom invite code here too (not just a raw game id) — resolve_invite_code
+    // passes a real uuid straight through, so this is a no-op for callers (play-shell.js) that
+    // already resolved the code themselves before calling MTGTable.join.
+    try { if (MTGTableSync.resolveInviteCode) { var _rid = await MTGTableSync.resolveInviteCode(gid); if (_rid) gid = _rid; } } catch (e) {}
     setStatus("Joining " + gid + "…"); showToast("Joining game…");
     try {
       MTGTableSync.onRemote = onRemoteState;
@@ -3135,7 +3147,9 @@
     addCounter: function (kind, delta) { try { if (!state) return; dispatch({ t: "player_counter", seat: mySeat, kind: String(kind), delta: Number(delta) || 0 }); } catch (e) {} },
     setName: function (name) { try { var n = String(name || "").trim().slice(0, 24); if (n && state && state.players && state.players[mySeat]) { state.players[mySeat].name = n; state.players[mySeat]._namedByUser = true; render(); } } catch (e) {} },
     setBracket: function (label) { try { var b = String(label || "").trim().slice(0, 4); if (!b) return; if (state && state.players && state.players[mySeat]) state.players[mySeat].bracket = b; log("<b>Bracket declared</b> — " + esc(b)); } catch (e) {} },
-    host: function (opts) { return Promise.resolve(doHost(opts || { visibility: "private" })).then(function () { try { return (window.MTGTableSync && MTGTableSync.info && MTGTableSync.info().gameId) || null; } catch (e) { return null; } }); },
+    // doHost now resolves to the game's SHORT invite code; fall back to the raw gameId only if that
+    // somehow came back empty (e.g. a not-yet-migrated project without games.invite_code).
+    host: function (opts) { return Promise.resolve(doHost(opts || { visibility: "private" })).then(function (code) { if (code) return code; try { return (window.MTGTableSync && MTGTableSync.info && MTGTableSync.info().gameId) || null; } catch (e) { return null; } }); },
     hostRoom: function (opts) { return Promise.resolve(doHostRoom(opts || { visibility: "private" })); },
     persistMyDeck: function () { return Promise.resolve(persistMyDeck()); },
     join: function (gid, opts) { return Promise.resolve(doJoin(gid, opts)); },
