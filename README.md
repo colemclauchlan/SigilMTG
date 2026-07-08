@@ -14,7 +14,7 @@ Static web app plus native iOS scaffold for a shared, synced MTG table tracker.
 
 ## Virtual Tabletop (Play tab)
 
-A playgroup.gg / kiku-style online virtual tabletop built into the app (the **Play** tab). Vanilla JS, no build step.
+ online virtual tabletop built into the app (the **Play** tab). Vanilla JS, no build step.
 
 **Architecture (Model C):**
 
