@@ -620,3 +620,31 @@ body.play-fs.hud-log-off #playPage .tbl-log-head { display: none; }
 .ps-brc-nm b { font-size: 14px; }
 .ps-brc-nm i { font-style: normal; font-size: 12px; opacity: .85; }
 .ps-brc-on { margin-left: auto; flex: 0 0 auto; font-size: 11px; font-weight: 700; background: rgba(7,13,26,.45); padding: 4px 9px; border-radius: 999px; }
+
+/* ==================================================================== */
+/* Mobile touch-up pass — additive, scoped to the mobile breakpoint      */
+/* and/or coarse pointers; desktop/mouse rendering is untouched.        */
+/* ==================================================================== */
+@media (max-width: 820px) {
+  /* Phase segmented-control (full-screen play): force one row and let it scroll sideways
+     rather than wrap the last phase button ("End") onto a second line. */
+  body.play-fs .tbl-vitals .vit-phases {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  body.play-fs .tbl-vitals .vit-phases::-webkit-scrollbar { display: none; }
+  body.play-fs .tbl-vitals .vit-phases button {
+    padding: 4px 5px;
+    font-size: 10px;
+    min-width: 0;
+  }
+
+  /* Opening-hand/mulligan modal (.ps-oh, appended inside #playPage) must sit above — and be
+     the only interactive layer over — the pinned hand fan (.tbl-hand). Belt-and-suspenders:
+     push its stacking order above everything else in the app, and make the hand momentarily
+     inert (still visible/dimmed under the modal's backdrop, never hidden) while it's open. */
+  .ps-oh { z-index: 99999; }
+  body:has(#psOpeningHand) .tbl-hand { pointer-events: none; }
+}

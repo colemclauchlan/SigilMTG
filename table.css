@@ -554,6 +554,9 @@ body.play-fs #playPage .tbl-rail { padding-top: 0 !important; }
 /* Hotkey hints are meaningless without a keyboard — hide on touch. */
 @media (pointer: coarse) {
   .tbl-hotkeys { display: none; }
+  /* Long-press opens the same menu as a desktop right-click (table.js) — suppress the
+     iOS/Android text-selection callout + magnifier that would otherwise appear during the hold. */
+  .tbl-card { -webkit-touch-callout: none; }
 }
 
 @media (max-width: 820px) {
@@ -618,6 +621,23 @@ body.play-fs #playPage .tbl-rail { padding-top: 0 !important; }
 
   /* Selection toolbar buttons reach a tappable height. */
   .tbl-seltoolbar button { min-height: 40px; }
+
+  /* Turn phase bar: force one compact row instead of wrapping the last button onto a second
+     line — shrink the buttons and let the group scroll sideways if it's still too tight. */
+  .tbl-vitals .vit-phases {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    max-width: 100%;
+  }
+  .tbl-vitals .vit-phases::-webkit-scrollbar { display: none; }
+  .tbl-vitals .vit-phases button {
+    flex: 0 0 auto;
+    padding: 3px 6px;
+    font-size: 10.5px;
+    min-width: 0;
+  }
 }
 
 /* ===== Engine trigger-reminder tray (opt-in "Trigger reminders" toggle) ===== */

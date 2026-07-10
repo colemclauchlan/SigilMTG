@@ -1150,6 +1150,11 @@
     }, 0);
   }
 
+  // Shared by the desktop right-click (contextmenu, below) and the touch long-press
+  // (attachDrag/handDrag, below) so both paths open the exact same menu for a given card.
+  function openCardMenu(x, y, c) {
+    if (c.zone === "hand" && c.ownerSeat === mySeat) openHandMenu(x, y, c); else openMenu(x, y, c);
+  }
   function cardNode(c, inHand) {
     var node = document.createElement("div");
     node.className = "tbl-card" + (c.tapped ? " tapped" : "") + (c.faceDown ? " facedown" : "") + (c.phased ? " phased" : "") + (onStackIds[c.instanceId] ? " on-stack" : "") + (selected.indexOf(c.instanceId) >= 0 ? " selected" : "") + (c.isFoil ? " is-foil" : "") + (c.isEtched ? " is-etched" : "") + (c.attacking && c.zone === "battlefield" ? " attacking" : "") + (peekRotated[c.instanceId] ? " peek-rotated" : "");
@@ -1178,7 +1183,13 @@
     }
     node.addEventListener("mouseenter", function () { hoveredId = c.instanceId; showPreview(c); if (inHand) Array.prototype.forEach.call(handCards(), function (n) { if (n !== node) n.classList.remove("walked"); }); });
     node.addEventListener("mouseleave", function () { if (hoveredId === c.instanceId) { hoveredId = null; clearPreview(); } });
-    node.addEventListener("contextmenu", function (e) { e.preventDefault(); if (c.zone === "hand" && c.ownerSeat === mySeat) openHandMenu(e.clientX, e.clientY, c); else openMenu(e.clientX, e.clientY, c); });
+    node.addEventListener("contextmenu", function (e) {
+      e.preventDefault();
+      // A touch long-press (attachDrag/handDrag) may already have opened this same menu — some
+      // Android builds also synthesize a native contextmenu right after the hold; don't reopen it.
+      if (node._lpMenuOpened) { node._lpMenuOpened = false; return; }
+      openCardMenu(e.clientX, e.clientY, c);
+    });
     if (inHand) handDrag(node, c);
     else attachDrag(node, c);
     return node;
@@ -1226,17 +1237,37 @@
     setStatus(bottomNeeded > 0 ? ("Mulligan " + mulliganCount + ": click " + bottomNeeded + " card(s) in hand to put on the bottom.") : "Opening hand.");
   }
 
+  var LONGPRESS_MS = 500; // touch tap-and-hold duration that opens the same menu as a desktop right-click
+
   function attachDrag(node, c) {
     var DRAG = 6, st = null;
-    node.addEventListener("pointerdown", function (e) { if (e.button !== 0) return; node.setPointerCapture(e.pointerId); st = { sx: e.clientX, sy: e.clientY, moving: false, pid: e.pointerId }; });
+    node.addEventListener("pointerdown", function (e) {
+      if (e.button !== 0) return;
+      node.setPointerCapture(e.pointerId);
+      var pid = e.pointerId, sx = e.clientX, sy = e.clientY;
+      st = { sx: sx, sy: sy, moving: false, pid: pid, lpTO: null };
+      // Touch long-press = desktop right-click (same menu). Cancelled below on real movement
+      // (pointermove past the drag threshold) or an early release (up()). Mouse/pen untouched.
+      if (e.pointerType === "touch") {
+        st.lpTO = setTimeout(function () {
+          if (!st || st.pid !== pid || st.moving) return;
+          st.lpTO = null;
+          node._lpMenuOpened = true; setTimeout(function () { node._lpMenuOpened = false; }, 800);
+          openCardMenu(sx, sy, c);
+          st = null; // consume the gesture — the eventual pointerup must not also fire a click
+        }, LONGPRESS_MS);
+      }
+    });
     node.addEventListener("pointermove", function (e) {
       if (!st || e.pointerId !== st.pid) return;
       if (!st.moving && Math.abs(e.clientX - st.sx) + Math.abs(e.clientY - st.sy) < DRAG) return;
+      if (st.lpTO) { clearTimeout(st.lpTO); st.lpTO = null; } // real movement — this is a drag, not a hold
       if (!canTouch(c)) return; // not your card (and cross-player interaction is off) — never let a drag start; falls through to a plain click in up()
       st.moving = true; var b = screenToBoard(e.clientX, e.clientY); var _dr = regionOf((c.controllerSeat != null ? c.controllerSeat : c.ownerSeat)); node.style.left = (b.bx - _dr.x) + "px"; node.style.top = (b.by - _dr.y) + "px"; highlightDrop(e.clientX, e.clientY);
     });
     function up(e) {
       if (!st || e.pointerId !== st.pid) return;
+      if (st.lpTO) { clearTimeout(st.lpTO); st.lpTO = null; }
       try { node.releasePointerCapture(st.pid); } catch (x) {}
       if (st.moving && canTouch(c)) {
         var zone = zoneAtPoint(node, e.clientX, e.clientY);
@@ -1259,16 +1290,32 @@
   function makeGhost(c) { var g = document.createElement("div"); g.className = "tbl-ghost"; var src = imgFor(c); g.innerHTML = (src && !c.faceDown) ? '<img src="' + src + '">' : '<div class="nm">' + esc(c.name) + "</div>"; document.body.appendChild(g); return g; }
   function handDrag(node, c) {
     var DRAG = 6, st = null, ghost = null;
-    node.addEventListener("pointerdown", function (e) { if (e.button !== 0) return; node.setPointerCapture(e.pointerId); st = { sx: e.clientX, sy: e.clientY, moving: false, pid: e.pointerId }; });
+    node.addEventListener("pointerdown", function (e) {
+      if (e.button !== 0) return;
+      node.setPointerCapture(e.pointerId);
+      var pid = e.pointerId, sx = e.clientX, sy = e.clientY;
+      st = { sx: sx, sy: sy, moving: false, pid: pid, lpTO: null };
+      if (e.pointerType === "touch") {
+        st.lpTO = setTimeout(function () {
+          if (!st || st.pid !== pid || st.moving) return;
+          st.lpTO = null;
+          node._lpMenuOpened = true; setTimeout(function () { node._lpMenuOpened = false; }, 800);
+          openCardMenu(sx, sy, c);
+          st = null;
+        }, LONGPRESS_MS);
+      }
+    });
     node.addEventListener("pointermove", function (e) {
       if (!st || e.pointerId !== st.pid) return;
       if (!st.moving && Math.abs(e.clientX - st.sx) + Math.abs(e.clientY - st.sy) < DRAG) return;
+      if (st.lpTO) { clearTimeout(st.lpTO); st.lpTO = null; }
       if (!canTouch(c)) return; // not your card (and cross-player interaction is off) — never let a drag start
       if (!st.moving) { st.moving = true; ghost = makeGhost(c); node.classList.add("hand-dragging"); }
       if (ghost) { ghost.style.left = e.clientX + "px"; ghost.style.top = e.clientY + "px"; } highlightDrop(e.clientX, e.clientY);
     });
     function up(e) {
       if (!st || e.pointerId !== st.pid) return;
+      if (st.lpTO) { clearTimeout(st.lpTO); st.lpTO = null; }
       try { node.releasePointerCapture(st.pid); } catch (x) {}
       node.classList.remove("hand-dragging");
       if (st.moving && canTouch(c)) {
